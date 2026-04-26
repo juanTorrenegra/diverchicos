@@ -1,95 +1,149 @@
+import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
+import 'diverchicos_game.dart';
+
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const DiverchicosApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+final DiverchicosGame _game = DiverchicosGame();
 
-  // This widget is the root of your application.
+class DiverchicosApp extends StatelessWidget {
+  const DiverchicosApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(colorScheme: .fromSeed(seedColor: Colors.deepPurple)),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5E35B1)),
+      ),
+      home: GameWidget(
+        game: _game,
+        backgroundBuilder: (context) => const ColoredBox(
+          color: Color(0xFF448AFF),
+        ),
+        overlayBuilderMap: {
+          'mainMenu': (BuildContext context, game) {
+            return Positioned.fill(
+              child: MainMenuOverlay(
+                onAnimals: () {
+                  (game as DiverchicosGame)
+                    ..overlays.remove('mainMenu')
+                    ..overlays.add('animals');
+                },
+              ),
+            );
+          },
+          'animals': (BuildContext context, game) {
+            return Positioned.fill(
+              child: _AnimalsOverlay(
+                onBack: () {
+                  (game as DiverchicosGame)
+                    ..overlays.remove('animals')
+                    ..overlays.add('mainMenu');
+                },
+              ),
+            );
+          },
+        },
+      ),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class _AnimalsOverlay extends StatefulWidget {
+  const _AnimalsOverlay({required this.onBack});
 
-  final String title;
+  final VoidCallback onBack;
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<_AnimalsOverlay> createState() => _AnimalsOverlayState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+class _AnimalsOverlayState extends State<_AnimalsOverlay> {
+  late final AnimalsGame _game = AnimalsGame(onBack: widget.onBack);
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+    return ColoredBox(
+      color: const Color(0xFF2E7D32),
+      child: SizedBox.expand(
+        child: GameWidget(
+          game: _game,
+          backgroundBuilder: (context) =>
+              const ColoredBox(color: Color(0xFF2E7D32)),
+        ),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
+    );
+  }
+}
+
+class MainMenuOverlay extends StatelessWidget {
+  const MainMenuOverlay({super.key, required this.onAnimals});
+
+  final VoidCallback onAnimals;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF7B1FA2),
+            Color(0xFF4A148C),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+      child: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF4FC3F7),
+                    foregroundColor: const Color(0xFF0D47A1),
+                    minimumSize: const Size(220, 56),
+                  ),
+                  onPressed: onAnimals,
+                  child: const Text(
+                    'ANIMALS',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF4FC3F7),
+                    foregroundColor: const Color(0xFF0D47A1),
+                    minimumSize: const Size(220, 56),
+                  ),
+                  onPressed: () {},
+                  child: const Text(
+                    'KIDS',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
