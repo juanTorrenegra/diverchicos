@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app_audio.dart';
-import 'diverchicos_game.dart';
+import 'diverchicos_game.dart'; //.
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,7 +55,7 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
               onTap: _startExperience,
               child: const Center(
                 child: Text(
-                  'TAP TO START',
+                  'TOCA PARA EMPEZAR',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 28,
