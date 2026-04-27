@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 
 import 'app_audio.dart';
 
-// Flame's Images use prefix "assets/images/" — keys are paths *inside* that folder.
+// Flame's Images use prefix "assets/images/" —   keys are paths *inside* that folder.
 const String kAnimalsFilePrefix = '';
 
 /// Intro is drawn in [render] in **screen space** (same as [size]), not via
