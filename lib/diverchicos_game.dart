@@ -8,6 +8,8 @@ import 'package:flame/game.dart';
 import 'package:flame/sprite.dart';
 import 'package:flutter/material.dart';
 
+import 'app_audio.dart';
+
 // Flame's Images use prefix "assets/images/" — keys are paths *inside* that folder.
 const String kAnimalsFilePrefix = '';
 
@@ -18,15 +20,17 @@ const String kAnimalsFilePrefix = '';
 class DiverchicosGame extends FlameGame {
   DiverchicosGame();
 
-  final Paint _introBgPaint = Paint()..color = const Color(0xFF448AFF);
+  final Paint _introBgPaint = Paint()..color = Color.fromRGBO(0, 158, 233, 1);
   bool _assetsReady = false;
   bool _introFinished = false;
 
   Sprite? _staticFrog;
   SpriteAnimation? _jumpAnim;
   SpriteAnimationTicker? _jumpTicker;
+  Vector2 _frogSourceSize = Vector2.zero();
   Vector2 _frogDrawSize = Vector2.zero();
 
+  _ExperienceMode _mode = _ExperienceMode.intro;
   _IntroPhase _phase = _IntroPhase.loading;
   double _staticWait = 0;
 
@@ -45,7 +49,7 @@ class DiverchicosGame extends FlameGame {
   );
 
   @override
-  Color backgroundColor() => const Color(0xFF1565C0);
+  Color backgroundColor() => const Color.fromRGBO(0, 158, 233, 1);
 
   @override
   Future<void> onLoad() async {
@@ -61,27 +65,63 @@ class DiverchicosGame extends FlameGame {
       jumpSprites.add(Sprite(images.fromCache(p)));
     }
     _staticFrog = Sprite(images.fromCache('frog.png'));
-    final firstSize = jumpSprites.first.srcSize;
-    _frogDrawSize = firstSize * 0.5;
+    _frogSourceSize = jumpSprites.first.srcSize;
     _jumpAnim = SpriteAnimation.spriteList(
       jumpSprites,
       stepTime: 1 / 32,
       loop: false,
     );
     _jumpTicker = _jumpAnim!.createTicker();
+    _updateFrogDrawSizeForCurrentScreen();
     _assetsReady = true;
     _phase = _IntroPhase.firstStatic;
+  }
+
+  void _updateFrogDrawSizeForCurrentScreen() {
+    if (!hasLayout || _frogSourceSize.x <= 0 || _frogSourceSize.y <= 0) {
+      return;
+    }
+    final targetW = size.x / 5;
+    final ratio = _frogSourceSize.y / _frogSourceSize.x;
+    _frogDrawSize = Vector2(targetW, targetW * ratio);
   }
 
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
+    _updateFrogDrawSizeForCurrentScreen();
     _titleTp.layout(maxWidth: size.x);
   }
 
   void _goToMainMenu() {
     _introFinished = true;
     overlays.add('mainMenu');
+    unawaited(AppAudio.instance.playMenuLoop());
+  }
+
+  void _playIntroAndEnterFirstJump(SpriteAnimationTicker t) {
+    t.reset();
+    t.update(0);
+    _phase = _IntroPhase.firstJump;
+    unawaited(AppAudio.instance.playIntroOnce());
+  }
+
+  void startKidsMode() {
+    overlays.remove('mainMenu');
+    _mode = _ExperienceMode.kids;
+    _introFinished = false;
+    _phase = _IntroPhase.firstStatic;
+    _staticWait = 0;
+    _jumpTicker?.reset();
+    unawaited(AppAudio.instance.stopBgm());
+  }
+
+  void exitKidsMode() {
+    overlays.remove('kidsBack');
+    _mode = _ExperienceMode.intro;
+    _introFinished = true;
+    overlays.add('mainMenu');
+    unawaited(AppAudio.instance.playMenuLoop());
   }
 
   @override
@@ -104,9 +144,7 @@ class DiverchicosGame extends FlameGame {
       case _IntroPhase.firstStatic:
         _staticWait += dt;
         if (_staticWait >= 1.5) {
-          t.reset();
-          t.update(0);
-          _phase = _IntroPhase.firstJump;
+          _playIntroAndEnterFirstJump(t);
         }
         break;
       case _IntroPhase.firstJump:
@@ -134,8 +172,15 @@ class DiverchicosGame extends FlameGame {
       case _IntroPhase.thirdStatic:
         _staticWait += dt;
         if (_staticWait >= 1) {
-          _goToMainMenu();
+          if (_mode == _ExperienceMode.kids) {
+            t.setToLast();
+            _phase = _IntroPhase.holdLastFrame;
+          } else {
+            _goToMainMenu();
+          }
         }
+        break;
+      case _IntroPhase.holdLastFrame:
         break;
     }
   }
@@ -150,14 +195,17 @@ class DiverchicosGame extends FlameGame {
   }
 
   void _renderIntro(ui.Canvas canvas) {
+    if (_frogDrawSize.x == 0 || _frogDrawSize.y == 0) {
+      _updateFrogDrawSizeForCurrentScreen();
+    }
     final s = size;
     if (s.x == 0 || s.y == 0) {
       return;
     }
     canvas.drawRect(Offset.zero & Size(s.x, s.y), _introBgPaint);
     final cx = s.x / 2;
-    final cy = s.y / 2 - 40;
-    final pos = Vector2(cx, cy);
+    final frogBottomY = s.y * 0.55;
+    final pos = Vector2(cx, frogBottomY);
 
     switch (_phase) {
       case _IntroPhase.loading:
@@ -169,29 +217,29 @@ class DiverchicosGame extends FlameGame {
           canvas,
           position: pos,
           size: _frogDrawSize,
-          anchor: Anchor.center,
+          anchor: Anchor.bottomCenter,
         );
         break;
       case _IntroPhase.firstJump:
       case _IntroPhase.secondJump:
+      case _IntroPhase.holdLastFrame:
         _jumpTicker!.getSprite().render(
           canvas,
           position: pos,
           size: _frogDrawSize,
-          anchor: Anchor.center,
+          anchor: Anchor.bottomCenter,
         );
     }
 
     _titleTp.layout(maxWidth: s.x);
     _titleTp.paint(
       canvas,
-      Offset(
-        (s.x - _titleTp.width) / 2,
-        cy + _frogDrawSize.y / 2 + 20,
-      ),
+      Offset((s.x - _titleTp.width) / 2, frogBottomY + 20),
     );
   }
 }
+
+enum _ExperienceMode { intro, kids }
 
 enum _IntroPhase {
   loading,
@@ -200,6 +248,7 @@ enum _IntroPhase {
   secondStatic,
   secondJump,
   thirdStatic,
+  holdLastFrame,
 }
 
 // --- Animals: separate game, shown inside the "animals" overlay ---
@@ -239,8 +288,9 @@ class AnimalsPlayRoot extends Component with HasGameReference<AnimalsGame> {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    await game.images
-        .loadAll(_files.map((e) => '$kAnimalsFilePrefix$e.png').toList());
+    await game.images.loadAll(
+      _files.map((e) => '$kAnimalsFilePrefix$e.png').toList(),
+    );
   }
 
   @override
@@ -298,18 +348,9 @@ class AnimalsPlayRoot extends Component with HasGameReference<AnimalsGame> {
     }
 
     game.world
+      ..add(GreenGradientBackdrop(size: Vector2(size.x, size.y))..priority = -2)
       ..add(
-        GreenGradientBackdrop(
-          size: Vector2(size.x, size.y),
-        )..priority = -2,
-      )
-      ..add(
-        _BackPill(
-          onTap: onBack,
-          right: 16,
-          top: 16,
-          screenW: w,
-        )..priority = 2,
+        _BackPill(onTap: onBack, right: 16, top: 16, screenW: w)..priority = 2,
       );
 
     final positions = <Vector2>[
@@ -385,22 +426,38 @@ class _BackPill extends PositionComponent
   final double top;
   final double screenW;
   final TextComponent _label;
+
+  Paint get _pillPaint => Paint()..color = const Color(0xCC1A237E);
+
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    const w = 108.0;
-    const h = 44.0;
-    size = Vector2(w, h);
+    size = Vector2(game.size.x / 10, game.size.y / 10);
     anchor = Anchor.topRight;
     _label.position = size / 2;
+    final labelScale = (size.y / 44).clamp(0.8, 2.2);
+    _label.scale = Vector2.all(labelScale);
     add(_label);
     position = Vector2(screenW - right, top);
   }
+
   @override
   void onGameResize(Vector2 gameSize) {
     super.onGameResize(gameSize);
+    size = Vector2(gameSize.x / 10, gameSize.y / 10);
+    _label.position = size / 2;
+    final labelScale = (size.y / 44).clamp(0.8, 2.2);
+    _label.scale = Vector2.all(labelScale);
     position = Vector2(gameSize.x - right, top);
   }
+
+  @override
+  void render(Canvas canvas) {
+    final r = RRect.fromRectAndRadius(size.toRect(), const Radius.circular(14));
+    canvas.drawRRect(r, _pillPaint);
+    super.render(canvas);
+  }
+
   @override
   void onTapUp(TapUpEvent event) {
     onTap();
