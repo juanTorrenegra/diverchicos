@@ -16,7 +16,7 @@ const String kAnimalsFilePrefix = '';
 /// Intro is drawn in [render] in **screen space** (same as [size]), not via
 /// [World]/[CameraComponent], so it always appears on top of the clear color.
 /// After the sequence, [overlays.add] shows the main menu. [AnimalsGame] uses
-/// the default camera with world . (0,0) at the top-left of the play area.
+/// the default camera with world (0,0) at the top-left of the play area.
 class DiverchicosGame extends FlameGame {
   DiverchicosGame({
     this.onIntroCompleted,
