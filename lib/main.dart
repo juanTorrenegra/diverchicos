@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_audio.dart';
 import 'diverchicos_game.dart'; //.
@@ -27,9 +29,40 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
   @override
   void initState() {
     super.initState();
+    unawaited(_setPortraitIntroOrientation());
     if (_started) {
-      _game = DiverchicosGame();
+      _game = _createGame();
     }
+  }
+
+  bool get _isAndroidOnly =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  Future<void> _setPortraitIntroOrientation() async {
+    if (!_isAndroidOnly) {
+      return;
+    }
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+    ]);
+  }
+
+  Future<void> _setLandscapeOrientation() async {
+    if (!_isAndroidOnly) {
+      return;
+    }
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  DiverchicosGame _createGame() {
+    return DiverchicosGame(
+      onIntroCompleted: () => unawaited(_setLandscapeOrientation()),
+      onIntroRequestedPortrait: () => unawaited(_setPortraitIntroOrientation()),
+      onLandscapeRequested: () => unawaited(_setLandscapeOrientation()),
+    );
   }
 
   void _startExperience() {
@@ -38,7 +71,7 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
     }
     setState(() {
       _started = true;
-      _game = DiverchicosGame();
+      _game = _createGame();
     });
   }
 
@@ -178,8 +211,21 @@ class MainMenuOverlay extends StatelessWidget {
   final VoidCallback onAnimals;
   final VoidCallback onKids;
 
+  List<_MenuGameCardData> _cards() {
+    return [
+      _MenuGameCardData(title: 'ANIMALES', onTap: onAnimals),
+      _MenuGameCardData(title: 'KIDS', onTap: onKids),
+      const _MenuGameCardData(title: 'SALUD'),
+      const _MenuGameCardData(title: 'EXPLORACION'),
+      const _MenuGameCardData(title: 'ROMPECABEZAS'),
+      const _MenuGameCardData(title: 'RESOLUCION DE PROBLEMAS'),
+      const _MenuGameCardData(title: 'TAREAS DEL HOGAR'),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
+    final cards = _cards();
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTapDown: (_) {
@@ -197,46 +243,129 @@ class MainMenuOverlay extends StatelessWidget {
         child: SafeArea(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 400),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF4FC3F7),
-                      foregroundColor: const Color(0xFF0D47A1),
-                      minimumSize: const Size(220, 56),
-                    ),
-                    onPressed: onAnimals,
-                    child: const Text(
-                      'ANIMALS',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF4FC3F7),
-                      foregroundColor: const Color(0xFF0D47A1),
-                      minimumSize: const Size(220, 56),
-                    ),
-                    onPressed: onKids,
-                    child: const Text(
-                      'KIDS',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
-                ],
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: CarouselSlider.builder(
+                itemCount: cards.length,
+                options: CarouselOptions(
+                  height: 300,
+                  enlargeCenterPage: true,
+                  enableInfiniteScroll: false,
+                  viewportFraction: 0.62,
+                ),
+                itemBuilder: (context, index, realIndex) {
+                  return _MenuGameCard(data: cards[index]);
+                },
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuGameCardData {
+  const _MenuGameCardData({required this.title, this.onTap});
+
+  final String title;
+  final VoidCallback? onTap;
+}
+
+class _MenuGameCard extends StatelessWidget {
+  const _MenuGameCard({required this.data});
+
+  final _MenuGameCardData data;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(24),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: data.onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF80DEEA), Color(0xFF0097A7)],
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x55000000),
+                blurRadius: 12,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              const Positioned.fill(
+                child: Center(
+                  child: Icon(
+                    Icons.image_outlined,
+                    size: 72,
+                    color: Color(0xCCFFFFFF),
+                  ),
+                ),
+              ),
+              if (data.onTap == null)
+                const Positioned(
+                  top: 12,
+                  right: 12,
+                  child: _SoonBadge(),
+                ),
+              Positioned(
+                left: 14,
+                right: 14,
+                bottom: 14,
+                child: Text(
+                  data.title,
+                  maxLines: 2,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    letterSpacing: 1,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black54,
+                        blurRadius: 4,
+                        offset: Offset(1, 1),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SoonBadge extends StatelessWidget {
+  const _SoonBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xCC1A237E),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Text(
+          'PROXIMO',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 11,
+            letterSpacing: 0.7,
           ),
         ),
       ),

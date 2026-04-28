@@ -18,35 +18,31 @@ const String kAnimalsFilePrefix = '';
 /// After the sequence, [overlays.add] shows the main menu. [AnimalsGame] uses
 /// the default camera with world (0,0) at the top-left of the play area.
 class DiverchicosGame extends FlameGame {
-  DiverchicosGame();
+  DiverchicosGame({
+    this.onIntroCompleted,
+    this.onIntroRequestedPortrait,
+    this.onLandscapeRequested,
+  });
+
+  final VoidCallback? onIntroCompleted;
+  final VoidCallback? onIntroRequestedPortrait;
+  final VoidCallback? onLandscapeRequested;
 
   final Paint _introBgPaint = Paint()..color = Color.fromRGBO(0, 158, 233, 1);
   bool _assetsReady = false;
   bool _introFinished = false;
 
   Sprite? _staticFrog;
+  Sprite? _titleLogo;
   SpriteAnimation? _jumpAnim;
   SpriteAnimationTicker? _jumpTicker;
   Vector2 _frogSourceSize = Vector2.zero();
   Vector2 _frogDrawSize = Vector2.zero();
+  Vector2 _titleLogoSize = Vector2.zero();
 
   _ExperienceMode _mode = _ExperienceMode.intro;
   _IntroPhase _phase = _IntroPhase.loading;
   double _staticWait = 0;
-
-  late final TextPainter _titleTp = TextPainter(
-    text: const TextSpan(
-      text: 'DIVERCHICOS',
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: 28,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 2,
-      ),
-    ),
-    textDirection: TextDirection.ltr,
-    textAlign: TextAlign.center,
-  );
 
   @override
   Color backgroundColor() => const Color.fromRGBO(0, 158, 233, 1);
@@ -59,12 +55,13 @@ class DiverchicosGame extends FlameGame {
       32,
       (i) => '$jumpFolder/${(i + 1).toString().padLeft(4, '0')}.png',
     );
-    await images.loadAll([...framePaths, 'frog.png']);
+    await images.loadAll([...framePaths, 'frog.png', 'diverchicos.png']);
     final jumpSprites = <Sprite>[];
     for (final p in framePaths) {
       jumpSprites.add(Sprite(images.fromCache(p)));
     }
     _staticFrog = Sprite(images.fromCache('frog.png'));
+    _titleLogo = Sprite(images.fromCache('diverchicos.png'));
     _frogSourceSize = jumpSprites.first.srcSize;
     _jumpAnim = SpriteAnimation.spriteList(
       jumpSprites,
@@ -84,18 +81,25 @@ class DiverchicosGame extends FlameGame {
     final targetW = size.x / 5;
     final ratio = _frogSourceSize.y / _frogSourceSize.x;
     _frogDrawSize = Vector2(targetW, targetW * ratio);
+    final logoSrc = _titleLogo?.srcSize;
+    if (logoSrc != null && logoSrc.x > 0 && logoSrc.y > 0) {
+      final logoW = size.x * 1.10;
+      final logoRatio = logoSrc.y / logoSrc.x;
+      _titleLogoSize = Vector2(logoW, logoW * logoRatio);
+    }
   }
 
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
     _updateFrogDrawSizeForCurrentScreen();
-    _titleTp.layout(maxWidth: size.x);
   }
 
   void _goToMainMenu() {
     _introFinished = true;
     overlays.add('mainMenu');
+    onIntroCompleted?.call();
+    onLandscapeRequested?.call();
     unawaited(AppAudio.instance.playMenuLoop());
   }
 
@@ -108,6 +112,7 @@ class DiverchicosGame extends FlameGame {
 
   void startKidsMode() {
     overlays.remove('mainMenu');
+    onIntroRequestedPortrait?.call();
     _mode = _ExperienceMode.kids;
     _introFinished = false;
     _phase = _IntroPhase.firstStatic;
@@ -118,6 +123,7 @@ class DiverchicosGame extends FlameGame {
 
   void exitKidsMode() {
     overlays.remove('kidsBack');
+    onLandscapeRequested?.call();
     _mode = _ExperienceMode.intro;
     _introFinished = true;
     overlays.add('mainMenu');
@@ -231,10 +237,11 @@ class DiverchicosGame extends FlameGame {
         );
     }
 
-    _titleTp.layout(maxWidth: s.x);
-    _titleTp.paint(
+    _titleLogo?.render(
       canvas,
-      Offset((s.x - _titleTp.width) / 2, frogBottomY + 20),
+      position: Vector2(cx, frogBottomY + 1),
+      size: _titleLogoSize,
+      anchor: Anchor.topCenter,
     );
   }
 }
