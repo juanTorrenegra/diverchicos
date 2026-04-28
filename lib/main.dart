@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -241,25 +241,359 @@ class MainMenuOverlay extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: CarouselSlider.builder(
-                itemCount: cards.length,
-                options: CarouselOptions(
-                  height: 300,
-                  enlargeCenterPage: true,
-                  enableInfiniteScroll: false,
-                  viewportFraction: 0.62,
-                ),
-                itemBuilder: (context, index, realIndex) {
-                  return _MenuGameCard(data: cards[index]);
-                },
-              ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final w = constraints.maxWidth;
+              final h = constraints.maxHeight;
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: Center(child: _MenuCarousel(cards: cards)),
+                  ),
+                  Positioned(
+                    left: w / 11,
+                    top: h / 6,
+                    width: w / 5,
+                    child: Image.asset(
+                      'assets/images/colorFriendsDiverchicos.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  Positioned(
+                    left: w / 20,
+                    top: h / 2.25,
+                    width: w / 3,
+                    child: _MenuCircleGrid(
+                      gridWidth: w / 3,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MoveCircleSelectionIntent extends Intent {
+  const _MoveCircleSelectionIntent(this.delta);
+  final int delta;
+}
+
+class _ActivateCircleIntent extends Intent {
+  const _ActivateCircleIntent();
+}
+
+class _MenuCircleGrid extends StatefulWidget {
+  const _MenuCircleGrid({required this.gridWidth});
+
+  final double gridWidth;
+
+  @override
+  State<_MenuCircleGrid> createState() => _MenuCircleGridState();
+}
+
+class _MenuCircleGridState extends State<_MenuCircleGrid> {
+  static const int _columns = 3;
+  static const int _count = 6;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'menu-circle-grid');
+  int _selectedIndex = 0;
+  int? _hoveredIndex;
+
+  int get _activeIndex => _hoveredIndex ?? _selectedIndex;
+
+  void _moveSelection(int delta) {
+    final next = (_selectedIndex + delta).clamp(0, _count - 1);
+    if (next != _selectedIndex) {
+      setState(() {
+        _selectedIndex = next;
+      });
+    }
+  }
+
+  void _activateSelected() {
+    final idx = _activeIndex;
+    debugPrint('Circle selected: $idx');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = widget.gridWidth / 18;
+    final circleSize = (widget.gridWidth - spacing * 2) / _columns;
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      child: Shortcuts(
+        shortcuts: const <ShortcutActivator, Intent>{
+          SingleActivator(
+            LogicalKeyboardKey.arrowLeft,
+          ): _MoveCircleSelectionIntent(-1),
+          SingleActivator(
+            LogicalKeyboardKey.arrowRight,
+          ): _MoveCircleSelectionIntent(1),
+          SingleActivator(LogicalKeyboardKey.arrowUp): _MoveCircleSelectionIntent(
+            -3,
+          ),
+          SingleActivator(
+            LogicalKeyboardKey.arrowDown,
+          ): _MoveCircleSelectionIntent(3),
+          SingleActivator(LogicalKeyboardKey.enter): _ActivateCircleIntent(),
+          SingleActivator(LogicalKeyboardKey.space): _ActivateCircleIntent(),
+        },
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            _MoveCircleSelectionIntent: CallbackAction<_MoveCircleSelectionIntent>(
+              onInvoke: (intent) {
+                _moveSelection(intent.delta);
+                return null;
+              },
+            ),
+            _ActivateCircleIntent: CallbackAction<_ActivateCircleIntent>(
+              onInvoke: (intent) {
+                _activateSelected();
+                return null;
+              },
+            ),
+          },
+          child: SizedBox(
+            width: widget.gridWidth,
+            child: Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: List.generate(_count, (index) {
+                final isHighlighted = index == _activeIndex;
+                return MouseRegion(
+                  onEnter: (_) {
+                    if (!_focusNode.hasFocus) {
+                      _focusNode.requestFocus();
+                    }
+                    setState(() {
+                      _hoveredIndex = index;
+                      _selectedIndex = index;
+                    });
+                  },
+                  onExit: (_) {
+                    setState(() {
+                      _hoveredIndex = null;
+                    });
+                  },
+                  child: GestureDetector(
+                    onTap: () {
+                      if (!_focusNode.hasFocus) {
+                        _focusNode.requestFocus();
+                      }
+                      setState(() {
+                        _selectedIndex = index;
+                      });
+                      _activateSelected();
+                    },
+                    child: AnimatedScale(
+                      duration: const Duration(milliseconds: 130),
+                      curve: Curves.easeOut,
+                      scale: isHighlighted ? 1.12 : 1.0,
+                      child: SizedBox(
+                        width: circleSize,
+                        height: circleSize,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0x66FFFFFF),
+                            border: Border.all(
+                              color: isHighlighted
+                                  ? const Color(0xFFFFFFAA)
+                                  : Colors.white,
+                              width: isHighlighted ? 4 : 3,
+                            ),
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.add_photo_alternate_outlined,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Tweak these values to adjust card size, spacing, and animation.
+class _MenuCarouselTuning {
+  // Big center card dimensions (requested: half width and half height).
+  static double mainCardWidthFactor = 0.5;
+  static double mainCardHeightFactor = 0.5;
+
+  // Side cards scale (0.70 => 30% smaller than the center card).
+  static double sideCardScale = 0.70;
+
+  // Distance between cards when scrolling vertically.
+  // Lower value = more overlap, higher value = more gap.
+  static double pageViewportFraction = 0.50;
+
+  // Shift side cards to the left to fake a curved circular lane.
+  static double sideCardLeftShiftFactor = 0.09;
+
+  // Additional visual tuning.
+  static double sideCardOpacity = 0.82;
+  static double maxTiltRadians = 0.10;
+  static double curveVerticalOffsetFactor = 0.02;
+  static double laneLeftSpacerFactor = 0.16;
+  static double laneRightPaddingFactor = 0.02;
+
+  static double cardBorderRadius(Size screen) => screen.width / 22;
+}
+
+class _MenuCarousel extends StatefulWidget {
+  const _MenuCarousel({required this.cards});
+
+  final List<_MenuGameCardData> cards;
+
+  @override
+  State<_MenuCarousel> createState() => _MenuCarouselState();
+}
+
+class _MenuCarouselState extends State<_MenuCarousel> {
+  late final PageController _controller = PageController(
+    viewportFraction: _MenuCarouselTuning.pageViewportFraction,
+    initialPage: 10000,
+  );
+  double _page = 10000;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() {
+      final p = _controller.page;
+      if (p != null && mounted) {
+        setState(() {
+          _page = p;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final laneWidth = constraints.maxWidth;
+        final laneHeight = constraints.maxHeight;
+        final laneSize = Size(laneWidth, laneHeight);
+
+        final mainCardW = laneWidth * _MenuCarouselTuning.mainCardWidthFactor;
+        final mainCardH = laneHeight * _MenuCarouselTuning.mainCardHeightFactor;
+        final curveOffsetY =
+            laneHeight * _MenuCarouselTuning.curveVerticalOffsetFactor;
+        final leftShift =
+            laneWidth * _MenuCarouselTuning.sideCardLeftShiftFactor;
+        final laneLeftSpacer =
+            laneWidth * _MenuCarouselTuning.laneLeftSpacerFactor;
+        final laneRightPadding =
+            laneWidth * _MenuCarouselTuning.laneRightPaddingFactor;
+
+        return SizedBox(
+          width: laneWidth,
+          height: laneHeight,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: laneLeftSpacer,
+              right: laneRightPadding,
+            ),
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(
+                dragDevices: {
+                  PointerDeviceKind.touch,
+                  PointerDeviceKind.mouse,
+                  PointerDeviceKind.trackpad,
+                  PointerDeviceKind.stylus,
+                },
+              ),
+              child: PageView.builder(
+                controller: _controller,
+                scrollDirection: Axis.vertical,
+                padEnds: true,
+                clipBehavior: Clip.none,
+                itemBuilder: (context, index) {
+                  final card = widget.cards[index % widget.cards.length];
+                  final delta = index - _page;
+                  final distance = delta.abs().clamp(0.0, 1.0);
+
+                  final scale =
+                      1 - (1 - _MenuCarouselTuning.sideCardScale) * distance;
+                  final opacity =
+                      1 - (1 - _MenuCarouselTuning.sideCardOpacity) * distance;
+
+                  final dx = -leftShift * distance;
+                  final dy = delta.sign * curveOffsetY * distance;
+                  final tilt =
+                      delta.sign *
+                      _MenuCarouselTuning.maxTiltRadians *
+                      distance;
+
+                  return Align(
+                    alignment: Alignment.centerRight,
+                    child: Transform.translate(
+                      offset: Offset(dx, dy),
+                      child: Transform.rotate(
+                        angle: tilt,
+                        child: Transform.scale(
+                          scale: scale,
+                          child: Opacity(
+                            opacity: opacity,
+                            child: SizedBox(
+                              width: mainCardW,
+                              height: mainCardH,
+                              child: _MenuGameCard(
+                                data: card,
+                                borderRadius:
+                                    _MenuCarouselTuning.cardBorderRadius(
+                                      laneSize,
+                                    ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -272,21 +606,23 @@ class _MenuGameCardData {
 }
 
 class _MenuGameCard extends StatelessWidget {
-  const _MenuGameCard({required this.data});
+  const _MenuGameCard({required this.data, required this.borderRadius});
 
   final _MenuGameCardData data;
+  final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(borderRadius),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: data.onTap,
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(color: Colors.white, width: 20),
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -312,11 +648,7 @@ class _MenuGameCard extends StatelessWidget {
                 ),
               ),
               if (data.onTap == null)
-                const Positioned(
-                  top: 12,
-                  right: 12,
-                  child: _SoonBadge(),
-                ),
+                const Positioned(top: 12, right: 12, child: _SoonBadge()),
               Positioned(
                 left: 14,
                 right: 14,

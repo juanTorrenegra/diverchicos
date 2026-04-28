@@ -83,7 +83,7 @@ class DiverchicosGame extends FlameGame {
     _frogDrawSize = Vector2(targetW, targetW * ratio);
     final logoSrc = _titleLogo?.srcSize;
     if (logoSrc != null && logoSrc.x > 0 && logoSrc.y > 0) {
-      final logoW = size.x * 1.10;
+      final logoW = size.x * 0.55;
       final logoRatio = logoSrc.y / logoSrc.x;
       _titleLogoSize = Vector2(logoW, logoW * logoRatio);
     }
@@ -239,7 +239,7 @@ class DiverchicosGame extends FlameGame {
 
     _titleLogo?.render(
       canvas,
-      position: Vector2(cx, frogBottomY + 1),
+      position: Vector2(cx, frogBottomY + 10),
       size: _titleLogoSize,
       anchor: Anchor.topCenter,
     );
