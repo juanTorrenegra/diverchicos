@@ -129,6 +129,12 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
                   g.startKidsMode();
                   g.overlays.add('kidsBack');
                 },
+                onSalud: () {
+                  unawaited(AppAudio.instance.playPreschoolerLoop());
+                  (game as DiverchicosGame)
+                    ..overlays.remove('mainMenu')
+                    ..overlays.add('salud');
+                },
               ),
             );
           },
@@ -169,6 +175,18 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
               ),
             );
           },
+          'salud': (BuildContext context, game) {
+            return Positioned.fill(
+              child: _SaludOverlay(
+                onBack: () {
+                  unawaited(AppAudio.instance.playMenuLoop());
+                  (game as DiverchicosGame)
+                    ..overlays.remove('salud')
+                    ..overlays.add('mainMenu');
+                },
+              ),
+            );
+          },
         },
       ),
     );
@@ -206,16 +224,18 @@ class MainMenuOverlay extends StatelessWidget {
     super.key,
     required this.onAnimals,
     required this.onKids,
+    required this.onSalud,
   });
 
   final VoidCallback onAnimals;
   final VoidCallback onKids;
+  final VoidCallback onSalud;
 
   List<_MenuGameCardData> _cards() {
     return [
       _MenuGameCardData(title: 'ANIMALES', onTap: onAnimals),
       _MenuGameCardData(title: 'KIDS', onTap: onKids),
-      const _MenuGameCardData(title: 'SALUD'),
+      _MenuGameCardData(title: 'SALUD', onTap: onSalud),
       const _MenuGameCardData(title: 'EXPLORACION'),
       const _MenuGameCardData(title: 'ROMPECABEZAS'),
       const _MenuGameCardData(title: 'RESOLUCION DE PROBLEMAS'),
@@ -265,6 +285,7 @@ class MainMenuOverlay extends StatelessWidget {
                     width: w / 3,
                     child: _MenuCircleGrid(
                       gridWidth: w / 3,
+                      items: cards.take(6).toList(),
                     ),
                   ),
                 ],
@@ -273,6 +294,45 @@ class MainMenuOverlay extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SaludOverlay extends StatelessWidget {
+  const _SaludOverlay({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(
+          child: Image.asset(
+            'assets/images/paredVerde.png',
+            fit: BoxFit.fill,
+          ),
+        ),
+        Positioned(
+          top: 20,
+          right: 16,
+          child: SizedBox(
+            width: size.width / 10,
+            height: size.height / 10,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                shape: const StadiumBorder(),
+                backgroundColor: const Color(0xCC1A237E),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: onBack,
+              child: const Text('MENÚ'),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -287,9 +347,10 @@ class _ActivateCircleIntent extends Intent {
 }
 
 class _MenuCircleGrid extends StatefulWidget {
-  const _MenuCircleGrid({required this.gridWidth});
+  const _MenuCircleGrid({required this.gridWidth, required this.items});
 
   final double gridWidth;
+  final List<_MenuGameCardData> items;
 
   @override
   State<_MenuCircleGrid> createState() => _MenuCircleGridState();
@@ -297,12 +358,12 @@ class _MenuCircleGrid extends StatefulWidget {
 
 class _MenuCircleGridState extends State<_MenuCircleGrid> {
   static const int _columns = 3;
-  static const int _count = 6;
   final FocusNode _focusNode = FocusNode(debugLabel: 'menu-circle-grid');
   int _selectedIndex = 0;
   int? _hoveredIndex;
 
   int get _activeIndex => _hoveredIndex ?? _selectedIndex;
+  int get _count => widget.items.length;
 
   void _moveSelection(int delta) {
     final next = (_selectedIndex + delta).clamp(0, _count - 1);
@@ -315,7 +376,10 @@ class _MenuCircleGridState extends State<_MenuCircleGrid> {
 
   void _activateSelected() {
     final idx = _activeIndex;
-    debugPrint('Circle selected: $idx');
+    widget.items[idx].onTap?.call();
+    if (widget.items[idx].onTap == null) {
+      debugPrint('Circle selected (placeholder): $idx');
+    }
   }
 
   @override
@@ -378,7 +442,7 @@ class _MenuCircleGridState extends State<_MenuCircleGrid> {
             child: Wrap(
               spacing: spacing,
               runSpacing: spacing,
-              children: List.generate(_count, (index) {
+              children: List.generate(widget.items.length, (index) {
                 final isHighlighted = index == _activeIndex;
                 return MouseRegion(
                   onEnter: (_) {

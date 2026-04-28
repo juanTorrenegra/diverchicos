@@ -10,6 +10,7 @@ class AppAudio {
   static const String introClip = 'audio/intro3seconds.mp3';
   static const String menuBgm = 'audio/butterlfy33seconds.mp3';
   static const String animalsBgm = 'audio/round122seconds.mp3';
+  static const String preschoolerBgm = 'audio/preschooler.mp3';
 
   final double _baseBgmVolume = 1.0;
   double _instructionDuckFactor = 1.0;
@@ -50,6 +51,18 @@ class AppAudio {
     await _bgmPlayer.stop();
     await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
     await _bgmPlayer.play(AssetSource(animalsBgm));
+    await _applyBgmVolume();
+  }
+
+  Future<void> playPreschoolerLoop() async {
+    if (_currentBgmAsset == preschoolerBgm) {
+      await _applyBgmVolume();
+      return;
+    }
+    _currentBgmAsset = preschoolerBgm;
+    await _bgmPlayer.stop();
+    await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
+    await _bgmPlayer.play(AssetSource(preschoolerBgm));
     await _applyBgmVolume();
   }
 
