@@ -10,10 +10,22 @@ import 'diverchicos_game.dart';
 import 'games/animals_game.dart';
 import 'games/salud_overlay.dart';
 import 'menu/main_menu_overlay.dart';
+import 'widgets/menu_back_pill.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  _hideAndroidStatusBarForGame();
   runApp(const DiverchicosApp());
+}
+
+/// Hide status/navigation chrome on Android so the game uses full screen.
+void _hideAndroidStatusBarForGame() {
+  if (kIsWeb) return;
+  if (defaultTargetPlatform != TargetPlatform.android) return;
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.immersiveSticky,
+    overlays: [],
+  );
 }
 
 class DiverchicosApp extends StatefulWidget {
@@ -154,19 +166,9 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
                 alignment: Alignment.topRight,
                 child: Padding(
                   padding: const EdgeInsets.only(top: 20, right: 16),
-                  child: SizedBox(
-                    width: MediaQuery.sizeOf(context).width / 10,
-                    height: MediaQuery.sizeOf(context).height / 10,
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        shape: const StadiumBorder(),
-                        backgroundColor: const Color(0xCC1A237E),
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: () =>
-                          (game as DiverchicosGame).exitKidsMode(),
-                      child: const Text('MENÚ'),
-                    ),
+                  child: MenuBackPill(
+                    onPressed: () =>
+                        (game as DiverchicosGame).exitKidsMode(),
                   ),
                 ),
               ),

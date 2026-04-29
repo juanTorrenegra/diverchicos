@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/extensions.dart';
 import 'package:flame/game.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 // Flame Images use prefix "assets/images/" — keys are paths inside that folder.
@@ -194,9 +196,9 @@ class _AnimalsBackPill extends PositionComponent
          text: 'MENÚ',
          anchor: Anchor.center,
          textRenderer: TextPaint(
-           style: const TextStyle(
+           style: TextStyle(
              color: Colors.white,
-             fontSize: 16,
+             fontSize: 14,
              fontWeight: FontWeight.w600,
            ),
          ),
@@ -210,31 +212,43 @@ class _AnimalsBackPill extends PositionComponent
 
   Paint get _pillPaint => Paint()..color = const Color(0xCC1A237E);
 
+  void _layoutForGameSize(Vector2 gameSize) {
+    final divisor = kIsWeb ? 24.0 : 12.0;
+    final pw = gameSize.x / divisor;
+    final ph = gameSize.y / divisor;
+    size = Vector2(pw, ph);
+    _label.position = size / 2;
+    final fontMin = kIsWeb ? 8.0 : 10.0;
+    final font =
+        (math.min(pw, ph) * 0.42).clamp(fontMin, 32.0).toDouble();
+    _label.textRenderer = TextPaint(
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: font,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    position = Vector2(gameSize.x - right, top);
+  }
+
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    size = Vector2(game.size.x / 10, game.size.y / 10);
     anchor = Anchor.topRight;
-    _label.position = size / 2;
-    final labelScale = (size.y / 44).clamp(0.8, 2.2);
-    _label.scale = Vector2.all(labelScale.toDouble());
+    _layoutForGameSize(game.size);
     add(_label);
-    position = Vector2(screenW - right, top);
   }
 
   @override
   void onGameResize(Vector2 gameSize) {
     super.onGameResize(gameSize);
-    size = Vector2(gameSize.x / 10, gameSize.y / 10);
-    _label.position = size / 2;
-    final labelScale = (size.y / 44).clamp(0.8, 2.2);
-    _label.scale = Vector2.all(labelScale.toDouble());
-    position = Vector2(gameSize.x - right, top);
+    _layoutForGameSize(gameSize);
   }
 
   @override
   void render(Canvas canvas) {
-    final r = RRect.fromRectAndRadius(size.toRect(), const Radius.circular(14));
+    final corner = Radius.circular(math.min(size.x, size.y) / 2);
+    final r = RRect.fromRectAndRadius(size.toRect(), corner);
     canvas.drawRRect(r, _pillPaint);
     super.render(canvas);
   }

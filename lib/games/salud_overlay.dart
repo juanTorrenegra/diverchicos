@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/menu_back_pill.dart';
+
 /// SALUD mini-screen: stretched background (`paredVerde.png`) and MENÚ back pill.
 class SaludOverlay extends StatelessWidget {
   const SaludOverlay({super.key, required this.onBack});
@@ -8,7 +10,6 @@ class SaludOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -21,19 +22,7 @@ class SaludOverlay extends StatelessWidget {
         Positioned(
           top: 20,
           right: 16,
-          child: SizedBox(
-            width: size.width / 10,
-            height: size.height / 10,
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                shape: const StadiumBorder(),
-                backgroundColor: const Color(0xCC1A237E),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: onBack,
-              child: const Text('MENÚ'),
-            ),
-          ),
+          child: MenuBackPill(onPressed: onBack),
         ),
       ],
     );
