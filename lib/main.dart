@@ -8,8 +8,8 @@ import 'package:flutter/services.dart';
 import 'app_audio.dart';
 import 'diverchicos_game.dart';
 import 'games/animals_game.dart';
+import 'games/salud_overlay.dart';
 import 'menu/main_menu_overlay.dart';
-import 'overlays/salud_overlay.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
