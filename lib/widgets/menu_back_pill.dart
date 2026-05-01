@@ -4,12 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Top-right styled **MENÚ** pill: native uses screen/12; web uses screen/24 (smaller in browser).
-/// Label scales from pill size so it does not clip.
+/// Label scales from pill size so it does not clip..
 class MenuBackPill extends StatelessWidget {
-  const MenuBackPill({
-    super.key,
-    required this.onPressed,
-  });
+  const MenuBackPill({super.key, required this.onPressed});
 
   final VoidCallback onPressed;
 
@@ -20,8 +17,7 @@ class MenuBackPill extends StatelessWidget {
     final pillW = mq.width / divisor;
     final pillH = mq.height / divisor;
     final fontMin = kIsWeb ? 8.0 : 10.0;
-    final fontSize =
-        (math.min(pillW, pillH) * 0.42).clamp(fontMin, 32.0);
+    final fontSize = (math.min(pillW, pillH) * 0.42).clamp(fontMin, 32.0);
 
     return SizedBox(
       width: pillW,
