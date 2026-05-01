@@ -131,6 +131,7 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
                 onAnimals: () {
                   unawaited(AppAudio.instance.playAnimalsLoop());
                   (game as DiverchicosGame)
+                    ..notifyEnteredMiniGame()
                     ..overlays.remove('mainMenu')
                     ..overlays.add('animals');
                 },
@@ -142,6 +143,7 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
                 onSalud: () {
                   unawaited(AppAudio.instance.playPreschoolerLoop());
                   (game as DiverchicosGame)
+                    ..notifyEnteredMiniGame()
                     ..overlays.remove('mainMenu')
                     ..overlays.add('salud');
                 },
@@ -154,6 +156,7 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
                 onBack: () {
                   unawaited(AppAudio.instance.playMenuLoop());
                   (game as DiverchicosGame)
+                    ..notifyReturnedToMainMenu()
                     ..overlays.remove('animals')
                     ..overlays.add('mainMenu');
                 },
@@ -180,6 +183,7 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
                 onBack: () {
                   unawaited(AppAudio.instance.playMenuLoop());
                   (game as DiverchicosGame)
+                    ..notifyReturnedToMainMenu()
                     ..overlays.remove('salud')
                     ..overlays.add('mainMenu');
                 },
