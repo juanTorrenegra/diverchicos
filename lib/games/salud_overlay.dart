@@ -4,15 +4,11 @@ import 'package:flutter/material.dart';
 import '../widgets/menu_back_pill.dart';
 import 'salud_cow_game.dart';
 
-/// Edit [kSaludCowTuning] to move start / idle / end points without touching mechanics.
+/// Cow scene uses a **fixed Flame viewport** (`kSaludCowLogicalWidth`×`kSaludCowLogicalHeight` in `salud_cow_game.dart`).
+/// overlay background should match that composition (or expect letterboxing).
 ///
-/// Fractions reference the Flame view (`0`=left edge, `1`=right edge). Feet sit on:
-/// `(1 − bottomInsetFraction) × height` from the top.
-///
-/// Quick tuning:
-/// - Lower path: decrease `bottomInsetFraction` (`0.00`..`0.03`)
-/// - Higher path: increase `bottomInsetFraction` (`0.06`..`0.12`)
-/// - Bigger cow: increase `cowHeightFraction` carefully (`0.40`..`0.46`)
+/// Tune positions in **logical pixels**: edit parameters inside [SaludCowTuning] in
+/// `salud_cow_game.dart` (each is commented there).
 const SaludCowTuning kSaludCowTuning = SaludCowTuning();
 
 /// SALUD mini-screen: background, animated cow strip, back pill (MENÚ).

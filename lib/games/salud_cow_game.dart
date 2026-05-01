@@ -6,56 +6,58 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 
-/// Tweaking points for [SaludCowGame] — fractions use the Flame view size (overlay).
-/// Horizontal: 0 = left, 1 = right. Feet line: `(1 − bottomInsetFraction) * height` from top.
+/// World size Flame uses for SALUD cow layout (`FixedResolutionViewport`).
+/// Widget size only scales this; all positions below are in these units.
+const double kSaludCowLogicalWidth = 1920;
+const double kSaludCowLogicalHeight = 1080;
+
+/// Tweaking knobs for [SaludCowGame].  
+/// Coordinate system: **origin top-left**, X right, Y down, size [kSaludCowLogicalWidth]×[kSaludCowLogicalHeight].
 class SaludCowTuning {
   const SaludCowTuning({
-    this.enterStartXFraction = -0.08,
-    this.idleCenterXFraction = 0.28,
-    this.exitEndXFraction = 0.90,
-    this.bottomInsetFraction = 0.14,
-    this.cowHeightFraction = 0.70,
-    this.cowWidthFraction = 0.55,
-    this.clipLineXFraction = 0.69,
+    // ─── Horizontal walk path (world X; cow anchor is bottom **center**) ───
+    this.cowEnterStartX =
+        -154, // TweAK: walk starts off-screen left (more negative = further left)
+    this.cowIdleCenterX =
+        538, // TWEAK: X where cow stops idle (walking center ends here)
+    this.cowExitEndX =
+        1728, // TWEAK: X destination after happy×2 (walk out phase)
+
+    // ─── Vertical baseline (world Y); feet sit on this horizontal line ───
+    this.cowFeetBaselineY =
+        929, // TWEAK: down = larger Y (toward bottom). ~1080 − bottom_margin
+
+    // ─── Sprite draw size caps (pixels in logical space) ───
+    this.cowHeightPx =
+        756, // TWEAK: target draw height before aspect ratio clamp
+    this.cowMaxDrawWidthPx =
+        1056, // TWEAK: limits width indirectly via min(height, width/aspect)
+
+    // ─── Door-style vertical clip (world X; clip keeps pixels left of line) ───
+    this.cowClipLineX =
+        1325, // TWEAK: vertical clip line — smaller = reveals more cow to the left
+
     this.showClipDebugLine = false,
     this.clipDebugLineWidthPx = 2,
     this.clipDebugLineColor = const Color(0xCCFF1744),
-    this.walkSpeedPixelsPerSecond = 240,
+
+    this.walkSpeedPixelsPerSecond =
+        240, // TWEAK: horizontal speed in logical px/s for enter & exit walks
     this.walkStepSeconds = 0.045,
     this.happyStepSeconds = 0.04,
   });
 
-  /// Cow center X before the enter walk (&lt; 0 starts off-screen left).
-  final double enterStartXFraction;
-
-  /// Idle stop point (first-third area ≈ 0.25–0.33).
-  final double idleCenterXFraction;
-
-  /// Destination after happy×2 (walking until here; can be &gt; 1).
-  final double exitEndXFraction;
-
-  /// Bottom inset as a fraction of height (feet baseline from bottom edge).
-  /// 0.00 => feet on bottom edge, 0.03 => slightly higher, 0.10 => much higher.
-  final double bottomInsetFraction;
-
-  /// Display height vs view height.
-  /// Start around 0.40–0.46 for a large but non-clipping cow.
-  final double cowHeightFraction;
-
-  /// Max display width vs view width. Used with [cowHeightFraction].
-  /// Final size uses the tighter limit so it reacts to width changes too.
-  final double cowWidthFraction;
-
-  /// Vertical clip line X position as a screen-width fraction.
-  /// 0.5 is center; increase to move right, decrease to move left.
-  final double clipLineXFraction;
+  final double cowEnterStartX;
+  final double cowIdleCenterX;
+  final double cowExitEndX;
+  final double cowFeetBaselineY;
+  final double cowHeightPx;
+  final double cowMaxDrawWidthPx;
+  final double cowClipLineX;
   final bool showClipDebugLine;
   final double clipDebugLineWidthPx;
   final Color clipDebugLineColor;
-
-  /// Enter + exit lateral speed only.
   final double walkSpeedPixelsPerSecond;
-
   final double walkStepSeconds;
   final double happyStepSeconds;
 
@@ -75,8 +77,15 @@ class SaludCowTuning {
 enum _CowPhase { entering, idle, happy, exiting, done }
 
 /// Transparent strip: walk in → idle `cow.png` → tap → happy×2 → walk out → idle.
+/// Renders at fixed [kSaludCowLogicalWidth]×[kSaludCowLogicalHeight] (letterboxed/scaled).
 final class SaludCowGame extends FlameGame {
-  SaludCowGame({this.tuning = const SaludCowTuning()});
+  SaludCowGame({this.tuning = const SaludCowTuning()})
+    : super(
+        camera: CameraComponent.withFixedResolution(
+          width: kSaludCowLogicalWidth,
+          height: kSaludCowLogicalHeight,
+        ),
+      );
 
   static const int kWalkingFrames = 24;
   static const int kHappyFrames = 72;
@@ -104,11 +113,11 @@ final class SaludCowGame extends FlameGame {
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
-    if (size.x > 0 && size.y > 0) {
-      camera.viewfinder.position = size / 2;
-      _debugLine?.syncLayout(size);
-      _actor?.syncLayout(size);
-    }
+    if (!hasLayout) return;
+    final logical = camera.viewport.virtualSize;
+    camera.viewfinder.position = logical / 2;
+    _debugLine?.syncLayout(logical);
+    _actor?.syncLayout(logical);
   }
 }
 
@@ -120,10 +129,10 @@ final class _ClipDebugLineComponent extends PositionComponent {
   final bool isEnabled;
   final Paint _paint = Paint();
 
-  void syncLayout(Vector2 gs) {
+  void syncLayout(Vector2 logicalSize) {
     final w = tuning.clipDebugLineWidthPx.clamp(1, 12).toDouble();
-    size.setValues(w, gs.y);
-    position.setValues((gs.x * tuning.clipLineXFraction) - (w / 2), 0);
+    size.setValues(w, logicalSize.y);
+    position.setValues(tuning.cowClipLineX - (w / 2), 0);
     _paint.color = tuning.clipDebugLineColor;
   }
 
@@ -180,28 +189,29 @@ final class SaludCowActor extends PositionComponent
     _aspect = idleImg.width / ah;
   }
 
-  void syncLayout(Vector2 gs) {
-    _startX = gs.x * tuning.enterStartXFraction;
-    _idleX = gs.x * tuning.idleCenterXFraction;
-    _exitX = gs.x * tuning.exitEndXFraction;
-    _clipLineX = gs.x * tuning.clipLineXFraction;
-    position.y = gs.y * (1 - tuning.bottomInsetFraction);
+  void syncLayout(Vector2 logicalSize) {
+    _startX = tuning.cowEnterStartX;
+    _idleX = tuning.cowIdleCenterX;
+    _exitX = tuning.cowExitEndX;
+    _clipLineX = tuning.cowClipLineX;
+    position.y = tuning.cowFeetBaselineY;
 
     if (!_visualReady && !_resizeScheduled) {
       _resizeScheduled = true;
       scheduleMicrotask(() => unawaited(_firstPaint()));
     } else if (_visualReady) {
-      _applyResize(gs);
+      _applyResize();
     }
   }
 
-  void _applyResize(Vector2 gs) {
-    _displaySize = _sizeForScreen(gs);
+  void _applyResize() {
+    _displaySize = _computeCowDisplaySize();
 
-    position.y = gs.y * (1 - tuning.bottomInsetFraction);
-    _startX = gs.x * tuning.enterStartXFraction;
-    _idleX = gs.x * tuning.idleCenterXFraction;
-    _exitX = gs.x * tuning.exitEndXFraction;
+    position.y = tuning.cowFeetBaselineY;
+    _startX = tuning.cowEnterStartX;
+    _idleX = tuning.cowIdleCenterX;
+    _exitX = tuning.cowExitEndX;
+    _clipLineX = tuning.cowClipLineX;
 
     _idleComp?.size.setFrom(_displaySize);
     _walkComp?.size.setFrom(_displaySize);
@@ -227,9 +237,8 @@ final class SaludCowActor extends PositionComponent
   Future<void> _firstPaint() async {
     await game.images.ready();
     assert(game.hasLayout, 'Salud cow needs layout before first paint');
-    final gs = game.size;
 
-    _displaySize = _sizeForScreen(gs);
+    _displaySize = _computeCowDisplaySize();
 
     final walkSprites = tuning
         .walkingAssetKeys()
@@ -254,7 +263,6 @@ final class SaludCowActor extends PositionComponent
     _idleComp = SpriteComponent(
       sprite: Sprite(game.images.fromCache('cow.png')),
       size: _displaySize,
-      // Keep child aligned to actor's local top-left; actor anchor controls world path.
       anchor: Anchor.topLeft,
       position: Vector2.zero(),
     );
@@ -288,9 +296,9 @@ final class SaludCowActor extends PositionComponent
     _visualReady = true;
   }
 
-  Vector2 _sizeForScreen(Vector2 gs) {
-    final hByHeight = gs.y * tuning.cowHeightFraction;
-    final hByWidth = (gs.x * tuning.cowWidthFraction) / _aspect;
+  Vector2 _computeCowDisplaySize() {
+    final hByHeight = tuning.cowHeightPx;
+    final hByWidth = tuning.cowMaxDrawWidthPx / _aspect;
     final h = math.min(hByHeight, hByWidth);
     return Vector2(h * _aspect, h);
   }
