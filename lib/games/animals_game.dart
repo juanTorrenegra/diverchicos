@@ -8,7 +8,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-// Flame Images use prefix "assets/images/" — keys are paths inside that folder.
+// Flame Images use prefix "assets/images/" -— keys are paths inside that folder.
 const String kAnimalsFilePrefix = '';
 
 /// Separate Flame game shown inside the `animals` overlay.
@@ -42,8 +42,7 @@ class AnimalsFlutterOverlay extends StatefulWidget {
   final VoidCallback onBack;
 
   @override
-  State<AnimalsFlutterOverlay> createState() =>
-      _AnimalsFlutterOverlayState();
+  State<AnimalsFlutterOverlay> createState() => _AnimalsFlutterOverlayState();
 }
 
 class _AnimalsFlutterOverlayState extends State<AnimalsFlutterOverlay> {
@@ -124,12 +123,8 @@ class AnimalsPlayRoot extends Component with HasGameReference<AnimalsGame> {
     game.world
       ..add(GreenGradientBackdrop(size: Vector2(size.x, size.y))..priority = -2)
       ..add(
-        _AnimalsBackPill(
-          onTap: onBack,
-          right: 16,
-          top: 16,
-          screenW: w,
-        )..priority = 2,
+        _AnimalsBackPill(onTap: onBack, right: 16, top: 16, screenW: w)
+          ..priority = 2,
       );
 
     final positions = <Vector2>[
@@ -219,8 +214,7 @@ class _AnimalsBackPill extends PositionComponent
     size = Vector2(pw, ph);
     _label.position = size / 2;
     final fontMin = kIsWeb ? 8.0 : 10.0;
-    final font =
-        (math.min(pw, ph) * 0.42).clamp(fontMin, 32.0).toDouble();
+    final font = (math.min(pw, ph) * 0.42).clamp(fontMin, 32.0).toDouble();
     _label.textRenderer = TextPaint(
       style: TextStyle(
         color: Colors.white,
