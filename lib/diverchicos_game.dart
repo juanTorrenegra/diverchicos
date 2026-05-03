@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'app_audio.dart';
 import 'frog_intro.dart';
 
-/// Shell + menus + gameplay phases. Frog splash is [transition]; overlays drive [menu]/[playing].
+/// Shell + menus + gameplay phases. Frog splash is [transition]; overlays drive [menu]/[playing]..
 enum GameState {
   menu,
 
@@ -36,8 +36,7 @@ class DiverchicosGame extends FlameGame {
   }) : super() {
     _frog = FrogIntroController(
       images: images,
-      onIntroVoiceStart: () =>
-          unawaited(AppAudio.instance.playIntroOnce()),
+      onIntroVoiceStart: () => unawaited(AppAudio.instance.playIntroOnce()),
       onOpenMainMenuAndLandscapeAndBgm: _openMainMenuFromIntro,
     );
   }
@@ -70,8 +69,7 @@ class DiverchicosGame extends FlameGame {
   }
 
   @override
-  ui.Color backgroundColor() =>
-      const ui.Color.fromRGBO(0, 158, 233, 1);
+  ui.Color backgroundColor() => const ui.Color.fromRGBO(0, 158, 233, 1);
 
   @override
   Future<void> onLoad() async {
