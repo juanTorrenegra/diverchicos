@@ -12,7 +12,7 @@ import 'frog_intro.dart';
 enum GameState {
   menu,
 
-  /// Drag-and-drop or other active mini-game.
+  /// Drag-and-drop or other active mini-game
   playing,
 
   /// Educational VO + animation (planned shapes game).
