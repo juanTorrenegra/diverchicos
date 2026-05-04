@@ -1,17 +1,31 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
+import 'package:flame_texturepacker/flame_texturepacker.dart';
+import 'package:flutter/painting.dart';
 
 /// World size Flame uses for SALUD cow layout (`FixedResolutionViewport`).
 /// Widget size only scales this; all positions below are in these units.
 const double kSaludCowLogicalWidth = 1920;
 const double kSaludCowLogicalHeight = 1080;
 
-/// Tweaking knobs for [SaludCowGame].  
+/// LibGDX atlas from TexturePacker (`assets/images/shvaca2.atlas` + `shvaca2.png`).
+/// Frames are **256×256** logical size (`offsets` / `orig` in atlas).
+///
+/// TexturePacker may emit rows named `0` with `index:` lines; that parses to an
+/// **empty** [Region.name], not `cow`. [_cowFramesFromAtlas] handles both styles.
+const String kShvacaAtlasAsset = 'shvaca2.atlas';
+
+/// When regions are named `cow_01` … in the atlas; otherwise frames are resolved by index.
+const String kShvacaAnimationNamePreferred = 'cow';
+
+/// Logical draw size for the cow on screen (square); frames are 256×256 in the atlas.
+const double kShvacaDrawSizePx = 600;
+
+/// Tweaking knobs for [SaludCowGame].
 /// Coordinate system: **origin top-left**, X right, Y down, size [kSaludCowLogicalWidth]×[kSaludCowLogicalHeight].
 class SaludCowTuning {
   const SaludCowTuning({
@@ -22,17 +36,9 @@ class SaludCowTuning {
         538, // TWEAK: X where cow stops idle (walking center ends here)
     this.cowExitEndX =
         1728, // TWEAK: X destination after happy×2 (walk out phase)
-
     // ─── Vertical baseline (world Y); feet sit on this horizontal line ───
     this.cowFeetBaselineY =
         929, // TWEAK: down = larger Y (toward bottom). ~1080 − bottom_margin
-
-    // ─── Sprite draw size caps (pixels in logical space) ───
-    this.cowHeightPx =
-        756, // TWEAK: target draw height before aspect ratio clamp
-    this.cowMaxDrawWidthPx =
-        1056, // TWEAK: limits width indirectly via min(height, width/aspect)
-
     // ─── Door-style vertical clip (world X; clip keeps pixels left of line) ───
     this.cowClipLineX =
         1325, // TWEAK: vertical clip line — smaller = reveals more cow to the left
@@ -43,40 +49,22 @@ class SaludCowTuning {
 
     this.walkSpeedPixelsPerSecond =
         240, // TWEAK: horizontal speed in logical px/s for enter & exit walks
-    this.walkStepSeconds = 0.045,
-    this.happyStepSeconds = 0.04,
   });
 
   final double cowEnterStartX;
   final double cowIdleCenterX;
   final double cowExitEndX;
   final double cowFeetBaselineY;
-  final double cowHeightPx;
-  final double cowMaxDrawWidthPx;
   final double cowClipLineX;
   final bool showClipDebugLine;
   final double clipDebugLineWidthPx;
   final Color clipDebugLineColor;
   final double walkSpeedPixelsPerSecond;
-  final double walkStepSeconds;
-  final double happyStepSeconds;
-
-  Iterable<String> walkingAssetKeys() sync* {
-    for (var i = 1; i <= SaludCowGame.kWalkingFrames; i++) {
-      yield 'cowAnimations/walking/${i.toString().padLeft(4, '0')}.png';
-    }
-  }
-
-  Iterable<String> happyAssetKeys() sync* {
-    for (var i = 1; i <= SaludCowGame.kHappyFrames; i++) {
-      yield 'cowAnimations/happyWaveHandsJump/cow.png${i.toString().padLeft(4, '0')}.png';
-    }
-  }
 }
 
 enum _CowPhase { entering, idle, happy, exiting, done }
 
-/// Transparent strip: walk in → idle `cow.png` → tap → happy×2 → walk out → idle.
+/// Transparent strip: walk in → idle (looping atlas) → tap → happy×2 → walk out → idle.
 /// Renders at fixed [kSaludCowLogicalWidth]×[kSaludCowLogicalHeight] (letterboxed/scaled).
 final class SaludCowGame extends FlameGame {
   SaludCowGame({this.tuning = const SaludCowTuning()})
@@ -86,9 +74,6 @@ final class SaludCowGame extends FlameGame {
           height: kSaludCowLogicalHeight,
         ),
       );
-
-  static const int kWalkingFrames = 24;
-  static const int kHappyFrames = 72;
 
   final SaludCowTuning tuning;
 
@@ -119,6 +104,38 @@ final class SaludCowGame extends FlameGame {
     _debugLine?.syncLayout(logical);
     _actor?.syncLayout(logical);
   }
+}
+
+/// Ordered frame sprites for the cow strip (TexturePacker `index:` or `cow_*` names).
+List<Sprite> _cowFramesFromAtlas(TexturePackerAtlas atlas) {
+  List<TexturePackerSprite> pick(String n) =>
+      atlas.findSpritesByName(n).toList(growable: false);
+
+  var frames = pick(kShvacaAnimationNamePreferred);
+  if (frames.isEmpty) {
+    frames = pick('');
+  }
+  if (frames.isEmpty) {
+    frames = List<TexturePackerSprite>.from(atlas.sprites);
+  }
+  frames.sort((a, b) {
+    final ia = a.region.index == -1 ? 0x7FFFFFFF : a.region.index;
+    final ib = b.region.index == -1 ? 0x7FFFFFFF : b.region.index;
+    return ia.compareTo(ib);
+  });
+  return List<Sprite>.from(frames);
+}
+
+SpriteAnimation _cowLoopFromAtlas(
+  TexturePackerAtlas atlas, {
+  required bool loop,
+}) {
+  final frames = _cowFramesFromAtlas(atlas);
+  assert(
+    frames.isNotEmpty,
+    'No frames in $kShvacaAtlasAsset (cow / blank name / atlas.sprites)',
+  );
+  return SpriteAnimation.spriteList(frames, stepTime: 1 / 24, loop: loop);
 }
 
 final class _ClipDebugLineComponent extends PositionComponent {
@@ -154,17 +171,12 @@ final class SaludCowActor extends PositionComponent
   bool _visualReady = false;
   bool _resizeScheduled = false;
 
-  Component? _active;
   ClipComponent? _clipRoot;
+  SpriteAnimationComponent? _animComp;
 
-  SpriteComponent? _idleComp;
-  SpriteAnimationComponent? _walkComp;
-  SpriteAnimationComponent? _happyComp;
+  late SpriteAnimation _loopTemplate;
+  late SpriteAnimation _onceTemplate;
 
-  late SpriteAnimation _walkLoopTemplate;
-  late SpriteAnimation _happyOnceTemplate;
-
-  late double _aspect;
   Vector2 _displaySize = Vector2.zero();
 
   _CowPhase _phase = _CowPhase.entering;
@@ -177,16 +189,6 @@ final class SaludCowActor extends PositionComponent
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    final paths = [
-      ...tuning.walkingAssetKeys(),
-      ...tuning.happyAssetKeys(),
-      'cow.png',
-    ];
-    await game.images.loadAll(paths.toList());
-
-    final idleImg = game.images.fromCache('cow.png');
-    final ah = idleImg.height == 0 ? 1.0 : idleImg.height.toDouble();
-    _aspect = idleImg.width / ah;
   }
 
   void syncLayout(Vector2 logicalSize) {
@@ -205,7 +207,7 @@ final class SaludCowActor extends PositionComponent
   }
 
   void _applyResize() {
-    _displaySize = _computeCowDisplaySize();
+    _displaySize = _cowDisplaySize();
 
     position.y = tuning.cowFeetBaselineY;
     _startX = tuning.cowEnterStartX;
@@ -213,9 +215,7 @@ final class SaludCowActor extends PositionComponent
     _exitX = tuning.cowExitEndX;
     _clipLineX = tuning.cowClipLineX;
 
-    _idleComp?.size.setFrom(_displaySize);
-    _walkComp?.size.setFrom(_displaySize);
-    _happyComp?.size.setFrom(_displaySize);
+    _animComp?.size.setFrom(_displaySize);
     _clipRoot?.size.setFrom(_displaySize);
     size.setValues(_displaySize.x, _displaySize.y);
     _updateClipWindow();
@@ -235,79 +235,38 @@ final class SaludCowActor extends PositionComponent
   }
 
   Future<void> _firstPaint() async {
-    await game.images.ready();
     assert(game.hasLayout, 'Salud cow needs layout before first paint');
 
-    _displaySize = _computeCowDisplaySize();
+    _displaySize = _cowDisplaySize();
 
-    final walkSprites = tuning
-        .walkingAssetKeys()
-        .map((k) => Sprite(game.images.fromCache(k)))
-        .toList(growable: false);
-    final hopSprites = tuning
-        .happyAssetKeys()
-        .map((k) => Sprite(game.images.fromCache(k)))
-        .toList(growable: false);
+    final atlas = await game.atlasFromAssets(kShvacaAtlasAsset);
+    _loopTemplate = _cowLoopFromAtlas(atlas, loop: true);
+    _onceTemplate = _cowLoopFromAtlas(atlas, loop: false);
 
-    _walkLoopTemplate = SpriteAnimation.spriteList(
-      walkSprites,
-      stepTime: tuning.walkStepSeconds,
-      loop: true,
-    );
-    _happyOnceTemplate = SpriteAnimation.spriteList(
-      hopSprites,
-      stepTime: tuning.happyStepSeconds,
-      loop: false,
-    );
-
-    _idleComp = SpriteComponent(
-      sprite: Sprite(game.images.fromCache('cow.png')),
+    _animComp = SpriteAnimationComponent(
+      animation: _loopTemplate.clone(),
       size: _displaySize,
-      anchor: Anchor.topLeft,
-      position: Vector2.zero(),
-    );
-
-    _walkComp = SpriteAnimationComponent(
-      animation: _walkLoopTemplate.clone(),
-      size: _displaySize,
-      anchor: Anchor.topLeft,
-      position: Vector2.zero(),
-    );
-
-    _happyComp = SpriteAnimationComponent(
-      animation: _happyOnceTemplate.clone(),
-      size: _displaySize,
-      anchor: Anchor.topLeft,
-      position: Vector2.zero(),
+      anchor: Anchor.bottomCenter,
+      position: Vector2(_displaySize.x / 2, _displaySize.y),
     );
 
     _clipRoot = ClipComponent.rectangle(
       position: Vector2.zero(),
       size: _displaySize.clone(),
       anchor: Anchor.topLeft,
-    );
+    )..add(_animComp!);
 
     size.setFrom(_displaySize);
     position.x = _startX;
     _phase = _CowPhase.entering;
     add(_clipRoot!);
-    _setActive(_walkComp!);
     _updateClipWindow();
     _visualReady = true;
   }
 
-  Vector2 _computeCowDisplaySize() {
-    final hByHeight = tuning.cowHeightPx;
-    final hByWidth = tuning.cowMaxDrawWidthPx / _aspect;
-    final h = math.min(hByHeight, hByWidth);
-    return Vector2(h * _aspect, h);
-  }
-
-  void _setActive(Component c) {
-    _active?.removeFromParent();
-    _active = c;
-    _clipRoot?.add(c);
-  }
+  Vector2 _cowDisplaySize() => Vector2.all(
+    kShvacaDrawSizePx.clamp(1, math.max(1, kSaludCowLogicalHeight)),
+  );
 
   void _updateClipWindow() {
     if (_clipRoot == null) return;
@@ -316,13 +275,10 @@ final class SaludCowActor extends PositionComponent
     _clipRoot!.size.setValues(clipW.toDouble(), size.y);
   }
 
-  void _pickWalk() {
-    _walkComp!.animation = _walkLoopTemplate.clone();
-    _setActive(_walkComp!);
-  }
-
-  void _pickIdle() {
-    _setActive(_idleComp!);
+  void _useLoopingAnim() {
+    final c = _animComp!;
+    c.animation = _loopTemplate.clone();
+    c.animationTicker!.reset();
   }
 
   @override
@@ -338,7 +294,7 @@ final class SaludCowActor extends PositionComponent
         if (_idleX - position.x <= _arrive) {
           position.x = _idleX;
           _phase = _CowPhase.idle;
-          _pickIdle();
+          _useLoopingAnim();
         }
         break;
       case _CowPhase.exiting:
@@ -346,7 +302,7 @@ final class SaludCowActor extends PositionComponent
         if (_exitX - position.x <= _arrive) {
           position.x = _exitX;
           _phase = _CowPhase.done;
-          _pickIdle();
+          _useLoopingAnim();
         }
         break;
       case _CowPhase.idle:
@@ -361,18 +317,16 @@ final class SaludCowActor extends PositionComponent
     if (_phase != _CowPhase.idle) return;
     _phase = _CowPhase.happy;
 
-    _setActive(_happyComp!);
-    final comp = _happyComp!;
-
+    final c = _animComp!;
     for (var i = 0; i < 2; i++) {
-      comp.animation = _happyOnceTemplate.clone();
-      final t = comp.animationTicker!;
+      c.animation = _onceTemplate.clone();
+      final t = c.animationTicker!;
       t.reset();
       await t.completed;
     }
 
     _phase = _CowPhase.exiting;
-    _pickWalk();
+    _useLoopingAnim();
   }
 
   @override

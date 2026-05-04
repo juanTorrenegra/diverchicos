@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import '../widgets/menu_back_pill.dart';
 import 'salud_cow_game.dart';
 
-/// Cow scene uses a **fixed Flame viewport** (`kSaludCowLogicalWidth`×`kSaludCowLogicalHeight` in `salud_cow_game.dart`).
-/// overlay background should match that composition (or expect letterboxing).
+/// Cow scene uses a **fixed logical size** in Flame (`kSaludCowLogicalWidth`×`kSaludCowLogicalHeight`),
+/// then [FittedBox] + [BoxFit.fill] so the canvas **stretches** with the overlay like `paredVerde.png`.
 ///
 /// Tune positions in **logical pixels**: edit parameters inside [SaludCowTuning] in
 /// `salud_cow_game.dart` (each is commented there).
@@ -44,9 +44,16 @@ class _SaludOverlayState extends State<SaludOverlay> {
           ),
         ),
         Positioned.fill(
-          child: GameWidget<SaludCowGame>(
-            game: _cowGame,
-            backgroundBuilder: (_) => const SizedBox.shrink(),
+          child: FittedBox(
+            fit: BoxFit.fill,
+            child: SizedBox(
+              width: kSaludCowLogicalWidth,
+              height: kSaludCowLogicalHeight,
+              child: GameWidget<SaludCowGame>(
+                game: _cowGame,
+                backgroundBuilder: (_) => const SizedBox.shrink(),
+              ),
+            ),
           ),
         ),
         Positioned(
