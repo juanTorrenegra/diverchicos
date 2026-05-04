@@ -1,0 +1,294 @@
+shvaca3.png
+size: 4032, 4032
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+pma: false
+0
+  bounds: 1, 505, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 1
+0
+  bounds: 1, 1009, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 2
+0
+  bounds: 1, 1513, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 3
+0
+  bounds: 1, 2017, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 4
+0
+  bounds: 1, 2521, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 5
+0
+  bounds: 1, 3025, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 6
+0
+  bounds: 1, 3529, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 7
+0
+  bounds: 371, 505, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 8
+0
+  bounds: 372, 1, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 9
+0
+  bounds: 371, 1009, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 10
+0
+  bounds: 371, 1513, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 11
+0
+  bounds: 371, 2017, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 12
+0
+  bounds: 371, 2521, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 13
+0
+  bounds: 371, 3025, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 14
+0
+  bounds: 371, 3529, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 15
+0
+  bounds: 742, 1, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 16
+0
+  bounds: 1112, 1, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 17
+0
+  bounds: 1482, 1, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 18
+0
+  bounds: 1852, 1, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 19
+0
+  bounds: 2222, 1, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 20
+0
+  bounds: 2592, 1, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 21
+0
+  bounds: 2962, 1, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 22
+0
+  bounds: 3332, 1, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 23
+0
+  bounds: 741, 505, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 24
+0
+  bounds: 741, 1009, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 25
+0
+  bounds: 741, 1513, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 26
+0
+  bounds: 741, 2017, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 27
+0
+  bounds: 741, 2521, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 28
+0
+  bounds: 741, 3025, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 29
+0
+  bounds: 741, 3529, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 30
+0
+  bounds: 1111, 505, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 31
+0
+  bounds: 1481, 505, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 32
+0
+  bounds: 1851, 505, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 33
+0
+  bounds: 2221, 505, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 34
+0
+  bounds: 2591, 505, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 35
+0
+  bounds: 2961, 505, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 36
+0
+  bounds: 3331, 505, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 37
+0
+  bounds: 1111, 1009, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 38
+0
+  bounds: 1111, 1513, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 39
+0
+  bounds: 1111, 2017, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 40
+0
+  bounds: 1111, 2521, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 41
+0
+  bounds: 1111, 3025, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 42
+0
+  bounds: 1111, 3529, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 43
+0
+  bounds: 1481, 1009, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 44
+0
+  bounds: 1851, 1009, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 45
+0
+  bounds: 2221, 1009, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 46
+0
+  bounds: 2591, 1009, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 47
+0
+  bounds: 2961, 1009, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 48
+0
+  bounds: 3331, 1009, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 49
+0
+  bounds: 1481, 1513, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 50
+0
+  bounds: 1481, 2017, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 51
+0
+  bounds: 1481, 2521, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 52
+0
+  bounds: 1481, 3025, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 53
+0
+  bounds: 1481, 3529, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 54
+0
+  bounds: 1851, 1513, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 55
+0
+  bounds: 2221, 1513, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 56
+0
+  bounds: 2591, 1513, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 57
+0
+  bounds: 2961, 1513, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 58
+0
+  bounds: 3331, 1513, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 59
+0
+  bounds: 1851, 2017, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 60
+0
+  bounds: 1851, 2521, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 61
+0
+  bounds: 1851, 3025, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 62
+0
+  bounds: 2221, 2017, 367, 502
+  offsets: 95, 2, 512, 512
+  index: 63
+0
+  bounds: 2221, 2521, 363, 502
+  offsets: 99, 2, 512, 512
+  index: 64
+0
+  bounds: 2221, 3529, 358, 502
+  offsets: 104, 2, 512, 512
+  index: 65
+0
+  bounds: 2586, 2521, 354, 502
+  offsets: 108, 2, 512, 512
+  index: 66
+0
+  bounds: 2586, 3025, 352, 502
+  offsets: 110, 2, 512, 512
+  index: 67
+0
+  bounds: 2590, 2017, 354, 502
+  offsets: 108, 2, 512, 512
+  index: 68
+0
+  bounds: 2581, 3529, 358, 502
+  offsets: 104, 2, 512, 512
+  index: 69
+0
+  bounds: 2221, 3025, 363, 502
+  offsets: 99, 2, 512, 512
+  index: 70
+0
+  bounds: 1851, 3529, 368, 502
+  offsets: 94, 2, 512, 512
+  index: 71
+0
+  bounds: 1, 1, 369, 502
+  offsets: 93, 2, 512, 512
+  index: 72

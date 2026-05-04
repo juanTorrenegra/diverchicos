@@ -12,18 +12,18 @@ import 'package:flutter/painting.dart';
 const double kSaludCowLogicalWidth = 1920;
 const double kSaludCowLogicalHeight = 1080;
 
-/// LibGDX atlas from TexturePacker (`assets/images/shvaca2.atlas` + `shvaca2.png`).
-/// Frames are **256×256** logical size (`offsets` / `orig` in atlas).
+/// LibGDX atlas from TexturePacker (`assets/images/shvaca4.atlas` + `shvaca4.png`).
+/// Sheet **1152×1152**; each frame is **800×800** logical (`offsets` / `orig` in atlas).
 ///
 /// TexturePacker may emit rows named `0` with `index:` lines; that parses to an
 /// **empty** [Region.name], not `cow`. [_cowFramesFromAtlas] handles both styles.
-const String kShvacaAtlasAsset = 'shvaca2.atlas';
+const String kShvacaAtlasAsset = 'shvaca4.atlas';
 
 /// When regions are named `cow_01` … in the atlas; otherwise frames are resolved by index.
 const String kShvacaAnimationNamePreferred = 'cow';
 
-/// Logical draw size for the cow on screen (square); frames are 256×256 in the atlas.
-const double kShvacaDrawSizePx = 600;
+/// Logical draw size for the cow on screen (square); tune if clip / door layout needs it.
+const double kShvacaDrawSizePx = 800;
 
 /// Tweaking knobs for [SaludCowGame].
 /// Coordinate system: **origin top-left**, X right, Y down, size [kSaludCowLogicalWidth]×[kSaludCowLogicalHeight].
