@@ -1,0 +1,102 @@
+jumping.png
+size: 2758, 2758
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+pma: false
+0
+  bounds: 361, 757, 358, 749
+  offsets: 177, 27, 800, 800
+  index: 1
+0
+  bounds: 1, 1512, 358, 750
+  offsets: 177, 27, 800, 800
+  index: 2
+0
+  bounds: 1, 758, 358, 752
+  offsets: 177, 29, 800, 800
+  index: 3
+0
+  bounds: 719, 1, 357, 751
+  offsets: 178, 35, 800, 800
+  index: 4
+0
+  bounds: 715, 1508, 357, 744
+  offsets: 178, 47, 800, 800
+  index: 5
+0
+  bounds: 721, 754, 357, 732
+  offsets: 178, 64, 800, 800
+  index: 6
+0
+  bounds: 1078, 1, 356, 715
+  offsets: 179, 84, 800, 800
+  index: 7
+0
+  bounds: 1414, 718, 362, 692
+  offsets: 179, 108, 800, 800
+  index: 8
+0
+  bounds: 1778, 703, 373, 668
+  offsets: 175, 132, 800, 800
+  index: 9
+0
+  bounds: 1419, 2093, 379, 647
+  offsets: 172, 153, 800, 800
+  index: 10
+0
+  bounds: 2153, 662, 382, 632
+  offsets: 171, 168, 800, 800
+  index: 11
+0
+  bounds: 2171, 1296, 382, 626
+  offsets: 171, 174, 800, 800
+  index: 12
+0
+  bounds: 2171, 1, 382, 630
+  offsets: 171, 170, 800, 800
+  index: 13
+0
+  bounds: 1788, 1373, 381, 642
+  offsets: 171, 158, 800, 800
+  index: 14
+0
+  bounds: 1794, 1, 375, 659
+  offsets: 173, 141, 800, 800
+  index: 15
+0
+  bounds: 1419, 1412, 367, 679
+  offsets: 178, 121, 800, 800
+  index: 16
+0
+  bounds: 1436, 1, 356, 700
+  offsets: 187, 100, 800, 800
+  index: 17
+0
+  bounds: 1800, 2017, 342, 721
+  offsets: 199, 79, 800, 800
+  index: 18
+0
+  bounds: 2144, 2017, 324, 740
+  offsets: 215, 60, 800, 800
+  index: 19
+0
+  bounds: 1080, 718, 332, 755
+  offsets: 205, 45, 800, 800
+  index: 20
+0
+  bounds: 1074, 1488, 343, 760
+  offsets: 193, 34, 800, 800
+  index: 21
+0
+  bounds: 361, 1508, 352, 758
+  offsets: 184, 28, 800, 800
+  index: 22
+0
+  bounds: 1, 1, 357, 755
+  offsets: 179, 25, 800, 800
+  index: 23
+0
+  bounds: 360, 1, 357, 754
+  offsets: 178, 24, 800, 800
+  index: 24
