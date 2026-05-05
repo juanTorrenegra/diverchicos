@@ -19,7 +19,7 @@ const double kSaludCowLogicalHeight = 1080;
 /// **empty** [Region.name], not `cow`. [_cowFramesFromAtlas] handles both styles.
 const String kShvacaAtlasAsset = 'shvaca4.atlas';
 
-/// When regions are named `cow_01` … in the atlas; otherwise frames are resolved by index.
+/// When regions are named `cow_01` … in the atlas; otherwise frames are resolved by index
 const String kShvacaAnimationNamePreferred = 'cow';
 
 /// Logical draw size for the cow on screen (square); tune if clip / door layout needs it.
