@@ -75,7 +75,10 @@ enum _CowPhase { entering, idle, exiting, done }
 /// Walk‑in (jump ×3 → turn to idle) → static [cow.png] → tap → jumping loop while walking right → static.
 /// Renders at fixed [kSaludCowLogicalWidth]×[kSaludCowLogicalHeight] (letterboxed/scaled).
 final class SaludCowGame extends FlameGame {
-  SaludCowGame({this.tuning = const SaludCowTuning()})
+  SaludCowGame({
+    this.tuning = const SaludCowTuning(),
+    this.onExitFinished,
+  })
     : super(
         camera: CameraComponent.withFixedResolution(
           width: kSaludCowLogicalWidth,
@@ -84,6 +87,7 @@ final class SaludCowGame extends FlameGame {
       );
 
   final SaludCowTuning tuning;
+  final VoidCallback? onExitFinished;
 
   SaludCowActor? _actor;
   _ClipDebugLineComponent? _debugLine;
@@ -99,7 +103,10 @@ final class SaludCowGame extends FlameGame {
       isEnabled: tuning.showClipDebugLine,
     )..priority = 90;
     await world.add(_debugLine!);
-    _actor = SaludCowActor(tuning: tuning);
+    _actor = SaludCowActor(
+      tuning: tuning,
+      onExitFinished: onExitFinished,
+    );
     await world.add(_actor!);
   }
 
@@ -181,9 +188,13 @@ final class _ClipDebugLineComponent extends PositionComponent {
 
 final class SaludCowActor extends PositionComponent
     with HasGameReference<SaludCowGame>, TapCallbacks {
-  SaludCowActor({required this.tuning}) : super(anchor: Anchor.bottomCenter);
+  SaludCowActor({
+    required this.tuning,
+    this.onExitFinished,
+  }) : super(anchor: Anchor.bottomCenter);
 
   final SaludCowTuning tuning;
+  final VoidCallback? onExitFinished;
 
   static const double _arrive = 4;
 
@@ -203,6 +214,7 @@ final class SaludCowActor extends PositionComponent
   Vector2 _displaySize = Vector2.zero();
 
   _CowPhase _phase = _CowPhase.entering;
+  bool _exitFinishNotified = false;
 
   double _startX = 0;
   double _idleX = 0;
@@ -298,6 +310,7 @@ final class SaludCowActor extends PositionComponent
     position.x = _startX;
     _phase = _CowPhase.entering;
     _enterSequenceDone = false;
+    _exitFinishNotified = false;
     add(_clipRoot!);
     _updateClipWindow();
 
@@ -365,6 +378,10 @@ final class SaludCowActor extends PositionComponent
           position.x = _exitX;
           _phase = _CowPhase.done;
           _useStaticCow();
+          if (!_exitFinishNotified) {
+            _exitFinishNotified = true;
+            onExitFinished?.call();
+          }
         }
         break;
       case _CowPhase.idle:

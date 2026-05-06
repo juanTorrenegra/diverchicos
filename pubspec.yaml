@@ -70,6 +70,7 @@ flutter:
     - assets/images/cowAnimations/happyWaveHandsJump/
     - assets/images/cowAnimations/jumping/
     - assets/images/cowAnimations/jumpToIdle/
+    - assets/images/bathGame/
     - assets/audio/
 
   # An image asset can refer to one or more resolution-specific "variants", see

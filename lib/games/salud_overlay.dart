@@ -28,12 +28,48 @@ class SaludOverlay extends StatefulWidget {
   State<SaludOverlay> createState() => _SaludOverlayState();
 }
 
-class _SaludOverlayState extends State<SaludOverlay> {
-  late final SaludCowGame _cowGame =
-      SaludCowGame(tuning: widget.cowTuning);
+class _SaludOverlayState extends State<SaludOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _whiteFade = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 380),
+    reverseDuration: const Duration(milliseconds: 520),
+  );
+  SaludCowGame? _cowGame;
+  bool _showBathScene = false;
+  bool _transitionRunning = false;
 
   @override
-  Widget build(BuildContext context) {
+  void initState() {
+    super.initState();
+    _cowGame = SaludCowGame(
+      tuning: widget.cowTuning,
+      onExitFinished: _startBathTransition,
+    );
+  }
+
+  @override
+  void dispose() {
+    _whiteFade.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startBathTransition() async {
+    if (_transitionRunning || !mounted) return;
+    _transitionRunning = true;
+    await _whiteFade.animateTo(1);
+    if (!mounted) return;
+    setState(() {
+      _cowGame = null;
+      _showBathScene = true;
+    });
+    await _whiteFade.animateBack(0);
+    _transitionRunning = false;
+  }
+
+  Widget _buildCowScene() {
+    final game = _cowGame;
+    if (game == null) return const SizedBox.expand();
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -50,16 +86,80 @@ class _SaludOverlayState extends State<SaludOverlay> {
               width: kSaludCowLogicalWidth,
               height: kSaludCowLogicalHeight,
               child: GameWidget<SaludCowGame>(
-                game: _cowGame,
+                game: game,
                 backgroundBuilder: (_) => const SizedBox.shrink(),
               ),
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildBathScene() {
+    final logicalCowSize =
+        (kSaludCowLogicalHeight * 0.38).clamp(280, 760).toDouble();
+    return FittedBox(
+      fit: BoxFit.fill,
+      child: SizedBox(
+        width: kSaludCowLogicalWidth,
+        height: kSaludCowLogicalHeight,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/bathGame/bathWall.png',
+                fit: BoxFit.fill,
+                errorBuilder: (context, error, stackTrace) {
+                  return const ColoredBox(color: Color(0xFFB3E5FC));
+                },
+              ),
+            ),
+            Center(
+              child: SizedBox.square(
+                dimension: logicalCowSize,
+                child: Image.asset(
+                  'assets/images/cow.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(
+          child: _showBathScene ? _buildBathScene() : _buildCowScene(),
+        ),
         Positioned(
           top: 20,
           right: 16,
           child: MenuBackPill(onPressed: widget.onBack),
+        ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedBuilder(
+              animation: _whiteFade,
+              builder: (_, __) {
+                return ColoredBox(
+                  color: Color.lerp(
+                        Colors.transparent,
+                        Colors.white,
+                        _whiteFade.value,
+                      ) ??
+                      Colors.transparent,
+                );
+              },
+            ),
+          ),
         ),
       ],
     );
