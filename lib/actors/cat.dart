@@ -14,7 +14,7 @@ import 'salud_animal_common.dart';
 /// Static + atlas keys for the cat (swap paths when `catAnimations/` atlases exist).
 const String kCatStaticPngAsset = 'cat.png';
 
-/// Reuses cow jump atlases until cat-specific strips are added in assets.
+/// Reuses cow jump atlases until cat-specific strips are added in assets
 const String kCatJumpingAtlasAsset = kCowJumpingAtlasAsset;
 const String kCatJumpToIdleAtlasAsset = kCowJumpToIdleAtlasAsset;
 const String kCatAtlasNamePreferred = kCowAtlasNamePreferred;
@@ -24,10 +24,8 @@ enum SaludCatPhase { entering, idle, exiting, done }
 /// Same pipeline as [SaludCowActor], with cat static frame and shared atlas paths.
 final class SaludCatActor extends PositionComponent
     with HasGameReference<FlameGame>, TapCallbacks {
-  SaludCatActor({
-    required this.tuning,
-    this.onExitFinished,
-  }) : super(anchor: Anchor.bottomCenter);
+  SaludCatActor({required this.tuning, this.onExitFinished})
+    : super(anchor: Anchor.bottomCenter);
 
   final SaludCowTuning tuning;
   final VoidCallback? onExitFinished;
