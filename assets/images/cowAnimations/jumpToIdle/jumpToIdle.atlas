@@ -1,182 +1,166 @@
 jumpToIdle.png
-size: 3470, 3470
+size: 3225, 3225
 format: RGBA8888
 filter: Linear, Linear
 repeat: none
 pma: false
 0
-  bounds: 1, 1, 358, 749
-  offsets: 177, 27, 800, 800
+  bounds: 1306, 427, 301, 753
+  offsets: 236, 26, 800, 800
   rotate: 90
   index: 1
 0
-  bounds: 752, 1, 358, 749
-  offsets: 177, 27, 800, 800
-  rotate: 90
+  bounds: 805, 1408, 301, 750
+  offsets: 236, 29, 800, 800
   index: 2
 0
-  bounds: 1503, 1, 359, 748
-  offsets: 176, 28, 800, 800
+  bounds: 1236, 1148, 302, 743
+  offsets: 235, 35, 800, 800
   rotate: 90
   index: 3
 0
-  bounds: 2253, 1, 360, 746
-  offsets: 175, 30, 800, 800
+  bounds: 1108, 1854, 304, 735
+  offsets: 233, 42, 800, 800
   rotate: 90
   index: 4
 0
-  bounds: 1, 361, 362, 743
-  offsets: 173, 32, 800, 800
+  bounds: 2061, 423, 305, 731
+  offsets: 231, 45, 800, 800
   rotate: 90
   index: 5
 0
-  bounds: 746, 361, 365, 741
-  offsets: 171, 34, 800, 800
-  rotate: 90
+  bounds: 2794, 713, 306, 731
+  offsets: 229, 44, 800, 800
   index: 6
 0
-  bounds: 1489, 362, 367, 738
-  offsets: 169, 36, 800, 800
+  bounds: 1981, 1143, 308, 733
+  offsets: 226, 40, 800, 800
   rotate: 90
   index: 7
 0
-  bounds: 2229, 363, 373, 736
-  offsets: 167, 38, 800, 800
+  bounds: 2139, 2889, 308, 735
+  offsets: 223, 36, 800, 800
   rotate: 90
   index: 8
 0
-  bounds: 1, 725, 381, 734
-  offsets: 164, 39, 800, 800
+  bounds: 1845, 1844, 310, 734
+  offsets: 219, 35, 800, 800
   rotate: 90
   index: 9
 0
-  bounds: 737, 728, 388, 731
-  offsets: 162, 41, 800, 800
-  rotate: 90
+  bounds: 2269, 2156, 315, 731
+  offsets: 215, 36, 800, 800
   index: 10
 0
-  bounds: 1470, 731, 396, 729
-  offsets: 159, 42, 800, 800
-  rotate: 90
+  bounds: 785, 2160, 323, 725
+  offsets: 211, 39, 800, 800
   index: 11
 0
-  bounds: 2201, 738, 405, 729
-  offsets: 156, 42, 800, 800
+  bounds: 711, 2887, 332, 719
+  offsets: 207, 43, 800, 800
   rotate: 90
   index: 12
 0
-  bounds: 1, 1108, 413, 727
-  offsets: 154, 43, 800, 800
-  rotate: 90
+  bounds: 2586, 2152, 340, 711
+  offsets: 203, 48, 800, 800
   index: 13
 0
-  bounds: 2127, 1564, 420, 725
-  offsets: 152, 44, 800, 800
+  bounds: 1432, 2877, 347, 705
+  offsets: 199, 52, 800, 800
   rotate: 90
   index: 14
 0
-  bounds: 1424, 1986, 428, 723
-  offsets: 150, 45, 800, 800
-  rotate: 90
+  bounds: 430, 2113, 353, 701
+  offsets: 195, 55, 800, 800
   index: 15
 0
-  bounds: 1, 2398, 435, 721
-  offsets: 149, 46, 800, 800
-  rotate: 90
+  bounds: 2581, 1453, 357, 697
+  offsets: 192, 57, 800, 800
   index: 16
 0
-  bounds: 1, 2835, 441, 717
-  offsets: 148, 49, 800, 800
-  rotate: 90
+  bounds: 873, 705, 361, 698
+  offsets: 188, 55, 800, 800
   index: 17
 0
-  bounds: 720, 2858, 447, 713
-  offsets: 147, 52, 800, 800
-  rotate: 90
+  bounds: 439, 1408, 364, 703
+  offsets: 185, 50, 800, 800
   index: 18
 0
-  bounds: 2149, 3017, 452, 713
-  offsets: 147, 51, 800, 800
-  rotate: 90
+  bounds: 2794, 1, 368, 710
+  offsets: 182, 43, 800, 800
   index: 19
 0
-  bounds: 1435, 2872, 454, 712
-  offsets: 148, 51, 800, 800
-  rotate: 90
+  bounds: 1507, 2160, 376, 715
+  offsets: 179, 38, 800, 800
   index: 20
 0
-  bounds: 2149, 2560, 455, 711
-  offsets: 150, 51, 800, 800
-  rotate: 90
+  bounds: 1885, 2156, 382, 717
+  offsets: 177, 36, 800, 800
   index: 21
 0
-  bounds: 1436, 2416, 454, 711
-  offsets: 153, 50, 800, 800
+  bounds: 1821, 1453, 389, 715
+  offsets: 175, 38, 800, 800
   rotate: 90
   index: 22
 0
-  bounds: 2862, 2124, 450, 710
-  offsets: 157, 50, 800, 800
+  bounds: 1110, 2160, 395, 713
+  offsets: 173, 40, 800, 800
   index: 23
 0
-  bounds: 2854, 1413, 445, 709
-  offsets: 162, 50, 800, 800
+  bounds: 1108, 1452, 400, 711
+  offsets: 172, 42, 800, 800
+  rotate: 90
   index: 24
 0
-  bounds: 724, 2416, 440, 710
-  offsets: 167, 49, 800, 800
+  bounds: 1, 2817, 407, 708
+  offsets: 170, 45, 800, 800
   rotate: 90
   index: 25
 0
-  bounds: 2149, 2124, 434, 711
-  offsets: 172, 47, 800, 800
+  bounds: 1942, 730, 411, 706
+  offsets: 169, 47, 800, 800
   rotate: 90
   index: 26
 0
-  bounds: 712, 1969, 427, 710
-  offsets: 178, 47, 800, 800
+  bounds: 1236, 730, 416, 704
+  offsets: 168, 49, 800, 800
   rotate: 90
   index: 27
 0
-  bounds: 1, 1956, 423, 709
-  offsets: 182, 47, 800, 800
+  bounds: 2010, 1, 420, 703
+  offsets: 167, 50, 800, 800
   rotate: 90
   index: 28
 0
-  bounds: 1417, 1548, 419, 708
-  offsets: 187, 48, 800, 800
+  bounds: 1306, 1, 424, 702
+  offsets: 166, 51, 800, 800
   rotate: 90
   index: 29
 0
-  bounds: 708, 1536, 418, 707
-  offsets: 190, 48, 800, 800
-  rotate: 90
+  bounds: 1, 2113, 427, 702
+  offsets: 165, 51, 800, 800
   index: 30
 0
-  bounds: 1438, 1129, 417, 707
-  offsets: 192, 48, 800, 800
-  rotate: 90
+  bounds: 875, 1, 429, 701
+  offsets: 165, 52, 800, 800
   index: 31
 0
-  bounds: 730, 1118, 416, 706
-  offsets: 194, 48, 800, 800
-  rotate: 90
+  bounds: 439, 705, 432, 701
+  offsets: 164, 52, 800, 800
   index: 32
 0
-  bounds: 2147, 1145, 417, 705
-  offsets: 195, 49, 800, 800
-  rotate: 90
+  bounds: 1, 1409, 433, 702
+  offsets: 164, 51, 800, 800
   index: 33
 0
-  bounds: 1, 1523, 417, 705
-  offsets: 196, 49, 800, 800
-  rotate: 90
+  bounds: 439, 1, 434, 702
+  offsets: 164, 51, 800, 800
   index: 34
 0
-  bounds: 3001, 1, 418, 704
-  offsets: 196, 49, 800, 800
+  bounds: 1, 1, 436, 702
+  offsets: 163, 51, 800, 800
   index: 35
 0
-  bounds: 2967, 707, 418, 704
-  offsets: 196, 49, 800, 800
+  bounds: 1, 705, 436, 702
+  offsets: 163, 51, 800, 800
   index: 36
