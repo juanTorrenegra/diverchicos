@@ -11,7 +11,7 @@ import '../games/salud_constants.dart';
 import 'cow.dart';
 import 'salud_animal_common.dart';
 
-/// Static + atlas keys for the cat (swap paths when `catAnimations/` atlases exist).
+// Static + atlas keys for the cat (swap paths when `catAnimations/` atlases exist).
 const String kCatStaticPngAsset = 'cat.png';
 
 /// Reuses cow jump atlases until cat-specific strips are added in assets
