@@ -1,25 +1,41 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'bath_scene_object.dart';
 import 'salud_constants.dart';
 import 'salud_types.dart';
 
-/// Drives the three bath micro‑scenes (animations & props). Logic is filled in incrementally.
+/// Drives bath scenes, transitions, and prop interactions.
 class SaludBathSceneController extends ChangeNotifier {
   SaludBathSceneController({this.animal = SaludPlayerAnimal.cow});
 
   final SaludPlayerAnimal animal;
   int sceneIndex = 1;
 
+  bool _exitScene1Requested = false;
+
+  /// Call when scene 1 gameplay is done — triggers exit animation then scene 2.
+  void exitScene1ToScene2() {
+    _exitScene1Requested = true;
+    notifyListeners();
+  }
+
+  /// Consumed once by [SaludBath] to start the exit animation.
+  bool consumeExitScene1Request() {
+    if (!_exitScene1Requested) return false;
+    _exitScene1Requested = false;
+    return true;
+  }
+
   /// Scene 1 — water from tap into glass.
   void waterpour() {
-    // TODO: drive vaso / grifo animations
     if (kDebugMode) {
       debugPrint('SaludBath: waterpour()');
     }
   }
 
-  /// Toothpaste meets toothbrush.
   void pasteOnBrush() {
     if (kDebugMode) {
       debugPrint('SaludBath: pasteOnBrush()');
@@ -32,14 +48,12 @@ class SaludBathSceneController extends ChangeNotifier {
     }
   }
 
-  /// Clear props toward the nearest screen edge; dispose placeholders.
   Future<void> exitFromScene() async {
     if (kDebugMode) {
       debugPrint('SaludBath: exitFromScene()');
     }
   }
 
-  /// Next wave of props “bounces” in (scene 2).
   Future<void> enterScene() async {
     if (kDebugMode) {
       debugPrint('SaludBath: enterScene()');
@@ -52,13 +66,9 @@ class SaludBathSceneController extends ChangeNotifier {
   }
 }
 
-/// Bath room UI: [bathWall] + scene props. Uses same logical 1920×1080 box as intro.
+/// Bath room UI (logical 1920×1080).
 class SaludBath extends StatefulWidget {
-  const SaludBath({
-    super.key,
-    required this.animal,
-    required this.controller,
-  });
+  const SaludBath({super.key, required this.animal, required this.controller});
 
   final SaludPlayerAnimal animal;
   final SaludBathSceneController controller;
@@ -67,7 +77,54 @@ class SaludBath extends StatefulWidget {
   State<SaludBath> createState() => _SaludBathState();
 }
 
-class _SaludBathState extends State<SaludBath> {
+class _SaludBathState extends State<SaludBath> with TickerProviderStateMixin {
+  AnimationController? _exitCtrl;
+  AnimationController? _scene2EnterCtrl;
+
+  /// 0→1 while scene 2 hero/props bounce in; stays 1 after complete.
+  double _scene2EnterT = 1;
+
+  double get _exitT => _exitCtrl?.value ?? 0;
+
+  void _tickAnimations() => setState(() {});
+
+  static final List<SceneObjectConfig> _scene1Defs = [
+    _mkProp(id: 'sink', file: 'sinkTable.png', main: Offset(0.0, 782.8)),
+    _mkProp(id: 'lavamanos', file: 'lavamanos.png', main: Offset(716.5, 779.6)),
+    _mkProp(
+      id: 'colgate',
+      file: 'colgate.png',
+      main: Offset(1348.0, 844.8),
+      draggable: true,
+      scaleIdle: true,
+    ),
+    _mkProp(id: 'cepillo', file: 'cepillo.png', main: Offset(256.4, 853.4)),
+    _mkProp(id: 'grifo', file: 'grifo.png', main: Offset(899.6, 687.6)),
+    _mkProp(id: 'vaso', file: 'vaso.png', main: Offset(856.7, 845.9)),
+    _mkProp(id: 'espejo', file: 'espejo.png', main: Offset(132.5, 77.9)),
+    _mkProp(id: 'toalla', file: 'toalla.png', main: Offset(1452.7, 452.1)),
+  ];
+
+  static SceneObjectConfig _mkProp({
+    required String id,
+    required String file,
+    required Offset main,
+    bool draggable = false,
+    bool tappable = false,
+    bool scaleIdle = false,
+  }) {
+    return SceneObjectConfig(
+      id: id,
+      assetFileName: file,
+      mainPosition: main,
+      startingAnimationPosition: bathDefaultStartBelow(main),
+      endAnimationPosition: bathDefaultEndPosition(main),
+      draggable: draggable,
+      tappable: tappable,
+      scaleIdle: scaleIdle,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -83,22 +140,71 @@ class _SaludBathState extends State<SaludBath> {
     }
   }
 
-  void _onCtrl() => setState(() {});
+  void _onCtrl() {
+    if (widget.controller.consumeExitScene1Request()) {
+      unawaited(
+        _runScene1ExitThenScene2().catchError((Object e, StackTrace st) {
+          if (kDebugMode) {
+            debugPrint('SaludBath async error: $e');
+          }
+        }),
+      );
+    }
+    setState(() {});
+  }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onCtrl);
+    _exitCtrl?.dispose();
+    _scene2EnterCtrl?.dispose();
     super.dispose();
   }
 
-  String get _heroPng =>
-      widget.animal == SaludPlayerAnimal.cat ? 'cat.png' : 'cow.png';
+  Future<void> _runScene1ExitThenScene2() async {
+    if (!mounted || widget.controller.sceneIndex != 1) return;
+    _exitCtrl?.dispose();
+    _exitCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 950),
+    );
+    _exitCtrl!.addListener(_tickAnimations);
+    await _exitCtrl!.forward();
+    if (!mounted) return;
+    _exitCtrl?.removeListener(_tickAnimations);
+    _exitCtrl?.dispose();
+    _exitCtrl = null;
+
+    _scene2EnterT = 0;
+    widget.controller.goToScene(2);
+    _scene2EnterCtrl?.dispose();
+    _scene2EnterCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _scene2EnterCtrl!.addListener(() {
+      setState(() => _scene2EnterT = _scene2EnterCtrl!.value);
+    });
+    setState(() {});
+    await _scene2EnterCtrl!.forward();
+    if (!mounted) return;
+    _scene2EnterT = 1;
+    _scene2EnterCtrl?.dispose();
+    _scene2EnterCtrl = null;
+    setState(() {});
+  }
+
+  String get _heroAssetPath =>
+      'assets/images/${widget.animal == SaludPlayerAnimal.cat ? 'cat' : 'cow'}.png';
 
   @override
   Widget build(BuildContext context) {
-    final logicalCowSize =
-        (kSaludCowLogicalHeight * 0.38).clamp(280, 760).toDouble();
     final c = widget.controller;
+    final heroSize = kSaludCowLogicalHeight;
+    final heroMain = Offset(
+      kSaludCowLogicalWidth / 2 - heroSize / 2,
+      kSaludCowLogicalHeight * 0.05,
+    );
 
     return FittedBox(
       fit: BoxFit.fill,
@@ -106,6 +212,7 @@ class _SaludBathState extends State<SaludBath> {
         width: kSaludCowLogicalWidth,
         height: kSaludCowLogicalHeight,
         child: Stack(
+          clipBehavior: Clip.none,
           fit: StackFit.expand,
           children: [
             Positioned.fill(
@@ -117,119 +224,54 @@ class _SaludBathState extends State<SaludBath> {
                 },
               ),
             ),
-            Center(
-              child: SizedBox.square(
-                dimension: logicalCowSize,
-                child: Image.asset(
-                  'assets/images/$_heroPng',
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(Icons.pets, size: 120, color: Colors.white);
-                  },
-                ),
+            if (c.sceneIndex == 1) ...[
+              BathHeroObject(
+                key: const ValueKey('bathHeroS1'),
+                assetPath: _heroAssetPath,
+                baseSize: heroSize,
+                mainPosition: heroMain,
+                startingAnimationPosition: bathDefaultStartBelow(heroMain),
+                endAnimationPosition: bathDefaultEndPosition(heroMain),
+                exitT: _exitT,
+                enterT: 1,
               ),
-            ),
-            if (c.sceneIndex == 1) ..._sceneOneProps(c),
-            if (c.sceneIndex >= 2) ..._sceneTwoPlaceholder(c),
+              for (final cfg in _scene1Defs)
+                SceneObject(
+                  key: ValueKey(cfg.id),
+                  config: cfg,
+                  exitT: _exitT,
+                  enterT: 1,
+                  onTap: cfg.tappable ? () {} : null,
+                ),
+            ],
+            if (c.sceneIndex >= 2) ...[
+              BathHeroObject(
+                key: const ValueKey('bathHeroS2'),
+                assetPath: _heroAssetPath,
+                baseSize: heroSize,
+                mainPosition: heroMain,
+                startingAnimationPosition: bathDefaultStartBelow(heroMain),
+                endAnimationPosition: bathDefaultEndPosition(heroMain),
+                exitT: 0,
+                enterT: _scene2EnterT,
+              ),
+              ..._sceneTwoPlaceholder(c),
+            ],
           ],
         ),
       ),
     );
   }
 
-  /// Towel, mirror, sink unit, tap, glass, brush, toothpaste (stubs).
-  List<Widget> _sceneOneProps(SaludBathSceneController c) {
-    return [
-      Positioned(
-        left: 120,
-        top: 140,
-        child: Image.asset(
-          'assets/images/bathGame/toalla.png',
-          width: 220,
-          fit: BoxFit.contain,
-        ),
-      ),
-      Positioned(
-        right: 200,
-        top: 120,
-        child: Image.asset(
-          'assets/images/bathGame/espejo.png',
-          width: 280,
-          fit: BoxFit.contain,
-        ),
-      ),
-      Positioned(
-        left: 560,
-        bottom: 180,
-        child: SizedBox(
-          width: 800,
-          height: 420,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned.fill(
-                child: Image.asset(
-                  'assets/images/bathGame/sinkTable.png',
-                  fit: BoxFit.contain,
-                ),
-              ),
-              Positioned(
-                left: 120,
-                top: 40,
-                child: Image.asset(
-                  'assets/images/bathGame/lavamanos.png',
-                  width: 360,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              Positioned(
-                right: 80,
-                top: 100,
-                child: GestureDetector(
-                  onTap: c.waterpour,
-                  child: Image.asset(
-                    'assets/images/bathGame/grifo.png',
-                    width: 120,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 160,
-                top: 200,
-                child: GestureDetector(
-                  onTap: c.waterpour,
-                  child: Image.asset(
-                    'assets/images/bathGame/vaso.png',
-                    width: 100,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 200,
-                bottom: 40,
-                child: Image.asset(
-                  'assets/images/bathGame/cepillo.png',
-                  width: 140,
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ];
-  }
-
   List<Widget> _sceneTwoPlaceholder(SaludBathSceneController c) {
     return [
       Positioned(
         bottom: 120,
-        left: kSaludCowLogicalWidth / 2 - 200,
+        left: kSaludCowLogicalWidth / 2 - 280,
         child: Text(
-          'Escena ${c.sceneIndex} (placeholder)',
-          style: const TextStyle(color: Colors.white70, fontSize: 28),
+          'Escena ${c.sceneIndex} — añade props scene 2 (bounce desde startingAnimationPosition)',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white70, fontSize: 22),
         ),
       ),
     ];
