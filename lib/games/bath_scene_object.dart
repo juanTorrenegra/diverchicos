@@ -53,6 +53,9 @@ class SceneObject extends StatefulWidget {
     this.exitT = 0,
     this.enterT = 1,
     this.onTap,
+    this.onDragLiftChanged,
+    this.dragHitBaseSize,
+    this.onDragWorldRectChanged,
   });
 
   final SceneObjectConfig config;
@@ -62,6 +65,15 @@ class SceneObject extends StatefulWidget {
   final double enterT;
 
   final VoidCallback? onTap;
+
+  /// `true` while the user is dragging (and until bounce‑back finishes); use to raise z‑order in a [Stack].
+  final ValueChanged<bool>? onDragLiftChanged;
+
+  /// Raster size used with [onDragWorldRectChanged] (hit / overlap testing).
+  final Size? dragHitBaseSize;
+
+  /// Current axis‑aligned bounds in logical coords while dragging; `null` when gesture ends.
+  final ValueChanged<Rect?>? onDragWorldRectChanged;
 
   @override
   State<SceneObject> createState() => _SceneObjectState();
@@ -139,10 +151,31 @@ class _SceneObjectState extends State<SceneObject>
     _returnAnim = null;
   }
 
+  void _emitDragWorldRect() {
+    final cb = widget.onDragWorldRectChanged;
+    final sz = widget.dragHitBaseSize;
+    if (cb == null || sz == null) return;
+    final c = widget.config;
+    final canDrag = c.draggable && widget.exitT == 0 && widget.enterT >= 1;
+    if (!canDrag) return;
+    final pos = _baseAnchor + _dragDelta;
+    final idleScale = c.scaleIdle ? _pulseAnim.value : 1.0;
+    final sc = (_dragging && canDrag) ? 1.2 : idleScale;
+    cb(Rect.fromLTWH(pos.dx, pos.dy, sz.width * sc, sz.height * sc));
+  }
+
+  double _interactionScale(double idleScale, bool canDrag) {
+    return (_dragging && canDrag) ? 1.2 : idleScale;
+  }
+
   void _animateReturnToOrigin() {
+    widget.onDragWorldRectChanged?.call(null);
     _stopReturn();
     final begin = _dragDelta;
-    if (begin == Offset.zero) return;
+    if (begin == Offset.zero) {
+      widget.onDragLiftChanged?.call(false);
+      return;
+    }
 
     _returnCtrl = AnimationController(
       vsync: this,
@@ -160,6 +193,7 @@ class _SceneObjectState extends State<SceneObject>
         setState(() => _dragDelta = Offset.zero);
       }
       _stopReturn();
+      widget.onDragLiftChanged?.call(false);
     });
   }
 
@@ -169,7 +203,7 @@ class _SceneObjectState extends State<SceneObject>
     final pos = _baseAnchor + _dragDelta;
     final canDrag = c.draggable && widget.exitT == 0 && widget.enterT >= 1;
     final idleScale = c.scaleIdle ? _pulseAnim.value : 1.0;
-    final scale = (_dragging && canDrag) ? 1.2 : idleScale;
+    final scale = _interactionScale(idleScale, canDrag);
 
     Widget img = Image.asset(
       c.assetPath,
@@ -205,9 +239,12 @@ class _SceneObjectState extends State<SceneObject>
           setState(() {
             _dragging = true;
           });
+          widget.onDragLiftChanged?.call(true);
+          _emitDragWorldRect();
         },
         onPanUpdate: (details) {
           setState(() => _dragDelta += details.delta);
+          _emitDragWorldRect();
         },
         onPanEnd: (_) {
           setState(() => _dragging = false);

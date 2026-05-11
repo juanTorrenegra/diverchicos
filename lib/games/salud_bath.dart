@@ -1,11 +1,16 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'bath_scene_object.dart';
+import 'bath_toothbrush_paste_animation.dart';
 import 'salud_constants.dart';
 import 'salud_types.dart';
+
+/// Matches [cepillo.png] resting spot (same for [cepilloConCrema.png]).
+const Offset _kSaludCepilloMain = Offset(256.4, 853.4);
 
 /// Drives bath scenes, transitions, and prop interactions.
 class SaludBathSceneController extends ChangeNotifier {
@@ -81,6 +86,22 @@ class _SaludBathState extends State<SaludBath> with TickerProviderStateMixin {
   AnimationController? _exitCtrl;
   AnimationController? _scene2EnterCtrl;
 
+  /// While Colgate is dragged (until bounce‑back ends), paint it last so it sits above mirror/towel.
+  bool _colgateLiftedForStack = false;
+
+  /// Same for [cepilloConCrema.png] after paste interaction.
+  bool _cepilloCremaLiftedForStack = false;
+
+  ui.Size? _colgateRaster;
+  ui.Size? _cepilloRaster;
+  ui.Size? _cepilloCremaRaster;
+
+  bool _pasteOnBrushResolved = false;
+  bool _playingPasteAnimation = false;
+  bool _cepilloCremaUnlocked = false;
+
+  late final SceneObjectConfig _cepilloCremaConfigModel;
+
   /// 0→1 while scene 2 hero/props bounce in; stays 1 after complete.
   double _scene2EnterT = 1;
 
@@ -98,7 +119,7 @@ class _SaludBathState extends State<SaludBath> with TickerProviderStateMixin {
       draggable: true,
       scaleIdle: true,
     ),
-    _mkProp(id: 'cepillo', file: 'cepillo.png', main: Offset(256.4, 853.4)),
+    _mkProp(id: 'cepillo', file: 'cepillo.png', main: _kSaludCepilloMain),
     _mkProp(id: 'grifo', file: 'grifo.png', main: Offset(899.6, 687.6)),
     _mkProp(id: 'vaso', file: 'vaso.png', main: Offset(856.7, 845.9)),
     _mkProp(id: 'espejo', file: 'espejo.png', main: Offset(132.5, 77.9)),
@@ -125,10 +146,94 @@ class _SaludBathState extends State<SaludBath> with TickerProviderStateMixin {
     );
   }
 
+  static List<SceneObjectConfig> _scene1PaintOrder(
+    List<SceneObjectConfig> defs,
+    bool colgateOnTop,
+    bool cepilloCremaOnTop,
+  ) {
+    SceneObjectConfig? pick(String id) {
+      for (final c in defs) {
+        if (c.id == id) return c;
+      }
+      return null;
+    }
+
+    final skip = <String>{};
+    if (colgateOnTop) skip.add('colgate');
+    if (cepilloCremaOnTop) skip.add('cepilloCrema');
+
+    final mid = defs.where((c) => !skip.contains(c.id)).toList();
+    final tail = <SceneObjectConfig>[];
+    if (colgateOnTop) {
+      final c = pick('colgate');
+      if (c != null) tail.add(c);
+    }
+    if (cepilloCremaOnTop) {
+      final c = pick('cepilloCrema');
+      if (c != null) tail.add(c);
+    }
+    return [...mid, ...tail];
+  }
+
+  Future<void> _loadBathRasterSizes() async {
+    final c = await bathLoadAssetRasterSize('assets/images/bathGame/colgate.png');
+    final p = await bathLoadAssetRasterSize('assets/images/bathGame/cepillo.png');
+    final pcm = await bathLoadAssetRasterSize('assets/images/bathGame/cepilloConCrema.png');
+    if (!mounted) return;
+    setState(() {
+      _colgateRaster = c;
+      _cepilloRaster = p;
+      _cepilloCremaRaster = pcm ?? p;
+    });
+  }
+
+  void _onColgateOverlapRect(Rect? r) {
+    if (_pasteOnBrushResolved || _playingPasteAnimation || r == null) return;
+    final cep = _cepilloRaster;
+    if (cep == null) return;
+    const inflate = 40.0;
+    final cepRect = Rect.fromLTWH(
+      _kSaludCepilloMain.dx - inflate,
+      _kSaludCepilloMain.dy - inflate,
+      cep.width + 2 * inflate,
+      cep.height + 2 * inflate,
+    );
+    if (!cepRect.overlaps(r)) return;
+    _triggerPasteOnBrush();
+  }
+
+  void _triggerPasteOnBrush() {
+    if (_pasteOnBrushResolved) return;
+    setState(() {
+      _pasteOnBrushResolved = true;
+      _playingPasteAnimation = true;
+      _colgateLiftedForStack = false;
+    });
+    widget.controller.pasteOnBrush();
+  }
+
+  void _onPasteAnimationFinished() {
+    if (!mounted) return;
+    setState(() {
+      _playingPasteAnimation = false;
+      _cepilloCremaUnlocked = true;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    const m = _kSaludCepilloMain;
+    _cepilloCremaConfigModel = SceneObjectConfig(
+      id: 'cepilloCrema',
+      assetFileName: 'cepilloConCrema.png',
+      mainPosition: m,
+      startingAnimationPosition: bathDefaultStartBelow(m),
+      endAnimationPosition: bathDefaultEndPosition(m),
+      draggable: true,
+    );
     widget.controller.addListener(_onCtrl);
+    unawaited(_loadBathRasterSizes());
   }
 
   @override
@@ -180,7 +285,7 @@ class _SaludBathState extends State<SaludBath> with TickerProviderStateMixin {
     _scene2EnterCtrl?.dispose();
     _scene2EnterCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 900),
     );
     _scene2EnterCtrl!.addListener(() {
       setState(() => _scene2EnterT = _scene2EnterCtrl!.value);
@@ -235,13 +340,50 @@ class _SaludBathState extends State<SaludBath> with TickerProviderStateMixin {
                 exitT: _exitT,
                 enterT: 1,
               ),
-              for (final cfg in _scene1Defs)
+              for (final cfg in _scene1PaintOrder(
+                [
+                  for (final p in _scene1Defs)
+                    if (!(_pasteOnBrushResolved &&
+                        (p.id == 'colgate' || p.id == 'cepillo'))) p,
+                  if (_cepilloCremaUnlocked) _cepilloCremaConfigModel,
+                ],
+                _colgateLiftedForStack,
+                _cepilloCremaLiftedForStack,
+              ))
                 SceneObject(
                   key: ValueKey(cfg.id),
                   config: cfg,
                   exitT: _exitT,
                   enterT: 1,
                   onTap: cfg.tappable ? () {} : null,
+                  onDragLiftChanged: cfg.id == 'colgate'
+                      ? (lifted) {
+                          if (_colgateLiftedForStack != lifted) {
+                            setState(() => _colgateLiftedForStack = lifted);
+                          }
+                        }
+                      : cfg.id == 'cepilloCrema'
+                      ? (lifted) {
+                          if (_cepilloCremaLiftedForStack != lifted) {
+                            setState(() => _cepilloCremaLiftedForStack = lifted);
+                          }
+                        }
+                      : null,
+                  dragHitBaseSize: cfg.id == 'colgate'
+                      ? _colgateRaster
+                      : cfg.id == 'cepilloCrema'
+                      ? (_cepilloCremaRaster ?? _cepilloRaster)
+                      : null,
+                  onDragWorldRectChanged:
+                      cfg.id == 'colgate' ? _onColgateOverlapRect : null,
+                ),
+              if (_playingPasteAnimation)
+                Positioned.fill(
+                  child: AbsorbPointer(
+                    child: BathToothbrushPasteAnimator(
+                      onFinished: _onPasteAnimationFinished,
+                    ),
+                  ),
                 ),
             ],
             if (c.sceneIndex >= 2) ...[
