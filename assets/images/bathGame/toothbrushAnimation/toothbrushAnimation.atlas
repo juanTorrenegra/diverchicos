@@ -1,138 +1,120 @@
 toothbrushAnimation.png
-size: 7645, 5539
+size: 6672, 6672
 format: RGBA8888
 filter: Linear, Linear
 repeat: none
 pma: false
 0
-  bounds: 7225, 4524, 620, 180
+  bounds: 5964, 4117, 620, 180
   offsets: 256, 152, 1920, 1080
-  rotate: 90
   index: 1
 0
-  bounds: 6404, 5129, 624, 183
+  bounds: 2748, 4286, 624, 183
   offsets: 262, 156, 1920, 1080
   index: 2
 0
-  bounds: 7407, 4508, 633, 193
+  bounds: 3519, 6340, 633, 193
   offsets: 279, 165, 1920, 1080
-  rotate: 90
   index: 3
 0
-  bounds: 7385, 2548, 647, 208
+  bounds: 1448, 6408, 647, 208
   offsets: 305, 179, 1920, 1080
-  rotate: 90
   index: 4
 0
-  bounds: 7111, 3190, 665, 228
+  bounds: 2852, 6288, 665, 228
   offsets: 339, 196, 1920, 1080
-  rotate: 90
   index: 5
 0
-  bounds: 5730, 2376, 686, 252
+  bounds: 4164, 6170, 686, 252
   offsets: 378, 215, 1920, 1080
-  rotate: 90
   index: 6
 0
-  bounds: 2276, 2923, 709, 278
+  bounds: 2337, 1802, 709, 278
   offsets: 421, 237, 1920, 1080
   index: 7
 0
-  bounds: 890, 973, 734, 305
+  bounds: 5092, 1103, 734, 305
   offsets: 465, 259, 1920, 1080
-  rotate: 90
   index: 8
 0
-  bounds: 6874, 1142, 758, 333
+  bounds: 4899, 5579, 758, 333
   offsets: 510, 281, 1920, 1080
-  rotate: 90
   index: 9
 0
-  bounds: 2440, 467, 780, 359
+  bounds: 2759, 5673, 780, 359
   offsets: 553, 302, 1920, 1080
   index: 10
 0
-  bounds: 7221, 441, 801, 384
+  bounds: 3049, 1786, 801, 384
   offsets: 592, 321, 1920, 1080
-  rotate: 90
   index: 11
 0
-  bounds: 1568, 4084, 819, 406
+  bounds: 3852, 1783, 819, 406
   offsets: 626, 337, 1920, 1080
-  rotate: 90
   index: 12
 0
-  bounds: 1470, 3250, 832, 422
+  bounds: 5012, 679, 832, 422
   offsets: 653, 350, 1920, 1080
-  rotate: 90
   index: 13
 0
-  bounds: 1403, 2406, 842, 434
+  bounds: 4124, 4646, 842, 434
   offsets: 670, 358, 1920, 1080
-  rotate: 90
   index: 14
 0
-  bounds: 523, 2406, 845, 438
+  bounds: 2309, 2455, 845, 438
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 15
 0
-  bounds: 1, 5082, 845, 438
+  bounds: 3381, 3511, 845, 438
   offsets: 676, 361, 1920, 1080
   index: 16
 0
-  bounds: 590, 3253, 845, 438
+  bounds: 3381, 3951, 845, 438
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 17
 0
-  bounds: 688, 4100, 845, 438
+  bounds: 4245, 3071, 845, 438
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 18
 0
-  bounds: 963, 2406, 845, 438
+  bounds: 4228, 4206, 845, 438
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 19
 0
-  bounds: 1030, 3253, 845, 438
+  bounds: 5075, 4206, 845, 438
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 20
 0
-  bounds: 1128, 4100, 845, 438
+  bounds: 4968, 4646, 845, 438
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 21
 0
-  bounds: 6782, 1, 862, 438
+  bounds: 3381, 3071, 862, 438
   offsets: 659, 361, 1920, 1080
   index: 22
 0
-  bounds: 5903, 1, 877, 438
+  bounds: 1430, 2455, 877, 438
   offsets: 644, 361, 1920, 1080
   index: 23
 0
-  bounds: 5014, 1, 887, 438
+  bounds: 3791, 2191, 887, 438
   offsets: 634, 361, 1920, 1080
   index: 24
 0
-  bounds: 3230, 1, 890, 438
+  bounds: 1265, 458, 890, 438
   offsets: 631, 361, 1920, 1080
   index: 25
 0
-  bounds: 4122, 1, 890, 438
+  bounds: 3791, 2631, 890, 438
   offsets: 631, 361, 1920, 1080
   index: 26
 0
-  bounds: 2338, 1, 890, 464
+  bounds: 3816, 686, 890, 464
   offsets: 631, 361, 1920, 1080
   index: 27
 0
-  bounds: 1, 3387, 890, 587
+  bounds: 3319, 1, 890, 587
   offsets: 631, 361, 1920, 1080
-  rotate: 90
   index: 28
 0
   bounds: 1, 973, 887, 710
@@ -143,257 +125,232 @@ pma: false
   offsets: 637, 361, 1920, 1080
   index: 30
 0
-  bounds: 3230, 441, 818, 426
+  bounds: 5828, 1104, 818, 426
   offsets: 676, 361, 1920, 1080
   index: 31
 0
-  bounds: 1839, 2403, 798, 435
+  bounds: 5846, 667, 798, 435
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 32
 0
-  bounds: 2752, 828, 776, 458
+  bounds: 4852, 6178, 776, 458
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 33
 0
-  bounds: 3946, 1126, 756, 491
+  bounds: 4899, 5086, 756, 491
   offsets: 676, 361, 1920, 1080
   index: 34
 0
-  bounds: 5364, 1844, 733, 530
+  bounds: 4164, 5082, 733, 530
   offsets: 676, 361, 1920, 1080
   index: 35
 0
-  bounds: 848, 4947, 708, 571
+  bounds: 2102, 4475, 708, 571
   offsets: 676, 361, 1920, 1080
   index: 36
 0
-  bounds: 2594, 1606, 681, 610
+  bounds: 2812, 4471, 681, 610
   offsets: 676, 361, 1920, 1080
   index: 37
 0
-  bounds: 6805, 1902, 660, 644
+  bounds: 2097, 5048, 660, 644
   offsets: 672, 361, 1920, 1080
   index: 38
 0
-  bounds: 2956, 2280, 641, 670
+  bounds: 2105, 3803, 641, 670
   offsets: 668, 361, 1920, 1080
-  rotate: 90
   index: 39
 0
-  bounds: 5711, 3985, 627, 687
+  bounds: 801, 2406, 627, 687
   offsets: 666, 361, 1920, 1080
   index: 40
 0
-  bounds: 3774, 3670, 621, 694
+  bounds: 2758, 2895, 621, 694
   offsets: 666, 361, 1920, 1080
   index: 41
 0
-  bounds: 4397, 3653, 621, 693
+  bounds: 2758, 3591, 621, 693
   offsets: 666, 361, 1920, 1080
   index: 42
 0
-  bounds: 3219, 4539, 621, 693
+  bounds: 4860, 3511, 621, 693
   offsets: 667, 361, 1920, 1080
   index: 43
 0
-  bounds: 3842, 4366, 621, 693
+  bounds: 3541, 5645, 621, 693
   offsets: 667, 361, 1920, 1080
   index: 44
 0
-  bounds: 4465, 4348, 621, 692
+  bounds: 2095, 5709, 621, 692
   offsets: 668, 361, 1920, 1080
   index: 45
 0
-  bounds: 5031, 3023, 621, 692
+  bounds: 5922, 2658, 621, 692
   offsets: 669, 361, 1920, 1080
-  rotate: 90
   index: 46
 0
-  bounds: 5088, 4340, 621, 691
+  bounds: 5483, 3352, 621, 691
   offsets: 670, 361, 1920, 1080
   index: 47
 0
-  bounds: 5725, 3128, 621, 691
+  bounds: 5815, 4646, 621, 691
   offsets: 671, 361, 1920, 1080
-  rotate: 90
   index: 48
 0
-  bounds: 6418, 3190, 621, 691
+  bounds: 5672, 5541, 621, 691
   offsets: 673, 361, 1920, 1080
-  rotate: 90
   index: 49
 0
-  bounds: 5711, 4674, 621, 691
+  bounds: 4680, 1819, 621, 691
   offsets: 674, 361, 1920, 1080
-  rotate: 90
   index: 50
 0
-  bounds: 6354, 3813, 621, 691
+  bounds: 5291, 2615, 621, 691
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 51
 0
-  bounds: 6404, 4436, 623, 691
+  bounds: 5922, 1965, 623, 691
   offsets: 676, 361, 1920, 1080
   index: 52
 0
-  bounds: 5020, 3646, 625, 692
+  bounds: 804, 3095, 625, 692
   offsets: 676, 361, 1920, 1080
   index: 53
 0
-  bounds: 4299, 3024, 627, 692
+  bounds: 3495, 4391, 627, 692
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 54
 0
-  bounds: 3667, 2975, 630, 693
+  bounds: 4228, 3511, 630, 693
   offsets: 676, 361, 1920, 1080
   index: 55
 0
-  bounds: 1568, 4905, 633, 694
+  bounds: 3156, 2172, 633, 694
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 56
 0
-  bounds: 875, 1709, 636, 695
+  bounds: 2120, 2895, 636, 695
   offsets: 676, 361, 1920, 1080
   index: 57
 0
-  bounds: 6687, 2548, 640, 696
+  bounds: 792, 3789, 640, 696
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 58
 0
-  bounds: 5031, 2376, 645, 697
+  bounds: 1448, 5709, 645, 697
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 59
 0
-  bounds: 4330, 2372, 650, 699
+  bounds: 1445, 5008, 650, 699
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 60
 0
-  bounds: 3628, 2317, 656, 700
+  bounds: 780, 4487, 656, 700
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 61
 0
-  bounds: 3277, 1577, 662, 701
+  bounds: 1438, 4305, 662, 701
   offsets: 676, 361, 1920, 1080
   index: 62
 0
-  bounds: 2440, 3203, 669, 702
+  bounds: 1434, 3601, 669, 702
   offsets: 676, 361, 1920, 1080
   index: 63
 0
-  bounds: 2276, 2218, 678, 703
+  bounds: 765, 5189, 678, 703
   offsets: 676, 361, 1920, 1080
   index: 64
 0
-  bounds: 6099, 1849, 687, 704
+  bounds: 1431, 2895, 687, 704
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 65
 0
-  bounds: 3941, 1619, 696, 705
+  bounds: 750, 5894, 696, 705
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 66
 0
-  bounds: 6165, 1142, 707, 705
+  bounds: 2345, 523, 707, 705
   offsets: 676, 361, 1920, 1080
   index: 67
 0
-  bounds: 5444, 1136, 719, 706
+  bounds: 890, 973, 719, 706
   offsets: 676, 361, 1920, 1080
   index: 68
 0
-  bounds: 3212, 869, 732, 706
+  bounds: 1611, 898, 732, 706
   offsets: 676, 361, 1920, 1080
   index: 69
 0
-  bounds: 1513, 1654, 747, 706
+  bounds: 1, 5885, 747, 706
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 70
 0
-  bounds: 2264, 4770, 762, 704
+  bounds: 1, 5179, 762, 704
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 71
 0
-  bounds: 6442, 441, 777, 699
+  bounds: 1, 4478, 777, 699
   offsets: 676, 361, 1920, 1080
   index: 72
 0
-  bounds: 5651, 441, 789, 693
+  bounds: 1, 3783, 789, 693
   offsets: 676, 361, 1920, 1080
   index: 73
 0
-  bounds: 4851, 441, 798, 688
+  bounds: 1, 2406, 798, 688
   offsets: 676, 361, 1920, 1080
   index: 74
 0
-  bounds: 1, 4279, 801, 685
+  bounds: 1, 3096, 801, 685
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 75
 0
-  bounds: 4050, 441, 799, 683
+  bounds: 4211, 1, 799, 683
   offsets: 676, 361, 1920, 1080
   index: 76
 0
-  bounds: 1197, 722, 791, 676
+  bounds: 5012, 1, 791, 676
   offsets: 676, 361, 1920, 1080
   index: 77
 0
-  bounds: 1976, 3990, 778, 664
+  bounds: 5805, 1, 778, 664
   offsets: 676, 361, 1920, 1080
-  rotate: 90
   index: 78
 0
-  bounds: 1990, 828, 760, 648
+  bounds: 3054, 590, 760, 648
   offsets: 676, 361, 1920, 1080
   index: 79
 0
-  bounds: 4704, 1131, 738, 629
+  bounds: 3836, 1152, 738, 629
   offsets: 676, 361, 1920, 1080
   index: 80
 0
-  bounds: 4648, 1762, 714, 608
+  bounds: 1582, 1845, 714, 608
   offsets: 676, 361, 1920, 1080
   index: 81
 0
-  bounds: 5984, 2538, 701, 588
+  bounds: 2759, 5083, 701, 588
   offsets: 665, 361, 1920, 1080
   index: 82
 0
-  bounds: 2642, 3907, 702, 570
+  bounds: 2345, 1230, 702, 570
   offsets: 642, 361, 1920, 1080
-  rotate: 90
   index: 83
 0
-  bounds: 3214, 3837, 700, 558
+  bounds: 3462, 5085, 700, 558
   offsets: 628, 361, 1920, 1080
-  rotate: 90
   index: 84
 0
-  bounds: 3111, 3134, 701, 554
+  bounds: 4164, 5614, 701, 554
   offsets: 622, 361, 1920, 1080
-  rotate: 90
   index: 85
 0
-  bounds: 1894, 3203, 785, 544
+  bounds: 3049, 1240, 785, 544
   offsets: 579, 361, 1920, 1080
-  rotate: 90
   index: 86
 0
-  bounds: 1, 2406, 979, 520
+  bounds: 2338, 1, 979, 520
   offsets: 483, 361, 1920, 1080
-  rotate: 90
   index: 87
 0
   bounds: 1, 477, 1174, 494
@@ -408,133 +365,122 @@ pma: false
   offsets: 440, 361, 1920, 1080
   index: 90
 0
-  bounds: 7209, 1244, 648, 431
+  bounds: 5922, 1532, 648, 431
   offsets: 650, 361, 1920, 1080
-  rotate: 90
   index: 91
 0
-  bounds: 3945, 5061, 606, 411
+  bounds: 4683, 2658, 606, 411
   offsets: 676, 361, 1920, 1080
   index: 92
 0
-  bounds: 4553, 5042, 637, 407
+  bounds: 5092, 1410, 637, 407
   offsets: 671, 356, 1920, 1080
   index: 93
 0
-  bounds: 2221, 1478, 704, 371
+  bounds: 2298, 2082, 704, 371
   offsets: 659, 344, 1920, 1080
-  rotate: 90
   index: 94
 0
-  bounds: 1197, 1400, 772, 252
+  bounds: 2718, 6034, 772, 252
   offsets: 648, 333, 1920, 1080
   index: 95
 0
-  bounds: 1265, 458, 803, 262
+  bounds: 4867, 5914, 803, 262
   offsets: 642, 328, 1920, 1080
   index: 96
 0
-  bounds: 2970, 4770, 753, 247
+  bounds: 2097, 6424, 753, 247
   offsets: 651, 336, 1920, 1080
-  rotate: 90
   index: 97
 0
-  bounds: 2987, 2923, 636, 209
+  bounds: 2120, 3592, 636, 209
   offsets: 671, 356, 1920, 1080
   index: 98
 0
-  bounds: 7467, 1894, 499, 166
+  bounds: 6106, 3533, 499, 166
   offsets: 694, 379, 1920, 1080
-  rotate: 90
   index: 99
 0
-  bounds: 5192, 5332, 385, 129
+  bounds: 6106, 3860, 385, 129
   offsets: 714, 398, 1920, 1080
   index: 100
 0
-  bounds: 2189, 458, 338, 114
+  bounds: 5922, 4299, 338, 114
   offsets: 722, 406, 1920, 1080
-  rotate: 90
   index: 101
 0
-  bounds: 7476, 3882, 378, 127
+  bounds: 3381, 2868, 378, 127
   offsets: 715, 399, 1920, 1080
-  rotate: 90
   index: 102
 0
-  bounds: 5192, 5033, 472, 157
+  bounds: 6106, 3701, 472, 157
   offsets: 699, 383, 1920, 1080
   index: 103
 0
-  bounds: 7029, 4524, 587, 194
+  bounds: 5303, 2223, 587, 194
   offsets: 679, 364, 1920, 1080
-  rotate: 90
   index: 104
 0
-  bounds: 7341, 3197, 683, 224
+  bounds: 4154, 6424, 683, 224
   offsets: 663, 348, 1920, 1080
-  rotate: 90
   index: 105
 0
-  bounds: 3219, 5234, 724, 237
+  bounds: 1611, 1606, 724, 237
   offsets: 656, 341, 1920, 1080
   index: 106
 0
-  bounds: 5647, 3751, 705, 232
+  bounds: 875, 2172, 705, 232
   offsets: 659, 344, 1920, 1080
   index: 107
 0
-  bounds: 7047, 3857, 665, 219
+  bounds: 890, 1681, 665, 219
   offsets: 666, 351, 1920, 1080
-  rotate: 90
   index: 108
 0
-  bounds: 7268, 3882, 624, 206
+  bounds: 875, 1902, 624, 206
   offsets: 673, 358, 1920, 1080
-  rotate: 90
   index: 109
 0
-  bounds: 5613, 5297, 606, 200
+  bounds: 5657, 5339, 606, 200
   offsets: 676, 361, 1920, 1080
   index: 110
 0
-  bounds: 5613, 5297, 606, 200
+  bounds: 5630, 6234, 606, 200
   offsets: 676, 361, 1920, 1080
   index: 111
 0
-  bounds: 5613, 5297, 606, 200
+  bounds: 5630, 6436, 606, 200
   offsets: 676, 361, 1920, 1080
   index: 112
 0
-  bounds: 5613, 5297, 606, 200
+  bounds: 5303, 1819, 606, 200
   offsets: 676, 361, 1920, 1080
   index: 113
 0
-  bounds: 5613, 5297, 606, 200
+  bounds: 5303, 2021, 606, 200
   offsets: 676, 361, 1920, 1080
   index: 114
 0
-  bounds: 6221, 5314, 587, 194
+  bounds: 5303, 2419, 587, 194
   offsets: 644, 345, 1920, 1080
   index: 115
 0
-  bounds: 6810, 5314, 541, 179
+  bounds: 6106, 3352, 541, 179
   offsets: 564, 306, 1920, 1080
   index: 116
 0
-  bounds: 2642, 4611, 479, 157
+  bounds: 5483, 4045, 479, 157
   offsets: 462, 256, 1920, 1080
   index: 117
 0
-  bounds: 5192, 5192, 419, 138
+  bounds: 2852, 6518, 419, 138
   offsets: 359, 204, 1920, 1080
   index: 118
 0
-  bounds: 7030, 5146, 372, 124
+  bounds: 6106, 3991, 372, 124
   offsets: 281, 164, 1920, 1080
   index: 119
 0
-  bounds: 2070, 458, 353, 117
+  bounds: 4680, 2512, 353, 117
   offsets: 250, 149, 1920, 1080
-  rotate: 90
   index: 120

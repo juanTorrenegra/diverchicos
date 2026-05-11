@@ -1,43 +1,35 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:flame/cache.dart';
-import 'package:flame/components.dart';
-import 'package:flame_texturepacker/flame_texturepacker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:video_player/video_player.dart';
 
-import '../actors/salud_animal_common.dart';
 import 'salud_constants.dart';
 
-const int kToothbrushPasteFrames = 120;
+/// Default paste-on-brush clip under [assets/video/].
+const String kBathPasteBrushVideoAsset = 'assets/video/toothbrush1.mp4';
 
-/// Fullscreen (logical 1920×1080) atlas animation; calls [onFinished] when done or on load failure.
+/// Fullscreen paste clip (logical 1920×1080); stretches with [BoxFit.fill]. Calls [onFinished] once when playback ends or on init/play error.
 class BathToothbrushPasteAnimator extends StatefulWidget {
   const BathToothbrushPasteAnimator({
     super.key,
     required this.onFinished,
-    this.frameCount = kToothbrushPasteFrames,
-    this.fps = 24,
+    this.assetPath = kBathPasteBrushVideoAsset,
   });
 
   final VoidCallback onFinished;
-  final int frameCount;
-  final double fps;
+
+  /// Bundled asset path (e.g. [kBathPasteBrushVideoAsset]).
+  final String assetPath;
 
   @override
   State<BathToothbrushPasteAnimator> createState() =>
       _BathToothbrushPasteAnimatorState();
 }
 
-class _BathToothbrushPasteAnimatorState extends State<BathToothbrushPasteAnimator>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  final Images _images = Images();
-
-  List<Sprite>? _frames;
-  Object? _loadError;
-
+class _BathToothbrushPasteAnimatorState extends State<BathToothbrushPasteAnimator> {
+  VideoPlayerController? _controller;
   bool _finishedNotified = false;
 
   double get _logicalW => kSaludCowLogicalWidth;
@@ -46,127 +38,107 @@ class _BathToothbrushPasteAnimatorState extends State<BathToothbrushPasteAnimato
   @override
   void initState() {
     super.initState();
-    final steps = widget.frameCount.clamp(1, 9999);
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: Duration(
-        milliseconds: ((steps / widget.fps) * 1000).round().clamp(1, 600000),
-      ),
-    )..addListener(() => setState(() {}))
-     ..addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          _notifyFinishedOnce();
-        }
-      });
-
-    unawaited(_load());
+    unawaited(_bootstrap());
   }
 
   void _notifyFinishedOnce() {
     if (_finishedNotified || !mounted) return;
     _finishedNotified = true;
-    _images.clearCache();
     widget.onFinished();
   }
 
-  Future<void> _load() async {
+  Future<void> _bootstrap() async {
+    final c = VideoPlayerController.asset(
+      widget.assetPath,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
     try {
-      final atlas = await TexturePackerAtlas.load(
-        'bathGame/toothbrushAnimation/toothbrushAnimation.atlas',
-        images: _images,
-        assetsPrefix: 'images',
-      );
-      final sprites = saludIndexedFramesFromAtlas(
-        atlas,
-        preferredName: '0',
-        atlasLabelForAssert: 'toothbrushAnimation',
-      );
-      if (!mounted) return;
-      setState(() {
-        _frames = sprites;
-        _loadError = sprites.isEmpty ? 'No frames in atlas' : null;
-      });
-      if (sprites.isNotEmpty) {
-        unawaited(_ctrl.forward(from: 0));
-      } else {
-        _notifyFinishedOnce();
+      await c.initialize();
+      if (!mounted) {
+        await c.dispose();
+        return;
       }
+      await c.setLooping(false);
+      c.addListener(_onVideoTick);
+      await c.play();
+      setState(() => _controller = c);
     } catch (e, st) {
-      debugPrint('BathToothbrushPasteAnimator load error: $e\n$st');
-      if (!mounted) return;
-      setState(() => _loadError = e);
+      debugPrint('BathToothbrushPasteAnimator video error: $e\n$st');
+      await c.dispose();
+      if (mounted) _notifyFinishedOnce();
+    }
+  }
+
+  void _onVideoTick() {
+    final c = _controller;
+    if (c == null || !mounted) return;
+    final v = c.value;
+    if (v.hasError) {
+      debugPrint('VideoPlayer: ${v.errorDescription}');
+      c.removeListener(_onVideoTick);
+      _notifyFinishedOnce();
+      return;
+    }
+    if (!v.isInitialized || v.duration == Duration.zero) return;
+
+    if (v.isCompleted) {
+      c.removeListener(_onVideoTick);
+      _notifyFinishedOnce();
+      return;
+    }
+
+    const epsilon = Duration(milliseconds: 80);
+    if (v.position + epsilon >= v.duration) {
+      c.removeListener(_onVideoTick);
       _notifyFinishedOnce();
     }
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
-    _images.clearCache();
+    _controller?.removeListener(_onVideoTick);
+    _controller?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_frames == null && _loadError == null) {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) {
       return SizedBox(
         width: _logicalW,
         height: _logicalH,
-        child: const ColoredBox(color: Colors.black54),
+        child: const ColoredBox(color: Colors.black87),
       );
     }
 
-    if (_loadError != null || _frames!.isEmpty) {
+    final v = c.value;
+    final vw = v.size.width;
+    final vh = v.size.height;
+    if (vw <= 0 || vh <= 0) {
       return SizedBox(
         width: _logicalW,
         height: _logicalH,
-        child: const ColoredBox(color: Colors.black54),
+        child: const ColoredBox(color: Colors.black87),
       );
     }
-
-    final frames = _frames!;
-    final n = frames.length;
-    final idx = ((_ctrl.value * n).floor()).clamp(0, n - 1);
 
     return SizedBox(
       width: _logicalW,
       height: _logicalH,
-      child: CustomPaint(
-        painter: _FramePainter(frames[idx]),
-        child: const SizedBox.expand(),
+      child: ClipRect(
+        child: FittedBox(
+          fit: BoxFit.fill,
+          clipBehavior: Clip.hardEdge,
+          child: SizedBox(
+            width: vw,
+            height: vh,
+            child: VideoPlayer(c),
+          ),
+        ),
       ),
     );
   }
-}
-
-class _FramePainter extends CustomPainter {
-  _FramePainter(this.sprite);
-
-  final Sprite sprite;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (size.width <= 0 || size.height <= 0) return;
-
-    // BoxFit.fill: stretch every frame to the exact logical viewport (1920×1080)
-    // so nothing is letterboxed or appears to slide off-screen.
-    final bounds = Offset.zero & size;
-    canvas.save();
-    canvas.clipRect(bounds);
-
-    sprite.render(
-      canvas,
-      position: Vector2.zero(),
-      size: Vector2(size.width, size.height),
-      anchor: Anchor.topLeft,
-    );
-
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _FramePainter oldDelegate) =>
-      oldDelegate.sprite != sprite;
 }
 
 /// PNG intrinsic pixel size from asset bundle (for overlap tests).

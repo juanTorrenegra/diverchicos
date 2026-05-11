@@ -37,6 +37,7 @@ dependencies:
   flame: ^1.37.0
   audioplayers: ^6.5.1
   flame_texturepacker: ^5.1.1
+  video_player: ^2.10.1
 
 dev_dependencies:
   flutter_test:
@@ -71,7 +72,7 @@ flutter:
     - assets/images/cowAnimations/jumping/
     - assets/images/cowAnimations/jumpToIdle/
     - assets/images/bathGame/
-    - assets/images/bathGame/toothbrushAnimation/
+    - assets/video/
     - assets/audio/
 
   # An image asset can refer to one or more resolution-specific "variants", see
