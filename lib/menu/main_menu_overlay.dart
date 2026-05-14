@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:video_player/video_player.dart';
 
 import '../app_audio.dart';
+import '../widgets/menu_back_pill.dart';
 
 /// Main gradient menu: vertical carousel + logo + circle quick-launch grid.
-class MainMenuOverlay extends StatelessWidget {
+class MainMenuOverlay extends StatefulWidget {
   const MainMenuOverlay({
     super.key,
     required this.onAnimals,
@@ -19,21 +21,124 @@ class MainMenuOverlay extends StatelessWidget {
   final VoidCallback onKids;
   final VoidCallback onSalud;
 
+  @override
+  State<MainMenuOverlay> createState() => _MainMenuOverlayState();
+}
+
+class _MainMenuOverlayState extends State<MainMenuOverlay> {
+  static const String _kCowCatIntroAsset =
+      'assets/video/bathGameVideo/cowCatIntro.mp4';
+  static const double _kExplorationLogicalW = 1980;
+  static const double _kExplorationLogicalH = 1080;
+
+  VideoPlayerController? _explorationVideo;
+  bool _showExplorationVideo = false;
+  bool _explorationVideoReady = false;
+
   List<MenuGameCardData> _cards() {
     return [
-      MenuGameCardData(title: 'ANIMALES', onTap: onAnimals),
-      MenuGameCardData(title: 'KIDS', onTap: onKids),
-      MenuGameCardData(title: 'SALUD', onTap: onSalud),
-      const MenuGameCardData(title: 'EXPLORACION'),
+      MenuGameCardData(title: 'ANIMALES', onTap: widget.onAnimals),
+      MenuGameCardData(title: 'KIDS', onTap: widget.onKids),
+      MenuGameCardData(title: 'SALUD', onTap: widget.onSalud),
+      MenuGameCardData(title: 'EXPLORACION', onTap: _openExplorationVideo),
       const MenuGameCardData(title: 'ROMPECABEZAS'),
       const MenuGameCardData(title: 'RESOLUCION DE PROBLEMAS'),
       const MenuGameCardData(title: 'TAREAS DEL HOGAR'),
     ];
   }
 
+  Future<void> _openExplorationVideo() async {
+    if (_showExplorationVideo) return;
+    final controller = VideoPlayerController.asset(
+      _kCowCatIntroAsset,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    try {
+      await controller.initialize();
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      await controller.setLooping(false);
+      controller.addListener(_onExplorationVideoTick);
+      await controller.play();
+      setState(() {
+        _explorationVideo = controller;
+        _explorationVideoReady = true;
+        _showExplorationVideo = true;
+      });
+    } catch (_) {
+      await controller.dispose();
+    }
+  }
+
+  void _onExplorationVideoTick() {
+    final video = _explorationVideo;
+    if (video == null) return;
+    final value = video.value;
+    if (!value.isInitialized) return;
+    if (value.hasError) return;
+    if (value.isCompleted) {
+      unawaited(video.pause());
+    }
+  }
+
+  Future<void> _closeExplorationVideo() async {
+    final video = _explorationVideo;
+    _explorationVideo = null;
+    if (mounted) {
+      setState(() {
+        _showExplorationVideo = false;
+        _explorationVideoReady = false;
+      });
+    }
+    if (video != null) {
+      video.removeListener(_onExplorationVideoTick);
+      await video.dispose();
+    }
+  }
+
+  @override
+  void dispose() {
+    final video = _explorationVideo;
+    _explorationVideo = null;
+    video?.removeListener(_onExplorationVideoTick);
+    video?.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final cards = _cards();
+    if (_showExplorationVideo) {
+      return ColoredBox(
+        color: Colors.black,
+        child: SafeArea(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Center(
+                child: FittedBox(
+                  fit: BoxFit.fill,
+                  child: SizedBox(
+                    width: _kExplorationLogicalW,
+                    height: _kExplorationLogicalH,
+                    child: _explorationVideoReady && _explorationVideo != null
+                        ? VideoPlayer(_explorationVideo!)
+                        : const ColoredBox(color: Colors.black),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 20,
+                right: 16,
+                child: MenuBackPill(onPressed: _closeExplorationVideo),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTapDown: (_) {
