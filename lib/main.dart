@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'app_audio.dart';
 import 'diverchicos_game.dart';
 import 'games/animals_game.dart';
-import 'games/salud_overlay.dart';
 import 'menu/main_menu_overlay.dart';
 import 'widgets/menu_back_pill.dart';
 
@@ -140,13 +139,6 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
                   g.startKidsMode();
                   g.overlays.add('kidsBack');
                 },
-                onSalud: () {
-                  unawaited(AppAudio.instance.playPreschoolerLoop());
-                  (game as DiverchicosGame)
-                    ..notifyEnteredMiniGame()
-                    ..overlays.remove('mainMenu')
-                    ..overlays.add('salud');
-                },
               ),
             );
           },
@@ -174,19 +166,6 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
                         (game as DiverchicosGame).exitKidsMode(),
                   ),
                 ),
-              ),
-            );
-          },
-          'salud': (BuildContext context, game) {
-            return Positioned.fill(
-              child: SaludOverlay(
-                onBack: () {
-                  unawaited(AppAudio.instance.playMenuLoop());
-                  (game as DiverchicosGame)
-                    ..notifyReturnedToMainMenu()
-                    ..overlays.remove('salud')
-                    ..overlays.add('mainMenu');
-                },
               ),
             );
           },

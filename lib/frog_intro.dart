@@ -2,7 +2,6 @@ import 'dart:ui' as ui;
 
 import 'package:flame/cache.dart';
 import 'package:flame/components.dart';
-import 'package:flame/extensions.dart';
 import 'package:flame/sprite.dart';
 
 /// Mirrors how the frog intro distinguishes normal launch vs “kids replay” flow.

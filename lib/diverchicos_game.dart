@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:flame/extensions.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 

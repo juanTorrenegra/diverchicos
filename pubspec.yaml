@@ -36,7 +36,6 @@ dependencies:
   cupertino_icons: ^1.0.8
   flame: ^1.37.0
   audioplayers: ^6.5.1
-  flame_texturepacker: ^5.1.1
   video_player: ^2.10.1
 
 dev_dependencies:
@@ -74,6 +73,7 @@ flutter:
     - assets/images/bathGame/
     - assets/video/
     - assets/video/bathGameVideo/
+    - assets/video/salud/
     - assets/audio/
 
   # An image asset can refer to one or more resolution-specific "variants", see
