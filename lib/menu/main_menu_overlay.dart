@@ -407,6 +407,7 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
   }
 
   void _activateSelected() {
+    unawaited(AppAudio.instance.stopBgm());
     final idx = _activeIndex;
     widget.items[idx].onTap?.call();
     if (widget.items[idx].onTap == null) {

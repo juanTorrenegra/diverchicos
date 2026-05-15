@@ -11,6 +11,10 @@ const String kSaludCowCatIntroAsset = 'assets/video/salud/cowCatIntro.mp4';
 const String kSaludCowPickAsset = 'assets/video/salud/cowPick.mp4';
 const String kSaludCatPickAsset = 'assets/video/salud/catPick.mp4';
 const String kSaludCowCatBlinkAsset = 'assets/video/salud/cowCatBlink.mp4';
+const String kSaludCowEntersBathAsset = 'assets/video/salud/cowEntersBath.mp4';
+
+const String kSaludBathColgatePng = 'assets/images/bathGame/colgate.png';
+const String kSaludBathCepilloPng = 'assets/images/bathGame/cepillo.png';
 
 /// Fullscreen intro: fixed logical **1980×1080**, stretched to device; pauses on last frame; [onClose] from back pill.
 class SaludCowCatIntroLayer extends StatefulWidget {
@@ -22,7 +26,8 @@ class SaludCowCatIntroLayer extends StatefulWidget {
   State<SaludCowCatIntroLayer> createState() => _SaludCowCatIntroLayerState();
 }
 
-class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
+class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer>
+    with TickerProviderStateMixin {
   static const double _kLogicalW = 1980;
   static const double _kLogicalH = 1080;
 
@@ -34,6 +39,10 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
   static const Size _kRectCatSize = Size(300, 300);
   static const Offset _kRectCatPos = Offset(720.8, 586.2);
 
+  /// Starting positions for bath props (1980×1080 logical); drag to tune.
+  static const Offset _kBathColgateStart = Offset(600, 450);
+  static const Offset _kBathCepilloStart = Offset(1100, 450);
+
   VideoPlayerController? _introController;
   bool _introReady = false;
   bool _showTapTargets = false;
@@ -41,11 +50,19 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
   VideoPlayerController? _pickController;
   bool _pickReady = false;
   bool _pickBusy = false;
+  bool _lastPickWasCow = false;
 
   VideoPlayerController? _blinkController;
   bool _blinkReady = false;
 
   Timer? _idleBlinkTimer;
+
+  /// After cow pick: bath clip + white cross-fades.
+  bool _cowBathFlow = false;
+  VideoPlayerController? _bathController;
+  bool _bathReady = false;
+  bool _bathPlayFinished = false;
+  AnimationController? _whiteFade;
 
   @override
   void initState() {
@@ -96,6 +113,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
     if (!_showTapTargets || !_introReady) return;
     if (_pickReady && _pickController != null) return;
     if (_blinkReady && _blinkController != null) return;
+    if (_cowBathFlow) return;
 
     _idleBlinkTimer = Timer(const Duration(seconds: 3), () {
       if (!mounted) return;
@@ -140,6 +158,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
     if (!_showTapTargets || !_introReady) return;
     if (_pickReady && _pickController != null) return;
     if (_blinkController != null) return;
+    if (_cowBathFlow) return;
 
     _cancelIdleBlinkTimer();
 
@@ -174,18 +193,34 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
     if (!value.isInitialized || value.hasError) return;
     if (value.isCompleted) {
       c.removeListener(_onPickTick);
-      unawaited(c.dispose());
-      if (!mounted) return;
-      setState(() {
-        _pickController = null;
-        _pickReady = false;
-        _pickBusy = false;
-      });
-      _scheduleIdleBlink();
+      if (_lastPickWasCow) {
+        unawaited(_cowPickToBathSequence(c));
+      } else {
+        unawaited(c.dispose());
+        if (!mounted) return;
+        setState(() {
+          _pickController = null;
+          _pickReady = false;
+          _pickBusy = false;
+        });
+        _scheduleIdleBlink();
+      }
     }
   }
 
-  Future<void> _disposePick() async {
+  void _onBathTick() {
+    final b = _bathController;
+    if (b == null || !mounted) return;
+    final value = b.value;
+    if (!value.isInitialized || value.hasError) return;
+    if (value.isCompleted) {
+      b.removeListener(_onBathTick);
+      unawaited(b.pause());
+      if (mounted) setState(() => _bathPlayFinished = true);
+    }
+  }
+
+  Future<void> _disposePickOnly() async {
     final c = _pickController;
     _pickController = null;
     _pickReady = false;
@@ -195,9 +230,134 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
     }
   }
 
+  Future<void> _disposeIntro() async {
+    final c = _introController;
+    _introController = null;
+    _introReady = false;
+    _showTapTargets = false;
+    if (c != null) {
+      c.removeListener(_onIntroTick);
+      await c.dispose();
+    }
+  }
+
+  Future<void> _disposeBath() async {
+    final b = _bathController;
+    _bathController = null;
+    _bathReady = false;
+    _bathPlayFinished = false;
+    if (b != null) {
+      b.removeListener(_onBathTick);
+      await b.dispose();
+    }
+  }
+
+  Future<void> _cowPickToBathSequence(VideoPlayerController pick) async {
+    await pick.pause();
+
+    _whiteFade?.dispose();
+    _whiteFade = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+
+    if (!mounted) {
+      await pick.dispose();
+      _whiteFade?.dispose();
+      _whiteFade = null;
+      return;
+    }
+
+    // 1s: last cowPick frame + fade to white (together).
+    setState(() {});
+    await _whiteFade!.forward();
+    if (!mounted) {
+      await pick.dispose();
+      _whiteFade?.dispose();
+      _whiteFade = null;
+      return;
+    }
+
+    // Fully white: dispose intro, blink, pick.
+    _cancelIdleBlinkTimer();
+    await _disposeBlink();
+    await pick.dispose();
+    if (!mounted) return;
+    setState(() {
+      _pickController = null;
+      _pickReady = false;
+      _pickBusy = false;
+    });
+    await _disposeIntro();
+
+    if (!mounted) {
+      _whiteFade?.dispose();
+      _whiteFade = null;
+      return;
+    }
+
+    setState(() => _cowBathFlow = true);
+
+    final bath = VideoPlayerController.asset(
+      kSaludCowEntersBathAsset,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    try {
+      await bath.initialize();
+      if (!mounted) {
+        await bath.dispose();
+        _whiteFade?.dispose();
+        _whiteFade = null;
+        return;
+      }
+      await bath.setLooping(false);
+      await bath.seekTo(Duration.zero);
+      await bath.pause();
+      if (!mounted) {
+        await bath.dispose();
+        _whiteFade?.dispose();
+        _whiteFade = null;
+        return;
+      }
+
+      setState(() {
+        _bathController = bath;
+        _bathReady = true;
+        _bathPlayFinished = false;
+      });
+
+      // 1s: first bath frame under white, white fades out.
+      await _whiteFade!.reverse();
+      if (!mounted) return;
+      _whiteFade?.dispose();
+      _whiteFade = null;
+
+      bath.addListener(_onBathTick);
+      await bath.play();
+      if (mounted) setState(() {});
+    } catch (_) {
+      await bath.dispose();
+      if (mounted) {
+        setState(() {
+          _cowBathFlow = false;
+          _bathReady = false;
+          _bathController = null;
+        });
+        _whiteFade?.dispose();
+        _whiteFade = null;
+        widget.onClose();
+      }
+    }
+  }
+
+  Future<void> _disposePick() async {
+    await _disposePickOnly();
+  }
+
   Future<void> _playPick(String assetPath) async {
     if (_pickBusy) return;
     _pickBusy = true;
+    _lastPickWasCow = assetPath == kSaludCowPickAsset;
     _cancelIdleBlinkTimer();
     await _disposeBlink();
     await _disposePick();
@@ -232,6 +392,17 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
     }
   }
 
+  Future<void> _exitBathAndClose() async {
+    _cancelIdleBlinkTimer();
+    await _disposeBath();
+    _whiteFade?.dispose();
+    _whiteFade = null;
+    if (mounted) {
+      setState(() => _cowBathFlow = false);
+    }
+    widget.onClose();
+  }
+
   Widget _tapTarget({
     required Offset position,
     required Size size,
@@ -246,6 +417,27 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: SizedBox(width: size.width, height: size.height),
+      ),
+    );
+  }
+
+  bool get _hideIntroStack =>
+      (_pickReady && _pickController != null) || _cowBathFlow;
+
+  Widget _whiteFadeOverlay() {
+    final ctrl = _whiteFade;
+    if (ctrl == null) return const SizedBox.shrink();
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: ctrl,
+          builder: (context, child) {
+            final t = ctrl.value.clamp(0.0, 1.0);
+            return ColoredBox(
+              color: Color.fromRGBO(255, 255, 255, t),
+            );
+          },
+        ),
       ),
     );
   }
@@ -265,6 +457,12 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
       blink.removeListener(_onBlinkTick);
       blink.dispose();
     }
+    final bath = _bathController;
+    if (bath != null) {
+      bath.removeListener(_onBathTick);
+      bath.dispose();
+    }
+    _whiteFade?.dispose();
     super.dispose();
   }
 
@@ -276,51 +474,53 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Center(
-              child: FittedBox(
-                fit: BoxFit.fill,
-                child: SizedBox(
-                  width: _kLogicalW,
-                  height: _kLogicalH,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      if (_introReady && _introController != null)
-                        Positioned.fill(
-                          child: VideoPlayer(_introController!),
-                        )
-                      else
-                        const ColoredBox(color: Colors.black),
-                      if (_blinkReady && _blinkController != null)
-                        Positioned.fill(
-                          child: VideoPlayer(_blinkController!),
-                        ),
-                      if (_showTapTargets &&
-                          !(_pickReady && _pickController != null)) ...[
-                        _tapTarget(
-                          position: _kRectCowPos,
-                          size: _kRectCowSize,
-                          onTap: () {
-                            _cancelIdleBlinkTimer();
-                            unawaited(_disposeBlink());
-                            unawaited(_playPick(kSaludCowPickAsset));
-                          },
-                        ),
-                        _tapTarget(
-                          position: _kRectCatPos,
-                          size: _kRectCatSize,
-                          onTap: () {
-                            _cancelIdleBlinkTimer();
-                            unawaited(_disposeBlink());
-                            unawaited(_playPick(kSaludCatPickAsset));
-                          },
-                        ),
+            if (!_hideIntroStack)
+              Center(
+                child: FittedBox(
+                  fit: BoxFit.fill,
+                  child: SizedBox(
+                    width: _kLogicalW,
+                    height: _kLogicalH,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        if (_introReady && _introController != null)
+                          Positioned.fill(
+                            child: VideoPlayer(_introController!),
+                          )
+                        else
+                          const ColoredBox(color: Colors.black),
+                        if (_blinkReady && _blinkController != null)
+                          Positioned.fill(
+                            child: VideoPlayer(_blinkController!),
+                          ),
+                        if (_showTapTargets &&
+                            !(_pickReady && _pickController != null) &&
+                            !_cowBathFlow) ...[
+                          _tapTarget(
+                            position: _kRectCowPos,
+                            size: _kRectCowSize,
+                            onTap: () {
+                              _cancelIdleBlinkTimer();
+                              unawaited(_disposeBlink());
+                              unawaited(_playPick(kSaludCowPickAsset));
+                            },
+                          ),
+                          _tapTarget(
+                            position: _kRectCatPos,
+                            size: _kRectCatSize,
+                            onTap: () {
+                              _cancelIdleBlinkTimer();
+                              unawaited(_disposeBlink());
+                              unawaited(_playPick(kSaludCatPickAsset));
+                            },
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
             if (_pickReady && _pickController != null)
               Positioned.fill(
                 child: ColoredBox(
@@ -337,13 +537,94 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
                   ),
                 ),
               ),
+            if (_cowBathFlow && _bathReady && _bathController != null)
+              Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.black,
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.fill,
+                      child: SizedBox(
+                        width: _kLogicalW,
+                        height: _kLogicalH,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned.fill(
+                              child: VideoPlayer(_bathController!),
+                            ),
+                            if (_bathPlayFinished) ...[
+                              _BathDraggablePng(
+                                asset: kSaludBathColgatePng,
+                                label: 'colgate',
+                                initialOffset: _kBathColgateStart,
+                              ),
+                              _BathDraggablePng(
+                                asset: kSaludBathCepilloPng,
+                                label: 'cepillo',
+                                initialOffset: _kBathCepilloStart,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            _whiteFadeOverlay(),
             Positioned(
               top: 20,
               right: 16,
-              child: MenuBackPill(onPressed: widget.onClose),
+              child: MenuBackPill(
+                onPressed: () {
+                  if (_cowBathFlow) {
+                    unawaited(_exitBathAndClose());
+                  } else {
+                    widget.onClose();
+                  }
+                },
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Draggable prop on the 1980×1080 bath canvas; [Image] uses intrinsic pixel size (no scale).
+class _BathDraggablePng extends StatefulWidget {
+  const _BathDraggablePng({
+    required this.asset,
+    required this.label,
+    required this.initialOffset,
+  });
+
+  final String asset;
+  final String label;
+  final Offset initialOffset;
+
+  @override
+  State<_BathDraggablePng> createState() => _BathDraggablePngState();
+}
+
+class _BathDraggablePngState extends State<_BathDraggablePng> {
+  late Offset _pos = widget.initialOffset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: _pos.dx,
+      top: _pos.dy,
+      child: GestureDetector(
+        onPanUpdate: (details) {
+          setState(() => _pos += details.delta);
+          debugPrint(
+            '${widget.label}: x=${_pos.dx.toStringAsFixed(1)}, y=${_pos.dy.toStringAsFixed(1)}',
+          );
+        },
+        child: Image.asset(widget.asset),
       ),
     );
   }
