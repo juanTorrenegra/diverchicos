@@ -13,6 +13,7 @@ const String kSaludToothpasteOnCepilloAsset =
     'assets/video/salud/toothpasteOnCepillo.mp4';
 const String kSaludCowShowsDirtyTeethAsset =
     'assets/video/salud/cowShowsDirtyTeeth.mp4';
+const String kSaludWaterPourAsset = 'assets/video/salud/waterPour.mp4';
 
 const String kSaludBathColgatePng = 'assets/images/bathGame/colgate.png';
 const String kSaludBathCepilloPng = 'assets/images/bathGame/cepillo.png';
@@ -93,10 +94,15 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
   static const int _kMaxScrubBubbles = 64;
   static const int _kScrubStarLifetimeMs = 500;
 
-  static const double _kPostTaskProbeW = 100;
-  static const double _kPostTaskProbeH = 200;
-  /// Default center-ish on 1980×1080; drag to tune, release logs position.
-  static const Offset _kPostTaskProbeStart = Offset(940, 440);
+  static const double _kPostTaskProbeSize = 250;
+  /// Post-task cue (logical 1980×1080); fixed, pulses on a loop after lock.
+  static const Offset _kPostTaskProbePos = Offset(914.5, 737.6);
+  /// Loop every 3s: two consecutive alpha↔scale pulses, then invisible idle.
+  static const Duration _kPostTaskProbePulsePeriod = Duration(milliseconds: 3000);
+  static const double _kPostTaskProbeRampMs = 280;
+
+  /// Draggable semi-transparent overlay (logical 1980×1080 position); resets on bath teardown.
+  static const Offset _kLayoutDragCircleStart = Offset(865, 415);
 
   /// Cleared after [pick] is disposed; avoids building [VideoPlayer] with a disposed controller.
   VideoPlayerController? _pickHeld;
@@ -127,6 +133,13 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
   VideoPlayerController? _dirtyTeethController;
   bool _dirtyTeethReady = false;
 
+  VideoPlayerController? _waterPourController;
+  bool _waterPourReady = false;
+
+  /// Frozen copy of scrub bubbles shown on top of [waterPour.mp4] at tap time.
+  List<_ScrubBubble> _waterPourCopiedBubbles = [];
+  int? _waterPourBubbleEpochMs;
+
   bool _teethScrubZoneActive = false;
   final List<_ScrubBubble> _scrubBubbles = [];
   int _lastBubbleSpawnMs = 0;
@@ -138,10 +151,14 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
   bool _cepilloCremaLockedAfterTask = false;
   bool _cepilloCremaSettlingPostCelebration = false;
 
-  Offset _postTaskProbePos = _kPostTaskProbeStart;
+  bool _postTaskProbeDismissed = false;
+
+  Offset _layoutDragCirclePos = _kLayoutDragCircleStart;
 
   final List<_CompletionStar> _scrubCompletionStars = [];
   late final AnimationController _bubbleAnimController;
+  late final AnimationController _postTaskProbePulseController;
+  bool _postTaskProbeLoopStarted = false;
 
   static const List<Color> _kScrubBubblePalette = [
     Color.fromRGBO(255, 255, 255, 1),
@@ -298,6 +315,78 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     }
   }
 
+  void _onWaterPourTick() {
+    final v = _waterPourController;
+    if (v == null || !mounted) return;
+    final value = v.value;
+    if (!value.isInitialized || value.hasError) return;
+    if (value.isCompleted) {
+      v.removeListener(_onWaterPourTick);
+      unawaited(v.pause());
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _disposeWaterPour() async {
+    _waterPourCopiedBubbles.clear();
+    _waterPourBubbleEpochMs = null;
+    final v = _waterPourController;
+    _waterPourController = null;
+    _waterPourReady = false;
+    if (v != null) {
+      v.removeListener(_onWaterPourTick);
+      await v.dispose();
+    }
+  }
+
+  /// Disposes any existing water-pour player without clearing the bubble snapshot.
+  Future<void> _disposeWaterPourVideoOnly() async {
+    final v = _waterPourController;
+    _waterPourController = null;
+    _waterPourReady = false;
+    if (v != null) {
+      v.removeListener(_onWaterPourTick);
+      await v.dispose();
+    }
+  }
+
+  Future<void> _startWaterPourVideo() async {
+    if (!mounted) return;
+    await _disposeWaterPourVideoOnly();
+    if (!mounted) return;
+
+    final v = VideoPlayerController.asset(
+      kSaludWaterPourAsset,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    try {
+      await v.initialize();
+      if (!mounted) {
+        await v.dispose();
+        return;
+      }
+      await v.setLooping(false);
+      v.addListener(_onWaterPourTick);
+      await v.play();
+      if (!mounted) {
+        await v.dispose();
+        return;
+      }
+      setState(() {
+        _waterPourController = v;
+        _waterPourReady = true;
+      });
+    } catch (_) {
+      await v.dispose();
+      if (mounted) {
+        setState(() {
+          _waterPourCopiedBubbles.clear();
+          _waterPourBubbleEpochMs = null;
+        });
+      }
+    }
+  }
+
   Future<void> _onMergeColgateCepillo() async {
     if (_mergeTriggered || !mounted) return;
     _mergeTriggered = true;
@@ -362,6 +451,20 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
 
   void _onCepilloCremaSnapComplete() {
     if (!mounted) return;
+
+    if (_cepilloCremaSettlingPostCelebration) {
+      _cepilloCremaSettlingPostCelebration = false;
+      setState(() {
+        _cepilloCremaPos = _kBathCepilloPos;
+        _snapCepilloCremaActive = false;
+        _snapCepilloCremaAnim = null;
+        _cepilloCremaLockedAfterTask = true;
+      });
+      _cepilloCremaSnapController.reset();
+      _maybeStartPostTaskProbeLoop();
+      return;
+    }
+
     setState(() {
       _cepilloCremaPos = _kBathCepilloPos;
       _snapCepilloCremaActive = false;
@@ -373,6 +476,9 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
 
   void _startCepilloCremaSnapBack() {
     if (!_cepilloCremaVisible || !mounted) return;
+    if (_cepilloCremaLockedAfterTask || _cepilloCremaSettlingPostCelebration) {
+      return;
+    }
 
     _cancelCepilloCremaIdleTimer();
 
@@ -405,6 +511,47 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     );
   }
 
+  void _beginCepilloPostCelebrationSnap() {
+    if (!mounted || !_cepilloCremaVisible) return;
+    if (_cepilloCremaLockedAfterTask) return;
+    if (_cepilloCremaSettlingPostCelebration) return;
+
+    _cancelCepilloCremaIdleTimer();
+    _idleCepilloCremaPulse.stop();
+    _idleCepilloCremaPulse.reset();
+
+    setState(() => _cepilloCremaDragging = false);
+
+    final from = _effectiveCepilloCremaPos();
+    if ((from - _kBathCepilloPos).distance < 1.0) {
+      _cancelCepilloCremaSnap();
+      setState(() {
+        _cepilloCremaPos = _kBathCepilloPos;
+        _cepilloCremaLockedAfterTask = true;
+      });
+      _maybeStartPostTaskProbeLoop();
+      return;
+    }
+
+    _cepilloCremaSettlingPostCelebration = true;
+    _cepilloCremaSnapController.stop();
+    _cepilloCremaSnapController.reset();
+    _snapCepilloCremaAnim = Tween<Offset>(begin: from, end: _kBathCepilloPos)
+        .animate(
+          CurvedAnimation(
+            parent: _cepilloCremaSnapController,
+            curve: Curves.elasticOut,
+          ),
+        );
+    _snapCepilloCremaActive = true;
+    setState(() {});
+    unawaited(
+      _cepilloCremaSnapController
+          .forward(from: 0)
+          .whenComplete(_onCepilloCremaSnapComplete),
+    );
+  }
+
   void _cancelCepilloCremaIdleTimer() {
     _idleCepilloCremaTimer?.cancel();
     _idleCepilloCremaTimer = null;
@@ -413,6 +560,7 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
   void _scheduleCepilloCremaIdlePulse() {
     _cancelCepilloCremaIdleTimer();
     if (!_cepilloCremaVisible || !mounted) return;
+    if (_cepilloCremaLockedAfterTask) return;
     _idleCepilloCremaTimer = Timer(
       const Duration(seconds: 3),
       _onCepilloCremaIdleTimer,
@@ -421,7 +569,9 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
 
   Future<void> _onCepilloCremaIdleTimer() async {
     _idleCepilloCremaTimer = null;
-    if (!mounted || !_cepilloCremaVisible) return;
+    if (!mounted || !_cepilloCremaVisible || _cepilloCremaLockedAfterTask) {
+      return;
+    }
     if (_cepilloCremaDragging || _snapCepilloCremaActive) {
       _scheduleCepilloCremaIdlePulse();
       return;
@@ -433,6 +583,7 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
   }
 
   double _cepilloCremaDisplayScale() {
+    if (_cepilloCremaLockedAfterTask) return 1.0;
     if (_cepilloCremaDragging || _snapCepilloCremaActive) return 1.0;
     return _idleCepilloCremaScale.value;
   }
@@ -644,10 +795,9 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     if (mounted) setState(() {});
   }
 
-  Widget _scrubBubbleWidget(_ScrubBubble b) {
+  Widget _scrubBubbleWidgetAtEpoch(_ScrubBubble b, int epochMs) {
     const lifetimeMs = 900;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final rawT = (now - b.birthMs) / lifetimeMs;
+    final rawT = (epochMs - b.birthMs) / lifetimeMs;
     if (!b.permanent && rawT >= 1) return const SizedBox.shrink();
 
     final t = rawT.clamp(0.0, 1.0);
@@ -677,28 +827,177 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     );
   }
 
+  Widget _scrubBubbleWidget(_ScrubBubble b) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return _scrubBubbleWidgetAtEpoch(b, now);
+  }
+
   Widget _interactiveCepilloConCrema() {
-    return GestureDetector(
-      onPanStart: (_) {
-        _cancelCepilloCremaIdleTimer();
-        _idleCepilloCremaPulse.stop();
-        _idleCepilloCremaPulse.reset();
-        _cancelCepilloCremaSnap();
-        setState(() => _cepilloCremaDragging = true);
+    return IgnorePointer(
+      ignoring: _cepilloCremaSettlingPostCelebration,
+      child: GestureDetector(
+        onPanStart: (_) {
+          _cancelCepilloCremaIdleTimer();
+          _idleCepilloCremaPulse.stop();
+          _idleCepilloCremaPulse.reset();
+          _cancelCepilloCremaSnap();
+          setState(() => _cepilloCremaDragging = true);
+        },
+        onPanEnd: (_) {
+          setState(() => _cepilloCremaDragging = false);
+          _startCepilloCremaSnapBack();
+        },
+        onPanCancel: () {
+          setState(() => _cepilloCremaDragging = false);
+          _startCepilloCremaSnapBack();
+        },
+        onPanUpdate: (details) {
+          setState(() => _cepilloCremaPos += details.delta);
+          _trySpawnScrubBubbles();
+        },
+        child: Image.asset(kSaludBathCepilloConCremaPng),
+      ),
+    );
+  }
+
+  void _maybeStartPostTaskProbeLoop() {
+    if (!mounted ||
+        !_cepilloCremaLockedAfterTask ||
+        _postTaskProbeDismissed) {
+      return;
+    }
+    if (_postTaskProbeLoopStarted) return;
+    _postTaskProbeLoopStarted = true;
+    _postTaskProbePulseController.repeat();
+  }
+
+  void _onPostTaskProbeTap() {
+    if (!mounted ||
+        !_cepilloCremaLockedAfterTask ||
+        _postTaskProbeDismissed) {
+      return;
+    }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    _stopPostTaskProbeLoop();
+    setState(() {
+      _postTaskProbeDismissed = true;
+      _waterPourBubbleEpochMs = now;
+      _waterPourCopiedBubbles = [
+        for (final b in _scrubBubbles)
+          _ScrubBubble(
+            position: b.position,
+            birthMs: b.birthMs,
+            drift: b.drift,
+            baseRadius: b.baseRadius,
+            color: b.color,
+            permanent: b.permanent,
+          ),
+      ];
+    });
+    unawaited(_startWaterPourVideo());
+  }
+
+  void _stopPostTaskProbeLoop() {
+    _postTaskProbePulseController.stop();
+    _postTaskProbePulseController.reset();
+    _postTaskProbeLoopStarted = false;
+  }
+
+  double _postTaskProbeIdleLeadMs(double periodMs, double rampMs) {
+    return math.max(0.0, (periodMs - 4 * rampMs) / 2);
+  }
+
+  ({double peakOpacity, double scale}) _postTaskProbePairAt(
+    double ms,
+    double rampMs,
+    double pairStartMs,
+  ) {
+    if (ms <= pairStartMs) {
+      return (peakOpacity: 0.0, scale: 1.0);
+    }
+    if (ms <= pairStartMs + rampMs) {
+      final u = Curves.easeInOut.transform((ms - pairStartMs) / rampMs);
+      return (peakOpacity: 0.5 * u, scale: 1.0 - 0.2 * u);
+    }
+    if (ms <= pairStartMs + rampMs + rampMs) {
+      final u =
+          Curves.easeInOut.transform((ms - pairStartMs - rampMs) / rampMs);
+      return (peakOpacity: 0.5 * (1.0 - u), scale: 0.8 + 0.2 * u);
+    }
+    return (peakOpacity: 0.0, scale: 1.0);
+  }
+
+  ({double peakOpacity, double scale}) _postTaskProbePeakAndScale(double normalizedT) {
+    final periodMs = _kPostTaskProbePulsePeriod.inMilliseconds.toDouble();
+    const rampMs = _kPostTaskProbeRampMs;
+    final ms = normalizedT * periodMs;
+    final idleLead = _postTaskProbeIdleLeadMs(periodMs, rampMs);
+    final p1 = idleLead;
+    final p2 = idleLead + 2 * rampMs;
+
+    final v1 = _postTaskProbePairAt(ms, rampMs, p1);
+    if (v1.peakOpacity > 0 || v1.scale < 1.0) {
+      return v1;
+    }
+    return _postTaskProbePairAt(ms, rampMs, p2);
+  }
+
+  Widget _postTaskLayoutProbe() {
+    return AnimatedBuilder(
+      animation: _postTaskProbePulseController,
+      builder: (context, child) {
+        final t = _postTaskProbePulseController.value;
+        final viz = _postTaskProbePeakAndScale(t);
+        return Transform.scale(
+          scale: viz.scale,
+          alignment: Alignment.center,
+          child: SizedBox(
+            width: _kPostTaskProbeSize,
+            height: _kPostTaskProbeSize,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: viz.peakOpacity),
+              ),
+            ),
+          ),
+        );
       },
-      onPanEnd: (_) {
-        setState(() => _cepilloCremaDragging = false);
-        _startCepilloCremaSnapBack();
-      },
-      onPanCancel: () {
-        setState(() => _cepilloCremaDragging = false);
-        _startCepilloCremaSnapBack();
-      },
-      onPanUpdate: (details) {
-        setState(() => _cepilloCremaPos += details.delta);
-        _trySpawnScrubBubbles();
-      },
-      child: Image.asset(kSaludBathCepilloConCremaPng),
+    );
+  }
+
+  Widget _bathDragLayoutCircle() {
+    return Positioned(
+      left: _layoutDragCirclePos.dx,
+      top: _layoutDragCirclePos.dy,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanUpdate: (details) {
+          setState(() => _layoutDragCirclePos += details.delta);
+        },
+        onPanEnd: (_) {
+          debugPrint(
+            'dragLayoutCircle: x=${_layoutDragCirclePos.dx.toStringAsFixed(1)}, '
+            'y=${_layoutDragCirclePos.dy.toStringAsFixed(1)}',
+          );
+        },
+        onPanCancel: () {
+          debugPrint(
+            'dragLayoutCircle: x=${_layoutDragCirclePos.dx.toStringAsFixed(1)}, '
+            'y=${_layoutDragCirclePos.dy.toStringAsFixed(1)}',
+          );
+        },
+        child: SizedBox(
+          width: _kPostTaskProbeSize,
+          height: _kPostTaskProbeSize,
+          child: const DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0x80FFFFFF),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -847,6 +1146,10 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
             curve: Curves.easeInOut,
           ),
         );
+    _postTaskProbePulseController = AnimationController(
+      vsync: this,
+      duration: _kPostTaskProbePulsePeriod,
+    );
     _pickHeld = widget.pickController;
     unawaited(_loadPropAssetSizes());
     unawaited(_runCowPickToBathSequence());
@@ -868,6 +1171,7 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
   }
 
   Future<void> _disposeBath() async {
+    _stopPostTaskProbeLoop();
     _cancelColgateIdleTimer();
     _cancelColgateSnap();
     _cancelCepilloCremaIdleTimer();
@@ -891,9 +1195,14 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
         _bubbleSpawnCycleIndex = 0;
         _scrubTaskComplete = false;
         _scrubCapCelebrationShown = false;
+        _cepilloCremaLockedAfterTask = false;
+        _cepilloCremaSettlingPostCelebration = false;
+        _postTaskProbeDismissed = false;
+        _layoutDragCirclePos = _kLayoutDragCircleStart;
       });
     }
     await _disposeDirtyTeeth();
+    await _disposeWaterPour();
     if (b != null) {
       b.removeListener(_onBathTick);
       await b.dispose();
@@ -1092,6 +1401,7 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     _cancelCepilloCremaSnap();
     _cepilloCremaSnapController.dispose();
     _bubbleAnimController.dispose();
+    _postTaskProbePulseController.dispose();
     final merge = _mergeVideoController;
     _mergeVideoController = null;
     _mergeVideoReady = false;
@@ -1105,6 +1415,15 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     if (dirty != null) {
       dirty.removeListener(_onDirtyTeethTick);
       unawaited(dirty.dispose());
+    }
+    final water = _waterPourController;
+    _waterPourController = null;
+    _waterPourReady = false;
+    _waterPourCopiedBubbles.clear();
+    _waterPourBubbleEpochMs = null;
+    if (water != null) {
+      water.removeListener(_onWaterPourTick);
+      unawaited(water.dispose());
     }
     super.dispose();
   }
@@ -1205,7 +1524,13 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
                             Positioned.fill(
                               child: VideoPlayer(_mergeVideoController!),
                             ),
-                          if (_cepilloCremaVisible)
+                          if (_cepilloCremaVisible && _cepilloCremaLockedAfterTask)
+                            Positioned(
+                              left: _kBathCepilloPos.dx,
+                              top: _kBathCepilloPos.dy,
+                              child: Image.asset(kSaludBathCepilloConCremaPng),
+                            )
+                          else if (_cepilloCremaVisible)
                             AnimatedBuilder(
                               animation: Listenable.merge([
                                 _cepilloCremaSnapController,
@@ -1228,6 +1553,40 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
                                 );
                               },
                               child: _interactiveCepilloConCrema(),
+                            ),
+                          if (_waterPourReady && _waterPourController != null)
+                            Positioned.fill(
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Positioned.fill(
+                                    child:
+                                        VideoPlayer(_waterPourController!),
+                                  ),
+                                  if (_waterPourBubbleEpochMs != null &&
+                                      _waterPourCopiedBubbles.isNotEmpty)
+                                    ..._waterPourCopiedBubbles.map(
+                                      (bubble) =>
+                                          _scrubBubbleWidgetAtEpoch(
+                                            bubble,
+                                            _waterPourBubbleEpochMs!,
+                                          ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          if (_bathAnimFinished)
+                            _bathDragLayoutCircle(),
+                          if (_cepilloCremaLockedAfterTask &&
+                              !_postTaskProbeDismissed)
+                            Positioned(
+                              left: _kPostTaskProbePos.dx,
+                              top: _kPostTaskProbePos.dy,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: _onPostTaskProbeTap,
+                                child: _postTaskLayoutProbe(),
+                              ),
                             ),
                         ],
                       ),
