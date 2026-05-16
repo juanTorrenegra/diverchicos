@@ -93,6 +93,11 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
   static const int _kMaxScrubBubbles = 64;
   static const int _kScrubStarLifetimeMs = 500;
 
+  static const double _kPostTaskProbeW = 100;
+  static const double _kPostTaskProbeH = 200;
+  /// Default center-ish on 1980×1080; drag to tune, release logs position.
+  static const Offset _kPostTaskProbeStart = Offset(940, 440);
+
   /// Cleared after [pick] is disposed; avoids building [VideoPlayer] with a disposed controller.
   VideoPlayerController? _pickHeld;
 
@@ -129,6 +134,12 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
   int _bubbleSpawnCycleIndex = 0;
   bool _scrubTaskComplete = false;
   bool _scrubCapCelebrationShown = false;
+  /// Stars done → snap home, then lock cepillo (no drag, no idle scale).
+  bool _cepilloCremaLockedAfterTask = false;
+  bool _cepilloCremaSettlingPostCelebration = false;
+
+  Offset _postTaskProbePos = _kPostTaskProbeStart;
+
   final List<_CompletionStar> _scrubCompletionStars = [];
   late final AnimationController _bubbleAnimController;
 
@@ -552,6 +563,8 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     final now = DateTime.now().millisecondsSinceEpoch;
     const lifetimeMs = 900;
 
+    final hadStarsThisFrame = _scrubCompletionStars.isNotEmpty;
+
     final expired = <_ScrubBubble>[];
     for (final b in _scrubBubbles) {
       if (!b.permanent && now - b.birthMs > lifetimeMs) {
@@ -565,6 +578,13 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     _scrubCompletionStars.removeWhere(
       (s) => now - s.birthMs > _kScrubStarLifetimeMs,
     );
+
+    if (_scrubCapCelebrationShown &&
+        !_cepilloCremaLockedAfterTask &&
+        hadStarsThisFrame &&
+        _scrubCompletionStars.isEmpty) {
+      _beginCepilloPostCelebrationSnap();
+    }
 
     final needsTick = _hasAnimatingScrubBubbles(now, lifetimeMs) ||
         _scrubCompletionStars.isNotEmpty;
