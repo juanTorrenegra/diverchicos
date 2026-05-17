@@ -21,12 +21,14 @@ class _SoapBubble {
     required this.permanent,
   });
 
-  final Offset position;
+  Offset position;
   final int birthMs;
   final Offset drift;
   final double baseRadius;
   final Color color;
   final bool permanent;
+  int? attachedDropId;
+  Offset attachOffset = Offset.zero;
 }
 
 class _SoapCompletionStar {
@@ -45,6 +47,26 @@ class _SoapCompletionStar {
   final Color color;
 }
 
+class _CyanDrop {
+  _CyanDrop({
+    required this.id,
+    required this.origin,
+    required this.birthMs,
+    required this.velocityY,
+    required this.driftX,
+    required this.radius,
+    required this.sticky,
+  });
+
+  final int id;
+  final Offset origin;
+  final int birthMs;
+  final double velocityY;
+  final double driftX;
+  final double radius;
+  final bool sticky;
+}
+
 /// Cow bath phase 2: mouth rinse clip, layout cue, then draggable soap.
 ///
 /// Started from [SaludCowGameLayer] when the water-pour cue circle is tapped.
@@ -57,7 +79,9 @@ class SaludCowGame2Layer extends StatefulWidget {
 
 class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
     with TickerProviderStateMixin {
-  static const Offset _kBathSoapPos = Offset(1230.9, 169.9);
+  static const double _kLogicalH = 1080;
+
+  static const Offset _kBathSoapPos = Offset(1200.9, 149.9);
 
   static const Offset _kLayoutCuePos = Offset(745.3, 205.0);
   static const double _kLayoutCueW = 350;
@@ -72,10 +96,16 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
   static const double _kSoapBubbleRadiusRange = 30;
 
   static const List<Color> _kSoapStarPalette = [
-    Color.fromRGBO(255, 255, 255, 1),
-    Color.fromRGBO(248, 248, 252, 1),
-    Color.fromRGBO(200, 200, 200, 1),
+    Color.fromRGBO(255, 235, 59, 1),
+    Color.fromRGBO(255, 213, 0, 1),
+    Color.fromRGBO(255, 193, 7, 1),
   ];
+
+  static const double _kLayoutTriangleSize = 150;
+  static const Offset _kLayoutTriangleStart = Offset(841.9, -44.2);
+
+  static const Color _kCyanDropColor = Colors.cyan;
+  static const Color _kTriangleFillColor = Color(0xB39C27B0);
 
   VideoPlayerController? _mouthRinseController;
   bool _mouthRinseReady = false;
@@ -90,6 +120,13 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
   bool _soapSettlingPostCelebration = false;
   bool _soapLockedAfterTask = false;
 
+  late final ValueNotifier<double> _triangleX;
+  bool _triangleUnlocked = false;
+  bool _triangleSpawningDrops = false;
+  int _cyanDropSpawnTotal = 0;
+  int _nextCyanDropId = 0;
+
+  final List<_CyanDrop> _cyanDrops = [];
   final List<_SoapBubble> _soapBubbles = [];
   final List<_SoapCompletionStar> _soapCompletionStars = [];
   int _lastSoapBubbleSpawnMs = 0;
@@ -97,10 +134,14 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
   int _soapBubbleSpawnCycleIndex = 0;
 
   late final AnimationController _soapBubbleAnimController;
+  late final AnimationController _cyanDropAnimController;
 
   Timer? _idleSoapTimer;
   late final AnimationController _idleSoapPulse;
   late final Animation<double> _idleSoapScale;
+
+  late final AnimationController _idleTrianglePulse;
+  late final Animation<double> _idleTriangleScale;
 
   late final AnimationController _soapSnapController;
   Animation<Offset>? _snapSoapAnim;
@@ -113,6 +154,11 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
       vsync: this,
       duration: const Duration(milliseconds: 16),
     )..addListener(_onSoapBubbleAnimTick);
+    _cyanDropAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 16),
+    )..addListener(_onCyanDropAnimTick);
+    _triangleX = ValueNotifier(_kLayoutTriangleStart.dx);
     _idleSoapPulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 650),
@@ -129,6 +175,23 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
           ),
         ]).animate(
           CurvedAnimation(parent: _idleSoapPulse, curve: Curves.easeInOut),
+        );
+    _idleTrianglePulse = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+    _idleTriangleScale =
+        TweenSequence<double>([
+          TweenSequenceItem(
+            tween: Tween<double>(begin: 1.0, end: 1.2),
+            weight: 50,
+          ),
+          TweenSequenceItem(
+            tween: Tween<double>(begin: 1.2, end: 1.0),
+            weight: 50,
+          ),
+        ]).animate(
+          CurvedAnimation(parent: _idleTrianglePulse, curve: Curves.easeInOut),
         );
     _soapSnapController = AnimationController(
       vsync: this,
@@ -244,7 +307,7 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
     final center = _layoutScrubRect().center;
     final now = DateTime.now().millisecondsSinceEpoch;
     final rng = math.Random();
-    const count = 20;
+    const count = 40;
     for (var i = 0; i < count; i++) {
       final angle = (i / count) * 2 * math.pi + rng.nextDouble() * 0.25;
       final speed = 140 + rng.nextDouble() * 200;
@@ -265,7 +328,7 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
             math.cos(angle) * speed,
             math.sin(angle) * speed,
           ),
-          size: 22 + rng.nextDouble() * 18,
+          size: 44 + rng.nextDouble() * 36,
           color: starColor,
         ),
       );
@@ -319,11 +382,16 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
         !_soapLockedAfterTask &&
         hadStarsThisFrame &&
         _soapCompletionStars.isEmpty) {
+      _triangleUnlocked = true;
+      _startTriangleIdlePulse();
       _beginSoapPostCelebrationSnap();
     }
 
+    _processStickyDropBubbleCoupling(now);
+
     final needsTick = _hasAnimatingSoapBubbles(now) ||
-        _soapCompletionStars.isNotEmpty;
+        _soapCompletionStars.isNotEmpty ||
+        _soapBubbles.any((b) => b.attachedDropId != null);
     if (!needsTick) {
       _soapBubbleAnimController.stop();
     }
@@ -423,18 +491,106 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
     );
   }
 
+  Offset _cyanDropCenter(_CyanDrop d, int now) {
+    final elapsed = (now - d.birthMs) / 1000.0;
+    return Offset(
+      d.origin.dx + d.driftX * elapsed,
+      d.origin.dy + d.velocityY * elapsed,
+    );
+  }
+
+  Offset _soapBubbleFreeCenter(_SoapBubble b, int now) {
+    const lifetimeMs = _kSoapBubbleLifetimeMs;
+    final rawT = (now - b.birthMs) / lifetimeMs;
+    final t = rawT.clamp(0.0, 1.0);
+    final spread = Curves.easeOut.transform(t);
+    return Offset(
+      b.position.dx + b.drift.dx * spread,
+      b.position.dy + b.drift.dy * spread,
+    );
+  }
+
+  double _soapBubbleRadiusAt(_SoapBubble b, int now) {
+    if (b.attachedDropId != null) {
+      return b.baseRadius * 0.82;
+    }
+    const lifetimeMs = _kSoapBubbleLifetimeMs;
+    final rawT = (now - b.birthMs) / lifetimeMs;
+    final t = rawT.clamp(0.0, 1.0);
+    final scaleT = math.sin(t * math.pi);
+    return b.baseRadius * (0.55 + 0.45 * scaleT);
+  }
+
+  _CyanDrop? _cyanDropById(int id) {
+    for (final d in _cyanDrops) {
+      if (d.id == id) return d;
+    }
+    return null;
+  }
+
+  void _processStickyDropBubbleCoupling(int now) {
+    for (final drop in _cyanDrops) {
+      if (!drop.sticky) continue;
+      final dropCenter = _cyanDropCenter(drop, now);
+      for (final bubble in _soapBubbles) {
+        if (bubble.attachedDropId != null) continue;
+        final bubbleCenter = _soapBubbleFreeCenter(bubble, now);
+        final bubbleRadius = _soapBubbleRadiusAt(bubble, now);
+        if ((dropCenter - bubbleCenter).distance >
+            drop.radius + bubbleRadius) {
+          continue;
+        }
+        bubble.attachedDropId = drop.id;
+        bubble.attachOffset = bubbleCenter - dropCenter;
+        if (!_soapBubbleAnimController.isAnimating) {
+          _soapBubbleAnimController.repeat();
+        }
+      }
+    }
+
+    for (final bubble in _soapBubbles) {
+      final dropId = bubble.attachedDropId;
+      if (dropId == null) continue;
+      final drop = _cyanDropById(dropId);
+      if (drop == null) {
+        bubble.attachedDropId = null;
+        continue;
+      }
+      bubble.position = _cyanDropCenter(drop, now) + bubble.attachOffset;
+    }
+  }
+
+  void _detachBubblesFromRemovedDrops() {
+    final activeIds = _cyanDrops.map((d) => d.id).toSet();
+    for (final bubble in _soapBubbles) {
+      final id = bubble.attachedDropId;
+      if (id != null && !activeIds.contains(id)) {
+        bubble.attachedDropId = null;
+      }
+    }
+  }
+
   Widget _soapBubbleWidget(_SoapBubble b) {
     const lifetimeMs = _kSoapBubbleLifetimeMs;
     final now = DateTime.now().millisecondsSinceEpoch;
     final rawT = (now - b.birthMs) / lifetimeMs;
-    if (!b.permanent && rawT >= 1) return const SizedBox.shrink();
+    if (!b.permanent && rawT >= 1 && b.attachedDropId == null) {
+      return const SizedBox.shrink();
+    }
 
     final t = rawT.clamp(0.0, 1.0);
     final spread = Curves.easeOut.transform(t);
     final scaleT = math.sin(t * math.pi);
-    final radius = b.baseRadius * (0.55 + 0.45 * scaleT);
-    final cx = b.position.dx + b.drift.dx * spread;
-    final cy = b.position.dy + b.drift.dy * spread;
+    final attached = b.attachedDropId != null;
+    final radius = attached
+        ? b.baseRadius * 0.82
+        : b.baseRadius * (0.55 + 0.45 * scaleT);
+    final cx = attached
+        ? b.position.dx
+        : b.position.dx + b.drift.dx * spread;
+    final cy = attached
+        ? b.position.dy
+        : b.position.dy + b.drift.dy * spread;
     final opacity = b.permanent ? 0.82 : (1 - t) * 0.82;
     final fill = b.color.withValues(alpha: opacity);
     final stroke = b.color.withValues(alpha: opacity * 0.5);
@@ -580,6 +736,166 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
     );
   }
 
+  void _spawnCyanDropBatch({int count = 5}) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final rng = math.Random();
+    final baseY = _kLayoutTriangleStart.dy + _kLayoutTriangleSize;
+    final baseLeft = _triangleX.value;
+
+    for (var i = 0; i < count; i++) {
+      final x = baseLeft + rng.nextDouble() * _kLayoutTriangleSize;
+      _cyanDropSpawnTotal++;
+      final sticky = _cyanDropSpawnTotal % 30 == 0;
+      _cyanDrops.add(
+        _CyanDrop(
+          id: ++_nextCyanDropId,
+          origin: Offset(x, baseY),
+          birthMs: now,
+          velocityY: 280 + rng.nextDouble() * 180,
+          driftX: (rng.nextDouble() - 0.5) * 40,
+          radius: 4 + rng.nextDouble() * 5,
+          sticky: sticky,
+        ),
+      );
+    }
+  }
+
+  void _onCyanDropAnimTick() {
+    if (_triangleSpawningDrops && _triangleUnlocked) {
+      _spawnCyanDropBatch(count: 6);
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    _processStickyDropBubbleCoupling(now);
+    _cyanDrops.removeWhere((d) {
+      final y = _cyanDropCenter(d, now).dy;
+      return y - d.radius > _kLogicalH;
+    });
+    _detachBubblesFromRemovedDrops();
+    if (_soapBubbles.any((b) => b.attachedDropId != null) &&
+        !_soapBubbleAnimController.isAnimating) {
+      _soapBubbleAnimController.repeat();
+    }
+    if (_cyanDrops.isEmpty && !_triangleSpawningDrops) {
+      _cyanDropAnimController.stop();
+    }
+  }
+
+  Widget _cyanDropsLayer() {
+    return AnimatedBuilder(
+      animation: _cyanDropAnimController,
+      builder: (context, child) {
+        return Stack(
+          clipBehavior: Clip.none,
+          children: _cyanDrops.map(_cyanDropWidget).toList(),
+        );
+      },
+    );
+  }
+
+  void _startTriangleIdlePulse() {
+    if (!_triangleUnlocked || _triangleSpawningDrops) return;
+    if (_idleTrianglePulse.isAnimating) return;
+    _idleTrianglePulse.repeat();
+  }
+
+  void _stopTriangleIdlePulse() {
+    _idleTrianglePulse.stop();
+    _idleTrianglePulse.reset();
+  }
+
+  double _triangleDisplayScale() {
+    if (_triangleSpawningDrops) return 1.0;
+    return _idleTriangleScale.value;
+  }
+
+  void _startTriangleDropStream() {
+    if (!_triangleUnlocked) return;
+    _stopTriangleIdlePulse();
+    _triangleSpawningDrops = true;
+    if (!_cyanDropAnimController.isAnimating) {
+      _cyanDropAnimController.repeat();
+    }
+  }
+
+  void _stopTriangleDropStream() {
+    _triangleSpawningDrops = false;
+    _startTriangleIdlePulse();
+  }
+
+  Widget _cyanDropWidget(_CyanDrop d) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final center = _cyanDropCenter(d, now);
+    if (center.dy - d.radius > _kLogicalH) return const SizedBox.shrink();
+
+    return Positioned(
+      left: center.dx - d.radius,
+      top: center.dy - d.radius,
+      child: IgnorePointer(
+        child: Container(
+          width: d.radius * 2,
+          height: d.radius * 2,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: d.sticky ? Colors.teal : _kCyanDropColor,
+            border: d.sticky
+                ? Border.all(color: Colors.cyanAccent, width: 1.5)
+                : null,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _logLayoutTrianglePosition() {
+    debugPrint(
+      'dragLayoutTriangle: x=${_triangleX.value.toStringAsFixed(1)}, '
+      'y=${_kLayoutTriangleStart.dy.toStringAsFixed(1)}',
+    );
+  }
+
+  Widget _draggableLayoutTriangle() {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_triangleX, _idleTrianglePulse]),
+      builder: (context, child) {
+        return Positioned(
+          left: _triangleX.value,
+          top: _kLayoutTriangleStart.dy,
+          child: Transform.scale(
+            scale: _triangleDisplayScale(),
+            alignment: Alignment.center,
+            child: child!,
+          ),
+        );
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanStart: (_) => _startTriangleDropStream(),
+        onPanUpdate: (details) {
+          _triangleX.value += details.delta.dx;
+        },
+        onPanEnd: (_) {
+          _stopTriangleDropStream();
+          _logLayoutTrianglePosition();
+        },
+        onPanCancel: () {
+          _stopTriangleDropStream();
+          _logLayoutTrianglePosition();
+        },
+        child: SizedBox(
+          width: _kLayoutTriangleSize,
+          height: _kLayoutTriangleSize,
+          child: ClipPath(
+            clipper: _UpTriangleClipper(),
+            child: const ColoredBox(
+              color: _kTriangleFillColor,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _soapWidget() {
     final soapImage = Image.asset(kSaludBathSoapPng);
     final child = _soapLockedAfterTask
@@ -635,8 +951,12 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
     _cancelSoapSnap();
     _idleSoapPulse.stop();
     _idleSoapPulse.dispose();
+    _stopTriangleIdlePulse();
+    _idleTrianglePulse.dispose();
     _soapSnapController.dispose();
     _soapBubbleAnimController.dispose();
+    _cyanDropAnimController.dispose();
+    _triangleX.dispose();
     final v = _mouthRinseController;
     _mouthRinseController = null;
     _mouthRinseReady = false;
@@ -659,8 +979,27 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
           ..._soapBubbles.map(_soapBubbleWidget),
           ..._soapCompletionStars.map(_soapCompletionStarWidget),
           _soapWidget(),
+          if (_triangleUnlocked) ...[
+            _cyanDropsLayer(),
+            _draggableLayoutTriangle(),
+          ],
         ],
       ],
     );
   }
+}
+
+/// Up-pointing triangle inscribed in a square (150×150 layout box).
+class _UpTriangleClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    return Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
