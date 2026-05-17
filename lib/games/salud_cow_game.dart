@@ -101,8 +101,8 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
   static const Duration _kPostTaskProbePulsePeriod = Duration(milliseconds: 3000);
   static const double _kPostTaskProbeRampMs = 280;
 
-  /// Draggable semi-transparent overlay (logical 1980×1080 position); resets on bath teardown.
-  static const Offset _kLayoutDragCircleStart = Offset(865, 415);
+  /// Tappable cue after water pour (logical 1980×1080).
+  static const Offset _kWaterPourCuePos = Offset(843.6, 864.1);
 
   /// Cleared after [pick] is disposed; avoids building [VideoPlayer] with a disposed controller.
   VideoPlayerController? _pickHeld;
@@ -153,12 +153,12 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
 
   bool _postTaskProbeDismissed = false;
 
-  Offset _layoutDragCirclePos = _kLayoutDragCircleStart;
-
   final List<_CompletionStar> _scrubCompletionStars = [];
   late final AnimationController _bubbleAnimController;
   late final AnimationController _postTaskProbePulseController;
   bool _postTaskProbeLoopStarted = false;
+  late final AnimationController _waterPourCuePulseController;
+  bool _waterPourCueLoopStarted = false;
 
   static const List<Color> _kScrubBubblePalette = [
     Color.fromRGBO(255, 255, 255, 1),
@@ -328,6 +328,7 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
   }
 
   Future<void> _disposeWaterPour() async {
+    _stopWaterPourCueLoop();
     _waterPourCopiedBubbles.clear();
     _waterPourBubbleEpochMs = null;
     final v = _waterPourController;
@@ -376,6 +377,7 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
         _waterPourController = v;
         _waterPourReady = true;
       });
+      _maybeStartWaterPourCueLoop();
     } catch (_) {
       await v.dispose();
       if (mounted) {
@@ -383,6 +385,7 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
           _waterPourCopiedBubbles.clear();
           _waterPourBubbleEpochMs = null;
         });
+        _stopWaterPourCueLoop();
       }
     }
   }
@@ -966,36 +969,46 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     );
   }
 
-  Widget _bathDragLayoutCircle() {
+  void _maybeStartWaterPourCueLoop() {
+    if (!mounted || !_waterPourReady || _waterPourCueLoopStarted) return;
+    _waterPourCueLoopStarted = true;
+    _waterPourCuePulseController.reset();
+    _waterPourCuePulseController.repeat();
+  }
+
+  void _stopWaterPourCueLoop() {
+    _waterPourCuePulseController.stop();
+    _waterPourCuePulseController.reset();
+    _waterPourCueLoopStarted = false;
+  }
+
+  Widget _waterPourCueCircle() {
     return Positioned(
-      left: _layoutDragCirclePos.dx,
-      top: _layoutDragCirclePos.dy,
+      left: _kWaterPourCuePos.dx,
+      top: _kWaterPourCuePos.dy,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onPanUpdate: (details) {
-          setState(() => _layoutDragCirclePos += details.delta);
-        },
-        onPanEnd: (_) {
-          debugPrint(
-            'dragLayoutCircle: x=${_layoutDragCirclePos.dx.toStringAsFixed(1)}, '
-            'y=${_layoutDragCirclePos.dy.toStringAsFixed(1)}',
-          );
-        },
-        onPanCancel: () {
-          debugPrint(
-            'dragLayoutCircle: x=${_layoutDragCirclePos.dx.toStringAsFixed(1)}, '
-            'y=${_layoutDragCirclePos.dy.toStringAsFixed(1)}',
-          );
-        },
-        child: SizedBox(
-          width: _kPostTaskProbeSize,
-          height: _kPostTaskProbeSize,
-          child: const DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0x80FFFFFF),
-            ),
-          ),
+        onTap: () {},
+        child: AnimatedBuilder(
+          animation: _waterPourCuePulseController,
+          builder: (context, child) {
+            final t = _waterPourCuePulseController.value;
+            final viz = _postTaskProbePeakAndScale(t);
+            return Transform.scale(
+              scale: viz.scale,
+              alignment: Alignment.center,
+              child: SizedBox(
+                width: _kPostTaskProbeSize,
+                height: _kPostTaskProbeSize,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: viz.peakOpacity),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -1150,6 +1163,10 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
       vsync: this,
       duration: _kPostTaskProbePulsePeriod,
     );
+    _waterPourCuePulseController = AnimationController(
+      vsync: this,
+      duration: _kPostTaskProbePulsePeriod,
+    );
     _pickHeld = widget.pickController;
     unawaited(_loadPropAssetSizes());
     unawaited(_runCowPickToBathSequence());
@@ -1198,7 +1215,6 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
         _cepilloCremaLockedAfterTask = false;
         _cepilloCremaSettlingPostCelebration = false;
         _postTaskProbeDismissed = false;
-        _layoutDragCirclePos = _kLayoutDragCircleStart;
       });
     }
     await _disposeDirtyTeeth();
@@ -1402,6 +1418,8 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     _cepilloCremaSnapController.dispose();
     _bubbleAnimController.dispose();
     _postTaskProbePulseController.dispose();
+    _stopWaterPourCueLoop();
+    _waterPourCuePulseController.dispose();
     final merge = _mergeVideoController;
     _mergeVideoController = null;
     _mergeVideoReady = false;
@@ -1572,11 +1590,10 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
                                             _waterPourBubbleEpochMs!,
                                           ),
                                     ),
+                                  _waterPourCueCircle(),
                                 ],
                               ),
                             ),
-                          if (_bathAnimFinished)
-                            _bathDragLayoutCircle(),
                           if (_cepilloCremaLockedAfterTask &&
                               !_postTaskProbeDismissed)
                             Positioned(
