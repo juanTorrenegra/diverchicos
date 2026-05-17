@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
 import '../widgets/menu_back_pill.dart';
+import 'salud_cow_game2.dart';
 
 const String kSaludCowEntersBathAsset = 'assets/video/salud/cowEntersBath.mp4';
 const String kSaludToothpasteOnCepilloAsset =
@@ -159,6 +160,8 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
   bool _postTaskProbeLoopStarted = false;
   late final AnimationController _waterPourCuePulseController;
   bool _waterPourCueLoopStarted = false;
+  bool _waterPourCueDismissed = false;
+  bool _cowPhase2Active = false;
 
   static const List<Color> _kScrubBubblePalette = [
     Color.fromRGBO(255, 255, 255, 1),
@@ -969,8 +972,22 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     );
   }
 
+  void _onWaterPourCueTap() {
+    if (!mounted || !_waterPourReady || _waterPourCueDismissed) return;
+    _stopWaterPourCueLoop();
+    setState(() {
+      _waterPourCueDismissed = true;
+      _cowPhase2Active = true;
+    });
+  }
+
   void _maybeStartWaterPourCueLoop() {
-    if (!mounted || !_waterPourReady || _waterPourCueLoopStarted) return;
+    if (!mounted ||
+        !_waterPourReady ||
+        _waterPourCueDismissed ||
+        _waterPourCueLoopStarted) {
+      return;
+    }
     _waterPourCueLoopStarted = true;
     _waterPourCuePulseController.reset();
     _waterPourCuePulseController.repeat();
@@ -988,7 +1005,7 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
       top: _kWaterPourCuePos.dy,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () {},
+        onTap: _onWaterPourCueTap,
         child: AnimatedBuilder(
           animation: _waterPourCuePulseController,
           builder: (context, child) {
@@ -1215,6 +1232,8 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
         _cepilloCremaLockedAfterTask = false;
         _cepilloCremaSettlingPostCelebration = false;
         _postTaskProbeDismissed = false;
+        _waterPourCueDismissed = false;
+        _cowPhase2Active = false;
       });
     }
     await _disposeDirtyTeeth();
@@ -1590,9 +1609,14 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
                                             _waterPourBubbleEpochMs!,
                                           ),
                                     ),
-                                  _waterPourCueCircle(),
+                                  if (!_waterPourCueDismissed)
+                                    _waterPourCueCircle(),
                                 ],
                               ),
+                            ),
+                          if (_cowPhase2Active)
+                            const Positioned.fill(
+                              child: SaludCowGame2Layer(),
                             ),
                           if (_cepilloCremaLockedAfterTask &&
                               !_postTaskProbeDismissed)
