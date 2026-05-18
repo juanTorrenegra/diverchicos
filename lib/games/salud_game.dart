@@ -13,7 +13,7 @@ const String kSaludCowPickAsset = 'assets/video/salud/cowPick.mp4';
 const String kSaludCatPickAsset = 'assets/video/salud/catPick.mp4';
 const String kSaludCowCatBlinkAsset = 'assets/video/salud/cowCatBlink.mp4';
 
-/// Fullscreen intro: fixed logical **1980×1080**, stretched to device; pauses on last frame; [onClose] from back pill.
+/// Fullscreen intro: fixed logical **1980×1080**, stretched to device; pauses on last frame; [onClose] from back pill
 class SaludCowCatIntroLayer extends StatefulWidget {
   const SaludCowCatIntroLayer({super.key, required this.onClose});
 
@@ -391,9 +391,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
               Positioned(
                 top: 20,
                 right: 16,
-                child: MenuBackPill(
-                  onPressed: widget.onClose,
-                ),
+                child: MenuBackPill(onPressed: widget.onClose),
               ),
             ],
           ],
