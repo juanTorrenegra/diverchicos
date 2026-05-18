@@ -1379,12 +1379,29 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     unawaited(_runCowEndingSequence());
   }
 
+  Future<void> _prepareForEndingPlayback() async {
+    final dirty = _dirtyTeethController;
+    if (dirty != null && dirty.value.isInitialized) {
+      await dirty.pause();
+    }
+    final water = _waterPourController;
+    if (water != null && water.value.isInitialized) {
+      await water.pause();
+    }
+  }
+
   Future<void> _runCowEndingSequence() async {
     if (_endingSequenceStarted) return;
     _endingSequenceStarted = true;
     if (mounted) {
-      setState(() => _cowPhase2Active = false);
+      setState(() {
+        _cowPhase2Active = false;
+        _teethScrubZoneActive = false;
+        _scrubBubbles.clear();
+        _scrubCompletionStars.clear();
+      });
     }
+    await _prepareForEndingPlayback();
 
     final ending = VideoPlayerController.asset(
       kSaludCowEndingAsset,
@@ -1608,6 +1625,8 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
         children: [
           if (_endingVisible && _endingReady && _endingController != null)
             Positioned.fill(child: _fullscreenVideo(_endingController!))
+          else if (_endingSequenceStarted)
+            const Positioned.fill(child: ColoredBox(color: Colors.black))
           else if (!_bathReady || _bathController == null)
             Positioned.fill(
               child: ColoredBox(
@@ -1625,8 +1644,8 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
                   ),
                 ),
               ),
-            ),
-          if (_bathReady && _bathController != null)
+            )
+          else
             Positioned.fill(
               child: ColoredBox(
                 color: Colors.black,
