@@ -103,6 +103,8 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
 
   static const double _kLayoutTriangleSize = 150;
   static const Offset _kLayoutTriangleStart = Offset(841.9, -44.2);
+  static const Duration _kTriangleIdleDelay = Duration(seconds: 3);
+  static const Duration _kTriangleIdleAnimDuration = Duration(milliseconds: 650);
 
   static const Color _kCyanDropColor = Colors.cyan;
   static const Color _kTriangleFillColor = Color(0xB39C27B0);
@@ -119,10 +121,16 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
   bool _soapCapCelebrationShown = false;
   bool _soapSettlingPostCelebration = false;
   bool _soapLockedAfterTask = false;
+  bool _soapDisposing = false;
+  bool _soapDisposed = false;
 
   late final ValueNotifier<double> _triangleX;
+  late final ValueNotifier<double> _triangleY;
   bool _triangleUnlocked = false;
   bool _triangleSpawningDrops = false;
+  bool _triangleDropSessionComplete = false;
+  bool _triangleExiting = false;
+  bool _triangleDisposed = false;
   int _cyanDropSpawnTotal = 0;
   int _nextCyanDropId = 0;
 
@@ -140,12 +148,17 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
   late final AnimationController _idleSoapPulse;
   late final Animation<double> _idleSoapScale;
 
-  late final AnimationController _idleTrianglePulse;
-  late final Animation<double> _idleTriangleScale;
+  Timer? _idleTriangleIdleTimer;
+  late final AnimationController _triangleIdlePulse;
+  late final Animation<double> _triangleIdleScale;
 
   late final AnimationController _soapSnapController;
   Animation<Offset>? _snapSoapAnim;
   bool _snapSoapActive = false;
+
+  late final AnimationController _triangleExitController;
+  late final AnimationController _soapShrinkController;
+  late final Animation<double> _soapShrinkScale;
 
   @override
   void initState() {
@@ -159,6 +172,7 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
       duration: const Duration(milliseconds: 16),
     )..addListener(_onCyanDropAnimTick);
     _triangleX = ValueNotifier(_kLayoutTriangleStart.dx);
+    _triangleY = ValueNotifier(_kLayoutTriangleStart.dy);
     _idleSoapPulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 650),
@@ -176,23 +190,25 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
         ]).animate(
           CurvedAnimation(parent: _idleSoapPulse, curve: Curves.easeInOut),
         );
-    _idleTrianglePulse = AnimationController(
+    _triangleIdlePulse = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: _kTriangleIdleAnimDuration,
     );
-    _idleTriangleScale =
-        TweenSequence<double>([
-          TweenSequenceItem(
-            tween: Tween<double>(begin: 1.0, end: 1.2),
-            weight: 50,
-          ),
-          TweenSequenceItem(
-            tween: Tween<double>(begin: 1.2, end: 1.0),
-            weight: 50,
-          ),
-        ]).animate(
-          CurvedAnimation(parent: _idleTrianglePulse, curve: Curves.easeInOut),
-        );
+    _triangleIdleScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween<double>(begin: 1.0, end: 1.5), weight: 50),
+      TweenSequenceItem(tween: Tween<double>(begin: 1.5, end: 1.0), weight: 50),
+    ]).animate(
+      CurvedAnimation(parent: _triangleIdlePulse, curve: Curves.easeInOut),
+    );
+    _triangleExitController = AnimationController(vsync: this);
+    _soapShrinkController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2800),
+    );
+    _soapShrinkScale = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _soapShrinkController, curve: Curves.easeInOut),
+    );
+    _soapShrinkController.addStatusListener(_onSoapShrinkStatus);
     _soapSnapController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1100),
@@ -383,7 +399,7 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
         hadStarsThisFrame &&
         _soapCompletionStars.isEmpty) {
       _triangleUnlocked = true;
-      _startTriangleIdlePulse();
+      _playTriangleIdlePulse();
       _beginSoapPostCelebrationSnap();
     }
 
@@ -391,10 +407,12 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
 
     final needsTick = _hasAnimatingSoapBubbles(now) ||
         _soapCompletionStars.isNotEmpty ||
-        _soapBubbles.any((b) => b.attachedDropId != null);
+        _soapBubbles.any((b) => b.attachedDropId != null) ||
+        (_triangleUnlocked && _hasActiveDropsOrBubblesOnScreen(now));
     if (!needsTick) {
       _soapBubbleAnimController.stop();
     }
+    _maybeStartTriangleExit();
     if (mounted) setState(() {});
   }
 
@@ -570,6 +588,48 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
     }
   }
 
+  void _removeOffScreenDropsAndAttachedBubbles(int now) {
+    final exitedDropIds = <int>[];
+    _cyanDrops.removeWhere((d) {
+      final y = _cyanDropCenter(d, now).dy;
+      if (y - d.radius > _kLogicalH) {
+        exitedDropIds.add(d.id);
+        return true;
+      }
+      return false;
+    });
+    if (exitedDropIds.isEmpty) return;
+    _soapBubbles.removeWhere(
+      (b) =>
+          b.attachedDropId != null &&
+          exitedDropIds.contains(b.attachedDropId),
+    );
+  }
+
+  bool _bubbleStillOnScreen(_SoapBubble bubble, int now) {
+    final double cy;
+    final double radius;
+    if (bubble.attachedDropId != null) {
+      cy = bubble.position.dy;
+      radius = bubble.baseRadius * 0.82;
+    } else {
+      final center = _soapBubbleFreeCenter(bubble, now);
+      cy = center.dy;
+      radius = _soapBubbleRadiusAt(bubble, now);
+    }
+    return cy - radius <= _kLogicalH;
+  }
+
+  /// True while any drop is falling or any permanent scrub bubble is still on screen.
+  bool _hasActiveDropsOrBubblesOnScreen(int now) {
+    if (_cyanDrops.isNotEmpty) return true;
+    for (final bubble in _soapBubbles) {
+      if (!bubble.permanent) continue;
+      if (_bubbleStillOnScreen(bubble, now)) return true;
+    }
+    return false;
+  }
+
   Widget _soapBubbleWidget(_SoapBubble b) {
     const lifetimeMs = _kSoapBubbleLifetimeMs;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -704,11 +764,98 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
   }
 
   double _soapDisplayScale() {
+    if (_soapDisposing) return _soapShrinkScale.value;
     if (_soapLockedAfterTask) return 1.0;
     if (_soapDragging || _snapSoapActive || _soapSettlingPostCelebration) {
       return 1.0;
     }
     return _idleSoapScale.value;
+  }
+
+  void _onSoapShrinkStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed || !mounted) return;
+    setState(() {
+      _soapDisposing = false;
+      _soapDisposed = true;
+    });
+  }
+
+  void _beginSoapShrink() {
+    if (_soapDisposed || _soapDisposing || !_soapLockedAfterTask) return;
+    _cancelSoapIdleTimer();
+    _idleSoapPulse.stop();
+    _idleSoapPulse.reset();
+    _soapDisposing = true;
+    _soapShrinkController.forward(from: 0);
+    if (mounted) setState(() {});
+  }
+
+  void _disposeTriangleAndParticles() {
+    _triangleDisposed = true;
+    _triangleExiting = false;
+    _soapBubbles.clear();
+    _cyanDrops.clear();
+    _soapCompletionStars.clear();
+    _cyanDropAnimController.stop();
+    _soapBubbleAnimController.stop();
+    _detachBubblesFromRemovedDrops();
+    if (mounted) setState(() {});
+  }
+
+  void _beginTriangleExit() {
+    if (_triangleExiting || _triangleDisposed || !_triangleUnlocked) return;
+
+    _triangleDropSessionComplete = false;
+    _triangleExiting = true;
+    _cancelTriangleIdlePulse();
+    _beginSoapShrink();
+
+    const scale = 1.0;
+    final exitTop = -_kLayoutTriangleSize * scale - 8;
+    final distance = _triangleY.value - exitTop;
+    const speedPxPerSec = 55.0;
+    final durationMs =
+        ((distance / speedPxPerSec) * 1000).round().clamp(800, 12000);
+
+    _triangleExitController.duration = Duration(milliseconds: durationMs);
+    _triangleExitController.stop();
+    _triangleExitController.reset();
+    final exitAnim = Tween<double>(
+      begin: _triangleY.value,
+      end: exitTop,
+    ).animate(
+      CurvedAnimation(
+        parent: _triangleExitController,
+        curve: Curves.linear,
+      ),
+    );
+    void onExitTick() {
+      _triangleY.value = exitAnim.value;
+    }
+
+    _triangleExitController.removeListener(onExitTick);
+    _triangleExitController.addListener(onExitTick);
+    unawaited(
+      _triangleExitController.forward(from: 0).whenComplete(() {
+        _triangleExitController.removeListener(onExitTick);
+        if (!mounted) return;
+        _disposeTriangleAndParticles();
+      }),
+    );
+    if (mounted) setState(() {});
+  }
+
+  void _maybeStartTriangleExit() {
+    if (!_triangleUnlocked ||
+        _triangleDisposed ||
+        _triangleExiting ||
+        _triangleSpawningDrops ||
+        !_triangleDropSessionComplete) {
+      return;
+    }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (_hasActiveDropsOrBubblesOnScreen(now)) return;
+    _beginTriangleExit();
   }
 
   Offset _effectiveSoapPos() {
@@ -739,7 +886,7 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
   void _spawnCyanDropBatch({int count = 5}) {
     final now = DateTime.now().millisecondsSinceEpoch;
     final rng = math.Random();
-    final baseY = _kLayoutTriangleStart.dy + _kLayoutTriangleSize;
+    final baseY = _triangleY.value + _kLayoutTriangleSize;
     final baseLeft = _triangleX.value;
 
     for (var i = 0; i < count; i++) {
@@ -767,10 +914,7 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
 
     final now = DateTime.now().millisecondsSinceEpoch;
     _processStickyDropBubbleCoupling(now);
-    _cyanDrops.removeWhere((d) {
-      final y = _cyanDropCenter(d, now).dy;
-      return y - d.radius > _kLogicalH;
-    });
+    _removeOffScreenDropsAndAttachedBubbles(now);
     _detachBubblesFromRemovedDrops();
     if (_soapBubbles.any((b) => b.attachedDropId != null) &&
         !_soapBubbleAnimController.isAnimating) {
@@ -779,6 +923,8 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
     if (_cyanDrops.isEmpty && !_triangleSpawningDrops) {
       _cyanDropAnimController.stop();
     }
+    _maybeStartTriangleExit();
+    if (mounted) setState(() {});
   }
 
   Widget _cyanDropsLayer() {
@@ -793,25 +939,56 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
     );
   }
 
-  void _startTriangleIdlePulse() {
-    if (!_triangleUnlocked || _triangleSpawningDrops) return;
-    if (_idleTrianglePulse.isAnimating) return;
-    _idleTrianglePulse.repeat();
+  void _cancelTriangleIdleTimer() {
+    _idleTriangleIdleTimer?.cancel();
+    _idleTriangleIdleTimer = null;
   }
 
-  void _stopTriangleIdlePulse() {
-    _idleTrianglePulse.stop();
-    _idleTrianglePulse.reset();
+  void _cancelTriangleIdlePulse() {
+    _cancelTriangleIdleTimer();
+    _triangleIdlePulse.stop();
+    _triangleIdlePulse.reset();
+  }
+
+  void _scheduleTriangleIdleLoop() {
+    _cancelTriangleIdleTimer();
+    if (!_triangleUnlocked ||
+        _triangleSpawningDrops ||
+        _triangleExiting ||
+        _triangleDisposed) {
+      return;
+    }
+    _idleTriangleIdleTimer = Timer(_kTriangleIdleDelay, () {
+      unawaited(_playTriangleIdlePulse());
+    });
+  }
+
+  Future<void> _playTriangleIdlePulse() async {
+    _cancelTriangleIdleTimer();
+    if (!mounted ||
+        !_triangleUnlocked ||
+        _triangleSpawningDrops ||
+        _triangleExiting ||
+        _triangleDisposed) {
+      return;
+    }
+    await _triangleIdlePulse.forward(from: 0);
+    if (!mounted) return;
+    _triangleIdlePulse.reset();
+    if (_triangleSpawningDrops || _triangleExiting || _triangleDisposed) {
+      return;
+    }
+    _scheduleTriangleIdleLoop();
   }
 
   double _triangleDisplayScale() {
-    if (_triangleSpawningDrops) return 1.0;
-    return _idleTriangleScale.value;
+    if (_triangleSpawningDrops || _triangleExiting) return 1.0;
+    return _triangleIdleScale.value;
   }
 
   void _startTriangleDropStream() {
     if (!_triangleUnlocked) return;
-    _stopTriangleIdlePulse();
+    _cancelTriangleIdlePulse();
     _triangleSpawningDrops = true;
     if (!_cyanDropAnimController.isAnimating) {
       _cyanDropAnimController.repeat();
@@ -820,7 +997,9 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
 
   void _stopTriangleDropStream() {
     _triangleSpawningDrops = false;
-    _startTriangleIdlePulse();
+    _triangleDropSessionComplete = true;
+    _scheduleTriangleIdleLoop();
+    _maybeStartTriangleExit();
   }
 
   Widget _cyanDropWidget(_CyanDrop d) {
@@ -856,11 +1035,16 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
 
   Widget _draggableLayoutTriangle() {
     return AnimatedBuilder(
-      animation: Listenable.merge([_triangleX, _idleTrianglePulse]),
+      animation: Listenable.merge([
+        _triangleX,
+        _triangleY,
+        _triangleIdlePulse,
+        _triangleExitController,
+      ]),
       builder: (context, child) {
         return Positioned(
           left: _triangleX.value,
-          top: _kLayoutTriangleStart.dy,
+          top: _triangleY.value,
           child: Transform.scale(
             scale: _triangleDisplayScale(),
             alignment: Alignment.center,
@@ -870,8 +1054,12 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
       },
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onPanStart: (_) => _startTriangleDropStream(),
+        onPanStart: (_) {
+          if (_triangleExiting) return;
+          _startTriangleDropStream();
+        },
         onPanUpdate: (details) {
+          if (_triangleExiting) return;
           _triangleX.value += details.delta.dx;
         },
         onPanEnd: (_) {
@@ -928,7 +1116,11 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
           );
 
     return AnimatedBuilder(
-      animation: Listenable.merge([_idleSoapPulse, _soapSnapController]),
+      animation: Listenable.merge([
+        _idleSoapPulse,
+        _soapSnapController,
+        _soapShrinkController,
+      ]),
       builder: (context, child) {
         final pos = _effectiveSoapPos();
         return Positioned(
@@ -951,12 +1143,16 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
     _cancelSoapSnap();
     _idleSoapPulse.stop();
     _idleSoapPulse.dispose();
-    _stopTriangleIdlePulse();
-    _idleTrianglePulse.dispose();
+    _cancelTriangleIdlePulse();
+    _triangleIdlePulse.dispose();
     _soapSnapController.dispose();
     _soapBubbleAnimController.dispose();
     _cyanDropAnimController.dispose();
     _triangleX.dispose();
+    _triangleY.dispose();
+    _triangleExitController.dispose();
+    _soapShrinkController.removeStatusListener(_onSoapShrinkStatus);
+    _soapShrinkController.dispose();
     final v = _mouthRinseController;
     _mouthRinseController = null;
     _mouthRinseReady = false;
@@ -976,10 +1172,12 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
           Positioned.fill(child: VideoPlayer(_mouthRinseController!)),
         if (_mouthRinseFinished) ...[
           _layoutCueRect(),
-          ..._soapBubbles.map(_soapBubbleWidget),
-          ..._soapCompletionStars.map(_soapCompletionStarWidget),
-          _soapWidget(),
-          if (_triangleUnlocked) ...[
+          if (!_triangleDisposed) ...[
+            ..._soapBubbles.map(_soapBubbleWidget),
+            ..._soapCompletionStars.map(_soapCompletionStarWidget),
+          ],
+          if (!_soapDisposed) _soapWidget(),
+          if (_triangleUnlocked && !_triangleDisposed) ...[
             _cyanDropsLayer(),
             _draggableLayoutTriangle(),
           ],
