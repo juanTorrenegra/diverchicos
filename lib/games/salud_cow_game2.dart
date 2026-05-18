@@ -71,7 +71,10 @@ class _CyanDrop {
 ///
 /// Started from [SaludCowGameLayer] when the water-pour cue circle is tapped.
 class SaludCowGame2Layer extends StatefulWidget {
-  const SaludCowGame2Layer({super.key});
+  const SaludCowGame2Layer({super.key, required this.onPhaseComplete});
+
+  /// Called after the soap and triangle have been disposed at the end of phase 2.
+  final VoidCallback onPhaseComplete;
 
   @override
   State<SaludCowGame2Layer> createState() => _SaludCowGame2LayerState();
@@ -123,6 +126,7 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
   bool _soapLockedAfterTask = false;
   bool _soapDisposing = false;
   bool _soapDisposed = false;
+  bool _phaseCompleteNotified = false;
 
   late final ValueNotifier<double> _triangleX;
   late final ValueNotifier<double> _triangleY;
@@ -778,6 +782,18 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
       _soapDisposing = false;
       _soapDisposed = true;
     });
+    _maybeNotifyPhaseComplete();
+  }
+
+  void _maybeNotifyPhaseComplete() {
+    if (_phaseCompleteNotified ||
+        !_triangleDisposed ||
+        !_soapDisposed ||
+        !mounted) {
+      return;
+    }
+    _phaseCompleteNotified = true;
+    widget.onPhaseComplete();
   }
 
   void _beginSoapShrink() {
@@ -800,6 +816,7 @@ class _SaludCowGame2LayerState extends State<SaludCowGame2Layer>
     _soapBubbleAnimController.stop();
     _detachBubblesFromRemovedDrops();
     if (mounted) setState(() {});
+    _maybeNotifyPhaseComplete();
   }
 
   void _beginTriangleExit() {

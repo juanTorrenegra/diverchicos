@@ -15,6 +15,7 @@ const String kSaludToothpasteOnCepilloAsset =
 const String kSaludCowShowsDirtyTeethAsset =
     'assets/video/salud/cowShowsDirtyTeeth.mp4';
 const String kSaludWaterPourAsset = 'assets/video/salud/waterPour.mp4';
+const String kSaludCowEndingAsset = 'assets/video/salud/cowEnding.mp4';
 
 const String kSaludBathColgatePng = 'assets/images/bathGame/colgate.png';
 const String kSaludBathCepilloPng = 'assets/images/bathGame/cepillo.png';
@@ -162,6 +163,12 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
   bool _waterPourCueLoopStarted = false;
   bool _waterPourCueDismissed = false;
   bool _cowPhase2Active = false;
+
+  VideoPlayerController? _endingController;
+  bool _endingReady = false;
+  bool _endingVisible = false;
+  bool _endingSequenceStarted = false;
+  bool _endingHoldPassed = false;
 
   static const List<Color> _kScrubBubblePalette = [
     Color.fromRGBO(255, 255, 255, 1),
@@ -1335,12 +1342,118 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     }
   }
 
-  Future<void> _exitBathAndClose() async {
+  Future<void> _disposeEnding() async {
+    final v = _endingController;
+    _endingController = null;
+    _endingReady = false;
+    _endingVisible = false;
+    _endingHoldPassed = false;
+    if (v != null) {
+      v.removeListener(_onEndingTick);
+      await v.dispose();
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _onEndingTick() {
+    final v = _endingController;
+    if (v == null || !mounted || _endingHoldPassed) return;
+    final value = v.value;
+    if (!value.isInitialized || value.hasError) return;
+    if (!value.isCompleted) return;
+    _endingHoldPassed = true;
+    v.removeListener(_onEndingTick);
+    unawaited(_onEndingVideoFinished());
+  }
+
+  Future<void> _onEndingVideoFinished() async {
+    final v = _endingController;
+    if (v != null) await v.pause();
+    await Future<void>.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
+    await _fadeToWhiteTeardownAndReturnToMenu();
+  }
+
+  void _onCowPhase2Complete() {
+    if (_endingSequenceStarted || !mounted) return;
+    unawaited(_runCowEndingSequence());
+  }
+
+  Future<void> _runCowEndingSequence() async {
+    if (_endingSequenceStarted) return;
+    _endingSequenceStarted = true;
+    if (mounted) {
+      setState(() => _cowPhase2Active = false);
+    }
+
+    final ending = VideoPlayerController.asset(
+      kSaludCowEndingAsset,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    try {
+      await ending.initialize();
+      if (!mounted) {
+        await ending.dispose();
+        return;
+      }
+      await ending.setLooping(false);
+      ending.addListener(_onEndingTick);
+      await ending.play();
+      if (!mounted) {
+        ending.removeListener(_onEndingTick);
+        await ending.dispose();
+        return;
+      }
+      setState(() {
+        _endingController = ending;
+        _endingReady = true;
+        _endingVisible = true;
+      });
+    } catch (_) {
+      ending.removeListener(_onEndingTick);
+      await ending.dispose();
+      if (mounted) await _fadeToWhiteTeardownAndReturnToMenu();
+    }
+  }
+
+  Future<void> _fadeToWhiteTeardownAndReturnToMenu() async {
+    if (!mounted) return;
+
+    _whiteFade?.dispose();
+    _whiteFade = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+    setState(() {});
+    await _whiteFade!.forward();
+    if (!mounted) return;
+
+    await _teardownAllCowGameMedia();
+    if (!mounted) return;
+
+    _whiteFade?.dispose();
+    _whiteFade = null;
+    if (mounted) widget.onClose();
+  }
+
+  Future<void> _teardownAllCowGameMedia() async {
+    await _disposeEnding();
     await _disposeMergeVideo();
     await _disposeDirtyTeeth();
     _cancelCepilloCremaIdleTimer();
     _cancelCepilloCremaSnap();
+    await _disposeWaterPour();
     await _disposeBath();
+    final pick = _pickHeld;
+    if (pick != null) {
+      await pick.dispose();
+      _pickHeld = null;
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _exitBathAndClose() async {
+    await _teardownAllCowGameMedia();
     _whiteFade?.dispose();
     _whiteFade = null;
     if (mounted) setState(() {});
@@ -1462,7 +1575,28 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
       water.removeListener(_onWaterPourTick);
       unawaited(water.dispose());
     }
+    final ending = _endingController;
+    if (ending != null) {
+      ending.removeListener(_onEndingTick);
+      unawaited(ending.dispose());
+    }
     super.dispose();
+  }
+
+  Widget _fullscreenVideo(VideoPlayerController controller) {
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.fill,
+          child: SizedBox(
+            width: _kLogicalW,
+            height: _kLogicalH,
+            child: VideoPlayer(controller),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1472,7 +1606,9 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (!_bathReady || _bathController == null)
+          if (_endingVisible && _endingReady && _endingController != null)
+            Positioned.fill(child: _fullscreenVideo(_endingController!))
+          else if (!_bathReady || _bathController == null)
             Positioned.fill(
               child: ColoredBox(
                 color: Colors.black,
@@ -1615,8 +1751,10 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
                               ),
                             ),
                           if (_cowPhase2Active)
-                            const Positioned.fill(
-                              child: SaludCowGame2Layer(),
+                            Positioned.fill(
+                              child: SaludCowGame2Layer(
+                                onPhaseComplete: _onCowPhase2Complete,
+                              ),
                             ),
                           if (_cepilloCremaLockedAfterTask &&
                               !_postTaskProbeDismissed)
@@ -1637,13 +1775,14 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
               ),
             ),
           _whiteFadeOverlay(),
-          Positioned(
-            top: 20,
-            right: 16,
-            child: MenuBackPill(
-              onPressed: () => unawaited(_exitBathAndClose()),
+          if (!_endingSequenceStarted)
+            Positioned(
+              top: 20,
+              right: 16,
+              child: MenuBackPill(
+                onPressed: () => unawaited(_exitBathAndClose()),
+              ),
             ),
-          ),
         ],
       ),
     );

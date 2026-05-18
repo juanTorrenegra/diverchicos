@@ -22,8 +22,33 @@ class MainMenuOverlay extends StatefulWidget {
   State<MainMenuOverlay> createState() => _MainMenuOverlayState();
 }
 
-class _MainMenuOverlayState extends State<MainMenuOverlay> {
+class _MainMenuOverlayState extends State<MainMenuOverlay>
+    with SingleTickerProviderStateMixin {
   bool _showSaludIntro = false;
+  AnimationController? _saludReturnWhiteFade;
+
+  @override
+  void dispose() {
+    _saludReturnWhiteFade?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _returnFromSaludToMenu() async {
+    setState(() => _showSaludIntro = false);
+    _saludReturnWhiteFade?.dispose();
+    _saludReturnWhiteFade = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+      value: 1.0,
+    );
+    if (!mounted) return;
+    setState(() {});
+    await _saludReturnWhiteFade!.reverse();
+    if (!mounted) return;
+    _saludReturnWhiteFade?.dispose();
+    _saludReturnWhiteFade = null;
+    if (mounted) setState(() {});
+  }
 
   List<MenuGameCardData> _cards() {
     return [
@@ -97,7 +122,19 @@ class _MainMenuOverlayState extends State<MainMenuOverlay> {
         if (_showSaludIntro)
           Positioned.fill(
             child: SaludCowCatIntroLayer(
-              onClose: () => setState(() => _showSaludIntro = false),
+              onClose: () => unawaited(_returnFromSaludToMenu()),
+            ),
+          ),
+        if (_saludReturnWhiteFade != null)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _saludReturnWhiteFade!,
+                builder: (context, child) {
+                  final t = _saludReturnWhiteFade!.value.clamp(0.0, 1.0);
+                  return ColoredBox(color: Color.fromRGBO(255, 255, 255, t));
+                },
+              ),
             ),
           ),
       ],
