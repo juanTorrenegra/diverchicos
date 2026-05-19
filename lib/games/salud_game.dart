@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../widgets/menu_back_pill.dart';
+import 'salud_cat_game.dart';
 import 'salud_cow_game.dart';
 
 /// Bundled cow/cat intro clip for the SALUD entry point.
@@ -51,6 +52,9 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
 
   /// Non-null while [SaludCowGameLayer] owns the cow pick → bath flow.
   VideoPlayerController? _cowGamePick;
+
+  /// Non-null while [SaludCatGameLayer] owns the cat pick → bath flow.
+  VideoPlayerController? _catGamePick;
 
   @override
   void initState() {
@@ -102,6 +106,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
     if (_pickReady && _pickController != null) return;
     if (_blinkReady && _blinkController != null) return;
     if (_cowGamePick != null) return;
+    if (_catGamePick != null) return;
 
     _idleBlinkTimer = Timer(const Duration(seconds: 3), () {
       if (!mounted) return;
@@ -147,6 +152,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
     if (_pickReady && _pickController != null) return;
     if (_blinkController != null) return;
     if (_cowGamePick != null) return;
+    if (_catGamePick != null) return;
 
     _cancelIdleBlinkTimer();
 
@@ -189,14 +195,12 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
           _pickBusy = false;
         });
       } else {
-        unawaited(c.dispose());
-        if (!mounted) return;
         setState(() {
+          _catGamePick = c;
           _pickController = null;
           _pickReady = false;
           _pickBusy = false;
         });
-        _scheduleIdleBlink();
       }
     }
   }
@@ -223,6 +227,12 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
   }
 
   Future<void> _teardownIntroForCowGame() async {
+    _cancelIdleBlinkTimer();
+    await _disposeBlink();
+    await _disposeIntro();
+  }
+
+  Future<void> _teardownIntroForCatGame() async {
     _cancelIdleBlinkTimer();
     await _disposeBlink();
     await _disposeIntro();
@@ -289,7 +299,9 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
   }
 
   bool get _hideIntroStack =>
-      (_pickReady && _pickController != null) || _cowGamePick != null;
+      (_pickReady && _pickController != null) ||
+      _cowGamePick != null ||
+      _catGamePick != null;
 
   @override
   void dispose() {
@@ -322,6 +334,14 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
                 child: SaludCowGameLayer(
                   pickController: _cowGamePick!,
                   onTeardownIntro: _teardownIntroForCowGame,
+                  onClose: widget.onClose,
+                ),
+              )
+            else if (_catGamePick != null)
+              Positioned.fill(
+                child: SaludCatGameLayer(
+                  pickController: _catGamePick!,
+                  onTeardownIntro: _teardownIntroForCatGame,
                   onClose: widget.onClose,
                 ),
               )
