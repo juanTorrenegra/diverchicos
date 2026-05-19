@@ -16,6 +16,7 @@ import 'salud_cow_game.dart'
 const String kSaludCatEntersBathAsset = 'assets/video/salud/catEntersBath.mp4';
 const String kSaludCatToothpasteDirtyTeethAsset =
     'assets/video/salud/catToothPasteOnCepillo&ShowsDirtyTeeth.mp4';
+const String kSaludCatWaterPourAsset = 'assets/video/salud/catWaterPour.mp4';
 
 class _ScrubBubble {
   _ScrubBubble({
@@ -86,6 +87,13 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   static const int _kMaxScrubBubbles = 64;
   static const int _kScrubStarLifetimeMs = 500;
 
+  static const double _kPostTaskProbeSize = 250;
+  static const Offset _kPostTaskProbePos = Offset(914.5, 737.6);
+  static const Duration _kPostTaskProbePulsePeriod = Duration(milliseconds: 3000);
+  static const double _kPostTaskProbeRampMs = 280;
+
+  static const Offset _kWaterPourCuePos = Offset(843.6, 864.1);
+
   static const Duration _kBathFirstFrameHold = Duration(seconds: 2);
 
   static const List<Color> _kScrubBubblePalette = [
@@ -126,6 +134,18 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   bool _scrubTaskComplete = false;
   bool _scrubCapCelebrationShown = false;
   final List<_CompletionStar> _scrubCompletionStars = [];
+
+  bool _postTaskProbeDismissed = false;
+  late final AnimationController _postTaskProbePulseController;
+  bool _postTaskProbeLoopStarted = false;
+
+  VideoPlayerController? _waterPourController;
+  bool _waterPourReady = false;
+  List<_ScrubBubble> _waterPourCopiedBubbles = [];
+  int? _waterPourBubbleEpochMs;
+  late final AnimationController _waterPourCuePulseController;
+  bool _waterPourCueLoopStarted = false;
+  bool _waterPourCueDismissed = false;
 
   Timer? _idleColgateTimer;
   late final AnimationController _idleColgatePulse;
@@ -237,6 +257,14 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
       vsync: this,
       duration: const Duration(milliseconds: 16),
     )..addListener(_onBubbleAnimTick);
+    _postTaskProbePulseController = AnimationController(
+      vsync: this,
+      duration: _kPostTaskProbePulsePeriod,
+    );
+    _waterPourCuePulseController = AnimationController(
+      vsync: this,
+      duration: _kPostTaskProbePulsePeriod,
+    );
     _pickHeld = widget.pickController;
     unawaited(_loadPropAssetSizes());
     unawaited(_runCatPickToBathSequence());
@@ -532,6 +560,276 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     if (mounted) setState(() {});
   }
 
+  void _onWaterPourTick() {
+    final v = _waterPourController;
+    if (v == null || !mounted) return;
+    final value = v.value;
+    if (!value.isInitialized || value.hasError) return;
+    if (value.isCompleted) {
+      v.removeListener(_onWaterPourTick);
+      unawaited(v.pause());
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _disposeWaterPour() async {
+    _stopWaterPourCueLoop();
+    _waterPourCopiedBubbles.clear();
+    _waterPourBubbleEpochMs = null;
+    final v = _waterPourController;
+    _waterPourController = null;
+    _waterPourReady = false;
+    if (v != null) {
+      v.removeListener(_onWaterPourTick);
+      await v.dispose();
+    }
+  }
+
+  Future<void> _disposeWaterPourVideoOnly() async {
+    final v = _waterPourController;
+    _waterPourController = null;
+    _waterPourReady = false;
+    if (v != null) {
+      v.removeListener(_onWaterPourTick);
+      await v.dispose();
+    }
+  }
+
+  Future<void> _startWaterPourVideo() async {
+    if (!mounted) return;
+    await _disposeWaterPourVideoOnly();
+    if (!mounted) return;
+
+    final v = VideoPlayerController.asset(
+      kSaludCatWaterPourAsset,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    try {
+      await v.initialize();
+      if (!mounted) {
+        await v.dispose();
+        return;
+      }
+      await v.setLooping(false);
+      v.addListener(_onWaterPourTick);
+      await v.play();
+      if (!mounted) {
+        await v.dispose();
+        return;
+      }
+      setState(() {
+        _waterPourController = v;
+        _waterPourReady = true;
+      });
+      _maybeStartWaterPourCueLoop();
+    } catch (_) {
+      await v.dispose();
+      if (mounted) {
+        setState(() {
+          _waterPourCopiedBubbles.clear();
+          _waterPourBubbleEpochMs = null;
+        });
+        _stopWaterPourCueLoop();
+      }
+    }
+  }
+
+  void _maybeStartPostTaskProbeLoop() {
+    if (!mounted ||
+        !_cepilloCremaLockedAfterTask ||
+        _postTaskProbeDismissed) {
+      return;
+    }
+    if (_postTaskProbeLoopStarted) return;
+    _postTaskProbeLoopStarted = true;
+    _postTaskProbePulseController.repeat();
+  }
+
+  void _onPostTaskProbeTap() {
+    if (!mounted ||
+        !_cepilloCremaLockedAfterTask ||
+        _postTaskProbeDismissed) {
+      return;
+    }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    _stopPostTaskProbeLoop();
+    setState(() {
+      _postTaskProbeDismissed = true;
+      _waterPourBubbleEpochMs = now;
+      _waterPourCopiedBubbles = [
+        for (final b in _scrubBubbles)
+          _ScrubBubble(
+            position: b.position,
+            birthMs: b.birthMs,
+            drift: b.drift,
+            baseRadius: b.baseRadius,
+            color: b.color,
+            permanent: b.permanent,
+          ),
+      ];
+    });
+    unawaited(_startWaterPourVideo());
+  }
+
+  void _stopPostTaskProbeLoop() {
+    _postTaskProbePulseController.stop();
+    _postTaskProbePulseController.reset();
+    _postTaskProbeLoopStarted = false;
+  }
+
+  double _postTaskProbeIdleLeadMs(double periodMs, double rampMs) {
+    return math.max(0.0, (periodMs - 4 * rampMs) / 2);
+  }
+
+  ({double peakOpacity, double scale}) _postTaskProbePairAt(
+    double ms,
+    double rampMs,
+    double pairStartMs,
+  ) {
+    if (ms <= pairStartMs) {
+      return (peakOpacity: 0.0, scale: 1.0);
+    }
+    if (ms <= pairStartMs + rampMs) {
+      final u = Curves.easeInOut.transform((ms - pairStartMs) / rampMs);
+      return (peakOpacity: 0.5 * u, scale: 1.0 - 0.2 * u);
+    }
+    if (ms <= pairStartMs + rampMs + rampMs) {
+      final u =
+          Curves.easeInOut.transform((ms - pairStartMs - rampMs) / rampMs);
+      return (peakOpacity: 0.5 * (1.0 - u), scale: 0.8 + 0.2 * u);
+    }
+    return (peakOpacity: 0.0, scale: 1.0);
+  }
+
+  ({double peakOpacity, double scale}) _postTaskProbePeakAndScale(
+    double normalizedT,
+  ) {
+    final periodMs = _kPostTaskProbePulsePeriod.inMilliseconds.toDouble();
+    const rampMs = _kPostTaskProbeRampMs;
+    final ms = normalizedT * periodMs;
+    final idleLead = _postTaskProbeIdleLeadMs(periodMs, rampMs);
+    final p1 = idleLead;
+    final p2 = idleLead + 2 * rampMs;
+
+    final v1 = _postTaskProbePairAt(ms, rampMs, p1);
+    if (v1.peakOpacity > 0 || v1.scale < 1.0) {
+      return v1;
+    }
+    return _postTaskProbePairAt(ms, rampMs, p2);
+  }
+
+  Widget _postTaskLayoutProbe() {
+    return AnimatedBuilder(
+      animation: _postTaskProbePulseController,
+      builder: (context, child) {
+        final t = _postTaskProbePulseController.value;
+        final viz = _postTaskProbePeakAndScale(t);
+        return Transform.scale(
+          scale: viz.scale,
+          alignment: Alignment.center,
+          child: SizedBox(
+            width: _kPostTaskProbeSize,
+            height: _kPostTaskProbeSize,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: viz.peakOpacity),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _onWaterPourCueTap() {
+    if (!mounted || !_waterPourReady || _waterPourCueDismissed) return;
+    _stopWaterPourCueLoop();
+    setState(() => _waterPourCueDismissed = true);
+  }
+
+  void _maybeStartWaterPourCueLoop() {
+    if (!mounted ||
+        !_waterPourReady ||
+        _waterPourCueDismissed ||
+        _waterPourCueLoopStarted) {
+      return;
+    }
+    _waterPourCueLoopStarted = true;
+    _waterPourCuePulseController.reset();
+    _waterPourCuePulseController.repeat();
+  }
+
+  void _stopWaterPourCueLoop() {
+    _waterPourCuePulseController.stop();
+    _waterPourCuePulseController.reset();
+    _waterPourCueLoopStarted = false;
+  }
+
+  Widget _waterPourCueCircle() {
+    return Positioned(
+      left: _kWaterPourCuePos.dx,
+      top: _kWaterPourCuePos.dy,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _onWaterPourCueTap,
+        child: AnimatedBuilder(
+          animation: _waterPourCuePulseController,
+          builder: (context, child) {
+            final t = _waterPourCuePulseController.value;
+            final viz = _postTaskProbePeakAndScale(t);
+            return Transform.scale(
+              scale: viz.scale,
+              alignment: Alignment.center,
+              child: SizedBox(
+                width: _kPostTaskProbeSize,
+                height: _kPostTaskProbeSize,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: viz.peakOpacity),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _scrubBubbleWidgetAtEpoch(_ScrubBubble b, int epochMs) {
+    const lifetimeMs = 900;
+    final rawT = (epochMs - b.birthMs) / lifetimeMs;
+    if (!b.permanent && rawT >= 1) return const SizedBox.shrink();
+
+    final t = rawT.clamp(0.0, 1.0);
+    final spread = Curves.easeOut.transform(t);
+    final scaleT = math.sin(t * math.pi);
+    final radius = b.baseRadius * (0.55 + 0.45 * scaleT);
+    final cx = b.position.dx + b.drift.dx * spread;
+    final cy = b.position.dy + b.drift.dy * spread;
+    final opacity = b.permanent ? 0.82 : (1 - t) * 0.82;
+    final fill = b.color.withValues(alpha: opacity);
+    final stroke = b.color.withValues(alpha: opacity * 0.5);
+
+    return Positioned(
+      left: cx - radius,
+      top: cy - radius,
+      child: IgnorePointer(
+        child: Container(
+          width: radius * 2,
+          height: radius * 2,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: fill,
+            border: Border.all(color: stroke),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _scrubBubbleWidget(_ScrubBubble b) {
     const lifetimeMs = 900;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -588,6 +886,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
         _cepilloCremaLockedAfterTask = true;
       });
       _cepilloCremaSnapController.reset();
+      _maybeStartPostTaskProbeLoop();
       return;
     }
 
@@ -654,6 +953,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
         _cepilloCremaPos = _kBathCepilloPos;
         _cepilloCremaLockedAfterTask = true;
       });
+      _maybeStartPostTaskProbeLoop();
       return;
     }
 
@@ -758,7 +1058,9 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     _idleColgatePulse.reset();
     _idleCepilloCremaPulse.stop();
     _idleCepilloCremaPulse.reset();
+    _stopPostTaskProbeLoop();
     await _disposeMergeVideo();
+    await _disposeWaterPour();
     final b = _bathController;
     _bathController = null;
     _bathReady = false;
@@ -771,6 +1073,8 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
         _teethScrubZoneActive = false;
         _scrubBubbles.clear();
         _scrubCompletionStars.clear();
+        _postTaskProbeDismissed = false;
+        _waterPourCueDismissed = false;
       });
     }
     if (b != null) {
@@ -1061,6 +1365,14 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     _idleCepilloCremaPulse.dispose();
     _cepilloCremaSnapController.dispose();
     _bubbleAnimController.dispose();
+    _postTaskProbePulseController.dispose();
+    _stopWaterPourCueLoop();
+    _waterPourCuePulseController.dispose();
+    final water = _waterPourController;
+    if (water != null) {
+      water.removeListener(_onWaterPourTick);
+      water.dispose();
+    }
     super.dispose();
   }
 
@@ -1176,6 +1488,38 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
                                 );
                               },
                               child: _interactiveCepilloConCrema(),
+                            ),
+                          if (_waterPourReady && _waterPourController != null)
+                            Positioned.fill(
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Positioned.fill(
+                                    child: VideoPlayer(_waterPourController!),
+                                  ),
+                                  if (_waterPourBubbleEpochMs != null &&
+                                      _waterPourCopiedBubbles.isNotEmpty)
+                                    ..._waterPourCopiedBubbles.map(
+                                      (bubble) => _scrubBubbleWidgetAtEpoch(
+                                        bubble,
+                                        _waterPourBubbleEpochMs!,
+                                      ),
+                                    ),
+                                  if (!_waterPourCueDismissed)
+                                    _waterPourCueCircle(),
+                                ],
+                              ),
+                            ),
+                          if (_cepilloCremaLockedAfterTask &&
+                              !_postTaskProbeDismissed)
+                            Positioned(
+                              left: _kPostTaskProbePos.dx,
+                              top: _kPostTaskProbePos.dy,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: _onPostTaskProbeTap,
+                                child: _postTaskLayoutProbe(),
+                              ),
                             ),
                         ],
                       ),
