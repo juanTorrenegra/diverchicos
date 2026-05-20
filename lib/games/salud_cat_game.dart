@@ -125,6 +125,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   Offset _cepilloCremaPos = _kBathCepilloPos;
   bool _cepilloCremaDragging = false;
   bool _cepilloCremaLockedAfterTask = false;
+  bool _cepilloCremaInactive = false;
   bool _cepilloCremaSettlingPostCelebration = false;
 
   bool _teethScrubZoneActive = false;
@@ -655,6 +656,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     _stopPostTaskProbeLoop();
     setState(() {
       _postTaskProbeDismissed = true;
+      _cepilloCremaInactive = true;
       _waterPourBubbleEpochMs = now;
       _waterPourCopiedBubbles = [
         for (final b in _scrubBubbles)
@@ -1070,6 +1072,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
         _propsHidden = false;
         _mergeTriggered = false;
         _cepilloCremaVisible = false;
+        _cepilloCremaInactive = false;
         _teethScrubZoneActive = false;
         _scrubBubbles.clear();
         _scrubCompletionStars.clear();
@@ -1463,32 +1466,6 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
                               },
                               child: _interactiveColgate(),
                             ),
-                          if (_cepilloCremaVisible && _cepilloCremaLockedAfterTask)
-                            Positioned(
-                              left: _kBathCepilloPos.dx,
-                              top: _kBathCepilloPos.dy,
-                              child: Image.asset(kSaludBathCepilloConCremaPng),
-                            )
-                          else if (_cepilloCremaVisible)
-                            AnimatedBuilder(
-                              animation: Listenable.merge([
-                                _cepilloCremaSnapController,
-                                _idleCepilloCremaPulse,
-                              ]),
-                              builder: (context, child) {
-                                final pos = _effectiveCepilloCremaPos();
-                                return Positioned(
-                                  left: pos.dx,
-                                  top: pos.dy,
-                                  child: Transform.scale(
-                                    scale: _cepilloCremaDisplayScale(),
-                                    alignment: Alignment.center,
-                                    child: child!,
-                                  ),
-                                );
-                              },
-                              child: _interactiveCepilloConCrema(),
-                            ),
                           if (_waterPourReady && _waterPourController != null)
                             Positioned.fill(
                               child: Stack(
@@ -1509,6 +1486,35 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
                                     _waterPourCueCircle(),
                                 ],
                               ),
+                            ),
+                          if (_cepilloCremaVisible &&
+                              (_cepilloCremaLockedAfterTask || _cepilloCremaInactive))
+                            Positioned(
+                              left: _kBathCepilloPos.dx,
+                              top: _kBathCepilloPos.dy,
+                              child: IgnorePointer(
+                                child: Image.asset(kSaludBathCepilloConCremaPng),
+                              ),
+                            )
+                          else if (_cepilloCremaVisible && !_cepilloCremaInactive)
+                            AnimatedBuilder(
+                              animation: Listenable.merge([
+                                _cepilloCremaSnapController,
+                                _idleCepilloCremaPulse,
+                              ]),
+                              builder: (context, child) {
+                                final pos = _effectiveCepilloCremaPos();
+                                return Positioned(
+                                  left: pos.dx,
+                                  top: pos.dy,
+                                  child: Transform.scale(
+                                    scale: _cepilloCremaDisplayScale(),
+                                    alignment: Alignment.center,
+                                    child: child!,
+                                  ),
+                                );
+                              },
+                              child: _interactiveCepilloConCrema(),
                             ),
                           if (_cepilloCremaLockedAfterTask &&
                               !_postTaskProbeDismissed)

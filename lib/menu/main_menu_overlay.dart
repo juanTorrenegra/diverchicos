@@ -47,7 +47,15 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
     if (!mounted) return;
     _saludReturnWhiteFade?.dispose();
     _saludReturnWhiteFade = null;
-    if (mounted) setState(() {});
+    if (mounted) {
+      unawaited(AppAudio.instance.playMenuLoop());
+      setState(() {});
+    }
+  }
+
+  void _openSaludGame() {
+    unawaited(AppAudio.instance.playPreschoolerLoop());
+    setState(() => _showSaludIntro = true);
   }
 
   List<MenuGameCardData> _cards() {
@@ -56,7 +64,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
       MenuGameCardData(title: 'KIDS', onTap: widget.onKids),
       MenuGameCardData(
         title: 'SALUD',
-        onTap: () => setState(() => _showSaludIntro = true),
+        onTap: _openSaludGame,
       ),
       const MenuGameCardData(title: 'EXPLORACION'),
       const MenuGameCardData(title: 'ROMPECABEZAS'),
