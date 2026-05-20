@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
+import '../app_audio.dart';
 import '../widgets/menu_back_pill.dart';
+import 'salud_cat_game2.dart';
 import 'salud_cow_game.dart'
     show
         kSaludBathCepilloConCremaPng,
@@ -17,6 +19,7 @@ const String kSaludCatEntersBathAsset = 'assets/video/salud/catEntersBath.mp4';
 const String kSaludCatToothpasteDirtyTeethAsset =
     'assets/video/salud/catToothPasteOnCepillo&ShowsDirtyTeeth.mp4';
 const String kSaludCatWaterPourAsset = 'assets/video/salud/catWaterPour.mp4';
+const String kSaludCatEndingAsset = 'assets/video/salud/catEnding.mp4';
 
 class _ScrubBubble {
   _ScrubBubble({
@@ -95,6 +98,8 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   static const Offset _kWaterPourCuePos = Offset(843.6, 864.1);
 
   static const Duration _kBathFirstFrameHold = Duration(seconds: 2);
+  static const Duration _kCepilloCremaExitDelay = Duration(seconds: 12);
+  static const Duration _kCepilloCremaExitSlide = Duration(milliseconds: 3200);
 
   static const List<Color> _kScrubBubblePalette = [
     Color.fromRGBO(255, 255, 255, 1),
@@ -127,6 +132,10 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   bool _cepilloCremaLockedAfterTask = false;
   bool _cepilloCremaInactive = false;
   bool _cepilloCremaSettlingPostCelebration = false;
+  bool _cepilloCremaExiting = false;
+  Timer? _cepilloCremaExitDelayTimer;
+  late final AnimationController _cepilloCremaExitController;
+  Animation<Offset>? _cepilloCremaExitAnim;
 
   bool _teethScrubZoneActive = false;
   final List<_ScrubBubble> _scrubBubbles = [];
@@ -147,6 +156,13 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   late final AnimationController _waterPourCuePulseController;
   bool _waterPourCueLoopStarted = false;
   bool _waterPourCueDismissed = false;
+  bool _catPhase2Active = false;
+  bool _catEndingSequenceStarted = false;
+
+  VideoPlayerController? _endingController;
+  bool _endingReady = false;
+  bool _endingVisible = false;
+  bool _endingHoldPassed = false;
 
   Timer? _idleColgateTimer;
   late final AnimationController _idleColgatePulse;
@@ -243,6 +259,10 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     _cepilloCremaSnapController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1100),
+    );
+    _cepilloCremaExitController = AnimationController(
+      vsync: this,
+      duration: _kCepilloCremaExitSlide,
     );
     _idleCepilloCremaPulse = AnimationController(
       vsync: this,
@@ -744,10 +764,217 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     );
   }
 
+  void _onCatMouthRinseStarted() {
+    if (!mounted || !_cepilloCremaVisible || _cepilloCremaExiting) return;
+    _cancelCepilloCremaExitDelayTimer();
+    _cepilloCremaExitDelayTimer = Timer(
+      _kCepilloCremaExitDelay,
+      _beginCepilloCremaExitSlide,
+    );
+  }
+
+  void _cancelCepilloCremaExitDelayTimer() {
+    _cepilloCremaExitDelayTimer?.cancel();
+    _cepilloCremaExitDelayTimer = null;
+  }
+
+  void _cancelCepilloCremaExitSlide() {
+    if (_cepilloCremaExitController.isAnimating) {
+      _cepilloCremaExitController.stop();
+    }
+    _cepilloCremaExitAnim = null;
+    _cepilloCremaExitController.reset();
+    _cepilloCremaExiting = false;
+  }
+
+  void _beginCepilloCremaExitSlide() {
+    _cepilloCremaExitDelayTimer = null;
+    if (!mounted || !_cepilloCremaVisible || _cepilloCremaExiting) return;
+
+    _cancelCepilloCremaIdleTimer();
+    _idleCepilloCremaPulse.stop();
+    _idleCepilloCremaPulse.reset();
+    _cancelCepilloCremaSnap();
+
+    final from = _kBathCepilloPos;
+    final h = _cepilloCremaAssetSize?.height ?? 150;
+    final to = Offset(from.dx, _kLogicalH + h);
+
+    _cepilloCremaExitController.stop();
+    _cepilloCremaExitController.reset();
+    _cepilloCremaExitAnim = Tween<Offset>(begin: from, end: to).animate(
+      CurvedAnimation(
+        parent: _cepilloCremaExitController,
+        curve: Curves.linear,
+      ),
+    );
+
+    setState(() {
+      _cepilloCremaInactive = true;
+      _cepilloCremaDragging = false;
+      _cepilloCremaExiting = true;
+      _cepilloCremaPos = from;
+    });
+
+    unawaited(
+      _cepilloCremaExitController
+          .forward(from: 0)
+          .whenComplete(_onCepilloCremaExitSlideComplete),
+    );
+  }
+
+  void _onCepilloCremaExitSlideComplete() {
+    if (!mounted) return;
+    _cancelCepilloCremaExitSlide();
+    setState(() => _cepilloCremaVisible = false);
+  }
+
   void _onWaterPourCueTap() {
     if (!mounted || !_waterPourReady || _waterPourCueDismissed) return;
     _stopWaterPourCueLoop();
-    setState(() => _waterPourCueDismissed = true);
+    setState(() {
+      _waterPourCueDismissed = true;
+      _teethScrubZoneActive = false;
+      _scrubBubbles.clear();
+      _scrubCompletionStars.clear();
+      _waterPourCopiedBubbles = [];
+      _waterPourBubbleEpochMs = null;
+      _catPhase2Active = true;
+    });
+  }
+
+  void _onCatPhase2Complete() {
+    if (_catEndingSequenceStarted || !mounted) return;
+    unawaited(_runCatEndingSequence());
+  }
+
+  Future<void> _disposeEnding() async {
+    final v = _endingController;
+    _endingController = null;
+    _endingReady = false;
+    _endingVisible = false;
+    _endingHoldPassed = false;
+    if (v != null) {
+      v.removeListener(_onEndingTick);
+      await v.dispose();
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _onEndingTick() {
+    final v = _endingController;
+    if (v == null || !mounted || _endingHoldPassed) return;
+    final value = v.value;
+    if (!value.isInitialized || value.hasError) return;
+    if (!value.isCompleted) return;
+    _endingHoldPassed = true;
+    v.removeListener(_onEndingTick);
+    unawaited(_onEndingVideoFinished());
+  }
+
+  Future<void> _onEndingVideoFinished() async {
+    final v = _endingController;
+    if (v != null) await v.pause();
+    await Future<void>.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
+    await _fadeToWhiteTeardownAndReturnToMenu();
+  }
+
+  Future<void> _prepareForEndingPlayback() async {
+    final merge = _mergeVideoController;
+    if (merge != null && merge.value.isInitialized) {
+      await merge.pause();
+    }
+    final water = _waterPourController;
+    if (water != null && water.value.isInitialized) {
+      await water.pause();
+    }
+    final bath = _bathController;
+    if (bath != null && bath.value.isInitialized) {
+      await bath.pause();
+    }
+  }
+
+  Future<void> _runCatEndingSequence() async {
+    if (_catEndingSequenceStarted) return;
+    _catEndingSequenceStarted = true;
+    if (mounted) {
+      setState(() {
+        _catPhase2Active = false;
+        _teethScrubZoneActive = false;
+        _scrubBubbles.clear();
+        _scrubCompletionStars.clear();
+      });
+    }
+    await _prepareForEndingPlayback();
+
+    final ending = VideoPlayerController.asset(
+      kSaludCatEndingAsset,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    try {
+      await ending.initialize();
+      if (!mounted) {
+        await ending.dispose();
+        return;
+      }
+      await ending.setLooping(false);
+      ending.addListener(_onEndingTick);
+      await ending.play();
+      if (!mounted) {
+        ending.removeListener(_onEndingTick);
+        await ending.dispose();
+        return;
+      }
+      setState(() {
+        _endingController = ending;
+        _endingReady = true;
+        _endingVisible = true;
+      });
+    } catch (_) {
+      ending.removeListener(_onEndingTick);
+      await ending.dispose();
+      if (mounted) await _fadeToWhiteTeardownAndReturnToMenu();
+    }
+  }
+
+  Future<void> _fadeToWhiteTeardownAndReturnToMenu() async {
+    if (!mounted) return;
+
+    await AppAudio.instance.stopBgm();
+
+    _whiteFade?.dispose();
+    _whiteFade = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+    setState(() {});
+    await _whiteFade!.forward();
+    if (!mounted) return;
+
+    await _teardownAllCatGameMedia();
+    if (!mounted) return;
+
+    _whiteFade?.dispose();
+    _whiteFade = null;
+    if (mounted) widget.onClose();
+  }
+
+  Future<void> _teardownAllCatGameMedia() async {
+    await _disposeEnding();
+    await _disposeMergeVideo();
+    _cancelCepilloCremaExitDelayTimer();
+    _cancelCepilloCremaExitSlide();
+    _cancelCepilloCremaIdleTimer();
+    _cancelCepilloCremaSnap();
+    await _disposeWaterPour();
+    await _disposeBath();
+    final pick = _pickHeld;
+    if (pick != null) {
+      await pick.dispose();
+      _pickHeld = null;
+    }
+    if (mounted) setState(() {});
   }
 
   void _maybeStartWaterPourCueLoop() {
@@ -1009,16 +1236,47 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   }
 
   double _cepilloCremaDisplayScale() {
+    if (_cepilloCremaExiting) return 1.0;
     if (_cepilloCremaLockedAfterTask) return 1.0;
     if (_cepilloCremaDragging || _snapCepilloCremaActive) return 1.0;
     return _idleCepilloCremaScale.value;
   }
 
   Offset _effectiveCepilloCremaPos() {
+    if (_cepilloCremaExiting && _cepilloCremaExitAnim != null) {
+      return _cepilloCremaExitAnim!.value;
+    }
     if (_snapCepilloCremaActive && _snapCepilloCremaAnim != null) {
       return _snapCepilloCremaAnim!.value;
     }
     return _cepilloCremaPos;
+  }
+
+  Widget _cepilloCremaWidget() {
+    final child = _cepilloCremaInactive || _cepilloCremaExiting
+        ? Image.asset(kSaludBathCepilloConCremaPng)
+        : _interactiveCepilloConCrema();
+
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        _cepilloCremaSnapController,
+        _idleCepilloCremaPulse,
+        _cepilloCremaExitController,
+      ]),
+      builder: (context, child) {
+        final pos = _effectiveCepilloCremaPos();
+        return Positioned(
+          left: pos.dx,
+          top: pos.dy,
+          child: Transform.scale(
+            scale: _cepilloCremaDisplayScale(),
+            alignment: Alignment.center,
+            child: child!,
+          ),
+        );
+      },
+      child: child,
+    );
   }
 
   Widget _interactiveCepilloConCrema() {
@@ -1052,6 +1310,8 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   Future<void> _disposeBath() async {
     _cancelColgateIdleTimer();
     _cancelColgateSnap();
+    _cancelCepilloCremaExitDelayTimer();
+    _cancelCepilloCremaExitSlide();
     _cancelCepilloCremaIdleTimer();
     _cancelCepilloCremaSnap();
     _cepilloDragPulse.stop();
@@ -1078,6 +1338,8 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
         _scrubCompletionStars.clear();
         _postTaskProbeDismissed = false;
         _waterPourCueDismissed = false;
+        _catPhase2Active = false;
+        _catEndingSequenceStarted = false;
       });
     }
     if (b != null) {
@@ -1269,11 +1531,27 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   }
 
   Future<void> _exitBathAndClose() async {
-    await _disposeBath();
+    await _teardownAllCatGameMedia();
     _whiteFade?.dispose();
     _whiteFade = null;
     if (mounted) setState(() {});
     widget.onClose();
+  }
+
+  Widget _fullscreenVideo(VideoPlayerController controller) {
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.fill,
+          child: SizedBox(
+            width: _kLogicalW,
+            height: _kLogicalH,
+            child: VideoPlayer(controller),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _interactiveColgate() {
@@ -1360,6 +1638,8 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     _whiteFade?.dispose();
     _cancelColgateIdleTimer();
     _cancelColgateSnap();
+    _cancelCepilloCremaExitDelayTimer();
+    _cancelCepilloCremaExitSlide();
     _cancelCepilloCremaIdleTimer();
     _cancelCepilloCremaSnap();
     _idleColgatePulse.dispose();
@@ -1367,6 +1647,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     _cepilloDragPulse.dispose();
     _idleCepilloCremaPulse.dispose();
     _cepilloCremaSnapController.dispose();
+    _cepilloCremaExitController.dispose();
     _bubbleAnimController.dispose();
     _postTaskProbePulseController.dispose();
     _stopWaterPourCueLoop();
@@ -1375,6 +1656,11 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     if (water != null) {
       water.removeListener(_onWaterPourTick);
       water.dispose();
+    }
+    final ending = _endingController;
+    if (ending != null) {
+      ending.removeListener(_onEndingTick);
+      unawaited(ending.dispose());
     }
     super.dispose();
   }
@@ -1386,7 +1672,11 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (!_bathReady || _bathController == null)
+          if (_endingVisible && _endingReady && _endingController != null)
+            Positioned.fill(child: _fullscreenVideo(_endingController!))
+          else if (_catEndingSequenceStarted)
+            const Positioned.fill(child: ColoredBox(color: Colors.black))
+          else if (!_bathReady || _bathController == null)
             Positioned.fill(
               child: ColoredBox(
                 color: Colors.black,
@@ -1487,35 +1777,14 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
                                 ],
                               ),
                             ),
-                          if (_cepilloCremaVisible &&
-                              (_cepilloCremaLockedAfterTask || _cepilloCremaInactive))
-                            Positioned(
-                              left: _kBathCepilloPos.dx,
-                              top: _kBathCepilloPos.dy,
-                              child: IgnorePointer(
-                                child: Image.asset(kSaludBathCepilloConCremaPng),
+                          if (_catPhase2Active)
+                            Positioned.fill(
+                              child: SaludCatGame2Layer(
+                                onMouthRinseStarted: _onCatMouthRinseStarted,
+                                onPhaseComplete: _onCatPhase2Complete,
                               ),
-                            )
-                          else if (_cepilloCremaVisible && !_cepilloCremaInactive)
-                            AnimatedBuilder(
-                              animation: Listenable.merge([
-                                _cepilloCremaSnapController,
-                                _idleCepilloCremaPulse,
-                              ]),
-                              builder: (context, child) {
-                                final pos = _effectiveCepilloCremaPos();
-                                return Positioned(
-                                  left: pos.dx,
-                                  top: pos.dy,
-                                  child: Transform.scale(
-                                    scale: _cepilloCremaDisplayScale(),
-                                    alignment: Alignment.center,
-                                    child: child!,
-                                  ),
-                                );
-                              },
-                              child: _interactiveCepilloConCrema(),
                             ),
+                          if (_cepilloCremaVisible) _cepilloCremaWidget(),
                           if (_cepilloCremaLockedAfterTask &&
                               !_postTaskProbeDismissed)
                             Positioned(
@@ -1535,13 +1804,14 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
               ),
             ),
           _whiteFadeOverlay(),
-          Positioned(
-            top: 20,
-            right: 16,
-            child: MenuBackPill(
-              onPressed: () => unawaited(_exitBathAndClose()),
+          if (!_catEndingSequenceStarted)
+            Positioned(
+              top: 20,
+              right: 16,
+              child: MenuBackPill(
+                onPressed: () => unawaited(_exitBathAndClose()),
+              ),
             ),
-          ),
         ],
       ),
     );

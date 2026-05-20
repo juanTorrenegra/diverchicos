@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
+import '../app_audio.dart';
 import '../widgets/menu_back_pill.dart';
 import 'salud_cow_game2.dart';
 
@@ -1435,6 +1436,8 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
 
   Future<void> _fadeToWhiteTeardownAndReturnToMenu() async {
     if (!mounted) return;
+
+    await AppAudio.instance.stopBgm();
 
     _whiteFade?.dispose();
     _whiteFade = AnimationController(

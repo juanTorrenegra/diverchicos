@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import '../app_audio.dart';
 import '../games/salud_game.dart';
 
-/// Main gradient menu: vertical carousel + logo + circle quick-launch grid.
+/// Main menu: radial green/yellow gradient, carousel + logo + circle grid.
 class MainMenuOverlay extends StatefulWidget {
   const MainMenuOverlay({
     super.key,
@@ -35,6 +35,9 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
 
   Future<void> _returnFromSaludToMenu() async {
     setState(() => _showSaludIntro = false);
+    if (AppAudio.instance.currentBgmAsset == AppAudio.preschoolerBgm) {
+      await AppAudio.instance.stopBgm();
+    }
     _saludReturnWhiteFade?.dispose();
     _saludReturnWhiteFade = AnimationController(
       vsync: this,
@@ -65,6 +68,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
       MenuGameCardData(
         title: 'SALUD',
         onTap: _openSaludGame,
+        imageAsset: MenuIcons.saludGamePng,
       ),
       const MenuGameCardData(title: 'EXPLORACION'),
       const MenuGameCardData(title: 'ROMPECABEZAS'),
@@ -86,10 +90,15 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
           },
           child: Container(
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF7B1FA2), Color(0xFF4A148C)],
+              gradient: RadialGradient(
+                center: Alignment(0.15, -0.2),
+                radius: 1.25,
+                colors: [
+                  Color(0xFFFFF59D), // soft yellow (center)
+                  Color(0xFFC5E1A5), // yellow–green
+                  Color(0xFF388E3C), // green (outer)
+                ],
+                stops: [0.0, 0.45, 1.0],
               ),
             ),
             child: SafeArea(
@@ -148,6 +157,11 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
       ],
     );
   }
+}
+
+/// Shared paths for main menu carousel + circle thumbnails.
+abstract final class MenuIcons {
+  static const String saludGamePng = 'assets/images/saludGame.png';
 }
 
 /// Tweak carousel size, spacing, and animation from here.
@@ -301,10 +315,16 @@ class _MenuCarouselState extends State<MenuCarousel> {
 
 /// Data model for carousel cards and circle grid items.
 class MenuGameCardData {
-  const MenuGameCardData({required this.title, this.onTap});
+  const MenuGameCardData({
+    required this.title,
+    this.onTap,
+    this.imageAsset,
+  });
 
   final String title;
   final VoidCallback? onTap;
+  /// Optional artwork for carousel + matching circle tile.
+  final String? imageAsset;
 }
 
 class MenuGameCard extends StatelessWidget {
@@ -344,12 +364,31 @@ class MenuGameCard extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              const Positioned.fill(
-                child: Center(
-                  child: Icon(
-                    Icons.image_outlined,
-                    size: 72,
-                    color: Color(0xCCFFFFFF),
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 24, 28, 56),
+                  child: Center(
+                    child: data.imageAsset != null
+                        ? ClipRRect(
+                            borderRadius:
+                                BorderRadius.circular(borderRadius * 0.55),
+                            child: Image.asset(
+                              data.imageAsset!,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(
+                                  Icons.image_outlined,
+                                  size: 72,
+                                  color: Color(0xCCFFFFFF),
+                                );
+                              },
+                            ),
+                          )
+                        : const Icon(
+                            Icons.image_outlined,
+                            size: 72,
+                            color: Color(0xCCFFFFFF),
+                          ),
                   ),
                 ),
               ),
@@ -559,11 +598,33 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
                               width: isHighlighted ? 4 : 3,
                             ),
                           ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.add_photo_alternate_outlined,
-                              color: Colors.white,
-                            ),
+                          child: Center(
+                            child: widget.items[index].imageAsset != null
+                                ? Padding(
+                                    padding:
+                                        EdgeInsets.all(circleSize * 0.1),
+                                    child: ClipOval(
+                                      child: Image.asset(
+                                        widget.items[index].imageAsset!,
+                                        fit: BoxFit.cover,
+                                        width: circleSize * 0.8,
+                                        height: circleSize * 0.8,
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                          return Icon(
+                                            Icons.add_photo_alternate_outlined,
+                                            color: Colors.white,
+                                            size: circleSize * 0.38,
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.add_photo_alternate_outlined,
+                                    color: Colors.white,
+                                    size: circleSize * 0.38,
+                                  ),
                           ),
                         ),
                       ),
