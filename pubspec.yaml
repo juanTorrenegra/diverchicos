@@ -106,5 +106,5 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: assets/images/gaty1024x1024.png
+  image_path: assets/images/gaty1024x1024lineArt.png
   min_sdk_android: 21

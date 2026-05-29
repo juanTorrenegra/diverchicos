@@ -161,7 +161,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
 
 /// Shared paths for main menu carousel + circle thumbnails.
 abstract final class MenuIcons {
-  static const String saludGamePng = 'assets/images/saludGame.png';
+  static const String saludGamePng = 'assets/images/vaky512x5012.png';
 }
 
 /// Tweak carousel size, spacing, and animation from here.

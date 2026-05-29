@@ -55,7 +55,7 @@ class _CompletionStar {
   final Color color;
 }
 
-/// Cat branch after [catPick.mp4]: bath, merge paste clip, cepillo crema + scrub (cow layout).
+/// Cat branch after [catPick.mp4]: bath, merge paste clip, cepillo crema + scrub (cow layout)
 class SaludCatGameLayer extends StatefulWidget {
   const SaludCatGameLayer({
     super.key,
@@ -92,7 +92,9 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
 
   static const double _kPostTaskProbeSize = 250;
   static const Offset _kPostTaskProbePos = Offset(914.5, 737.6);
-  static const Duration _kPostTaskProbePulsePeriod = Duration(milliseconds: 3000);
+  static const Duration _kPostTaskProbePulsePeriod = Duration(
+    milliseconds: 3000,
+  );
   static const double _kPostTaskProbeRampMs = 280;
 
   static const Offset _kWaterPourCuePos = Offset(843.6, 864.1);
@@ -239,12 +241,19 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
       vsync: this,
       duration: const Duration(milliseconds: 650),
     );
-    _idleColgateScale = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween<double>(begin: 1.0, end: 1.3), weight: 50),
-      TweenSequenceItem(tween: Tween<double>(begin: 1.3, end: 1.0), weight: 50),
-    ]).animate(
-      CurvedAnimation(parent: _idleColgatePulse, curve: Curves.easeInOut),
-    );
+    _idleColgateScale =
+        TweenSequence<double>([
+          TweenSequenceItem(
+            tween: Tween<double>(begin: 1.0, end: 1.3),
+            weight: 50,
+          ),
+          TweenSequenceItem(
+            tween: Tween<double>(begin: 1.3, end: 1.0),
+            weight: 50,
+          ),
+        ]).animate(
+          CurvedAnimation(parent: _idleColgatePulse, curve: Curves.easeInOut),
+        );
     _colgateSnapController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1100),
@@ -268,12 +277,22 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
       vsync: this,
       duration: const Duration(milliseconds: 650),
     );
-    _idleCepilloCremaScale = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween<double>(begin: 1.0, end: 1.2), weight: 50),
-      TweenSequenceItem(tween: Tween<double>(begin: 1.2, end: 1.0), weight: 50),
-    ]).animate(
-      CurvedAnimation(parent: _idleCepilloCremaPulse, curve: Curves.easeInOut),
-    );
+    _idleCepilloCremaScale =
+        TweenSequence<double>([
+          TweenSequenceItem(
+            tween: Tween<double>(begin: 1.0, end: 1.2),
+            weight: 50,
+          ),
+          TweenSequenceItem(
+            tween: Tween<double>(begin: 1.2, end: 1.0),
+            weight: 50,
+          ),
+        ]).animate(
+          CurvedAnimation(
+            parent: _idleCepilloCremaPulse,
+            curve: Curves.easeInOut,
+          ),
+        );
     _bubbleAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 16),
@@ -407,12 +426,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     final sh = h * s;
     final left = pos.dx + w * (1 - s) / 2;
     final top = pos.dy + h * (1 - s) / 2;
-    return Rect.fromLTWH(
-      left,
-      top,
-      sw * _kPasteHitFracW,
-      sh * _kPasteHitFracH,
-    );
+    return Rect.fromLTWH(left, top, sw * _kPasteHitFracW, sh * _kPasteHitFracH);
   }
 
   Color _randomScrubBubbleColor(math.Random rng) {
@@ -460,10 +474,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
         _CompletionStar(
           birthMs: now,
           origin: center,
-          velocity: Offset(
-            math.cos(angle) * speed,
-            math.sin(angle) * speed,
-          ),
+          velocity: Offset(math.cos(angle) * speed, math.sin(angle) * speed),
           size: 22 + rng.nextDouble() * 18,
           color: starColor,
         ),
@@ -523,7 +534,8 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
       _beginCepilloPostCelebrationSnap();
     }
 
-    final needsTick = _hasAnimatingScrubBubbles(now, lifetimeMs) ||
+    final needsTick =
+        _hasAnimatingScrubBubbles(now, lifetimeMs) ||
         _scrubCompletionStars.isNotEmpty;
     if (!needsTick) {
       _bubbleAnimController.stop();
@@ -656,9 +668,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   }
 
   void _maybeStartPostTaskProbeLoop() {
-    if (!mounted ||
-        !_cepilloCremaLockedAfterTask ||
-        _postTaskProbeDismissed) {
+    if (!mounted || !_cepilloCremaLockedAfterTask || _postTaskProbeDismissed) {
       return;
     }
     if (_postTaskProbeLoopStarted) return;
@@ -667,9 +677,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   }
 
   void _onPostTaskProbeTap() {
-    if (!mounted ||
-        !_cepilloCremaLockedAfterTask ||
-        _postTaskProbeDismissed) {
+    if (!mounted || !_cepilloCremaLockedAfterTask || _postTaskProbeDismissed) {
       return;
     }
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -716,8 +724,9 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
       return (peakOpacity: 0.5 * u, scale: 1.0 - 0.2 * u);
     }
     if (ms <= pairStartMs + rampMs + rampMs) {
-      final u =
-          Curves.easeInOut.transform((ms - pairStartMs - rampMs) / rampMs);
+      final u = Curves.easeInOut.transform(
+        (ms - pairStartMs - rampMs) / rampMs,
+      );
       return (peakOpacity: 0.5 * (1.0 - u), scale: 0.8 + 0.2 * u);
     }
     return (peakOpacity: 0.0, scale: 1.0);
@@ -1491,16 +1500,19 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
 
     _colgateSnapController.stop();
     _colgateSnapController.reset();
-    _snapColgateAnim = Tween<Offset>(begin: from, end: _kBathColgatePos).animate(
-      CurvedAnimation(
-        parent: _colgateSnapController,
-        curve: Curves.elasticOut,
-      ),
-    );
+    _snapColgateAnim = Tween<Offset>(begin: from, end: _kBathColgatePos)
+        .animate(
+          CurvedAnimation(
+            parent: _colgateSnapController,
+            curve: Curves.elasticOut,
+          ),
+        );
     _snapColgateActive = true;
     setState(() {});
     unawaited(
-      _colgateSnapController.forward(from: 0).whenComplete(_onColgateSnapComplete),
+      _colgateSnapController
+          .forward(from: 0)
+          .whenComplete(_onColgateSnapComplete),
     );
   }
 
@@ -1744,7 +1756,8 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
                                 _colgateSnapController,
                               ]),
                               builder: (context, child) {
-                                final pos = _snapColgateActive &&
+                                final pos =
+                                    _snapColgateActive &&
                                         _snapColgateAnim != null
                                     ? _snapColgateAnim!.value
                                     : _colgatePos;
