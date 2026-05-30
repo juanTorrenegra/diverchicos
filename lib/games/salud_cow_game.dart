@@ -1640,9 +1640,18 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
                     child: SizedBox(
                       width: _kLogicalW,
                       height: _kLogicalH,
-                      child: _pickHeld != null
-                          ? VideoPlayer(_pickHeld!)
-                          : const ColoredBox(color: Colors.black),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: _pickHeld != null
+                                ? VideoPlayer(_pickHeld!)
+                                : const ColoredBox(color: Colors.black),
+                          ),
+                          GameLogicalBackPill(
+                            onPressed: () => unawaited(_exitBathAndClose()),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1789,6 +1798,10 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
                                 child: _postTaskLayoutProbe(),
                               ),
                             ),
+                          if (!_endingSequenceStarted)
+                            GameLogicalBackPill(
+                              onPressed: () => unawaited(_exitBathAndClose()),
+                            ),
                         ],
                       ),
                     ),
@@ -1797,14 +1810,6 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
               ),
             ),
           _whiteFadeOverlay(),
-          if (!_endingSequenceStarted)
-            Positioned(
-              top: 20,
-              right: 16,
-              child: MenuBackPill(
-                onPressed: () => unawaited(_exitBathAndClose()),
-              ),
-            ),
         ],
       ),
     );

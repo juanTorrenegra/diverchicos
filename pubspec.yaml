@@ -37,6 +37,8 @@ dependencies:
   flame: ^1.37.0
   audioplayers: ^6.5.1
   video_player: ^2.10.1
+  web: ^1.1.1
+  pointer_interceptor: ^0.10.1+2
 
 dev_dependencies:
   flutter_test:
@@ -72,6 +74,7 @@ flutter:
     - assets/images/cowAnimations/jumping/
     - assets/images/cowAnimations/jumpToIdle/
     - assets/images/bathGame/
+    - assets/images/gridPuzzleGame/
     - assets/video/
     - assets/video/salud/
     - assets/audio/

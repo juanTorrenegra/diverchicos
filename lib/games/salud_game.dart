@@ -387,6 +387,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
                               },
                             ),
                           ],
+                          GameLogicalBackPill(onPressed: widget.onClose),
                         ],
                       ),
                     ),
@@ -402,17 +403,17 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
                         child: SizedBox(
                           width: _kLogicalW,
                           height: _kLogicalH,
-                          child: VideoPlayer(_pickController!),
+                          child: Stack(
+                            children: [
+                              VideoPlayer(_pickController!),
+                              GameLogicalBackPill(onPressed: widget.onClose),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              Positioned(
-                top: 20,
-                right: 16,
-                child: MenuBackPill(onPressed: widget.onClose),
-              ),
             ],
           ],
         ),

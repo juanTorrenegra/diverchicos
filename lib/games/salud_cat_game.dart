@@ -1698,9 +1698,18 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
                     child: SizedBox(
                       width: _kLogicalW,
                       height: _kLogicalH,
-                      child: _pickHeld != null
-                          ? VideoPlayer(_pickHeld!)
-                          : const ColoredBox(color: Colors.black),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: _pickHeld != null
+                                ? VideoPlayer(_pickHeld!)
+                                : const ColoredBox(color: Colors.black),
+                          ),
+                          GameLogicalBackPill(
+                            onPressed: () => unawaited(_exitBathAndClose()),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1809,6 +1818,10 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
                                 child: _postTaskLayoutProbe(),
                               ),
                             ),
+                          if (!_catEndingSequenceStarted)
+                            GameLogicalBackPill(
+                              onPressed: () => unawaited(_exitBathAndClose()),
+                            ),
                         ],
                       ),
                     ),
@@ -1817,14 +1830,6 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
               ),
             ),
           _whiteFadeOverlay(),
-          if (!_catEndingSequenceStarted)
-            Positioned(
-              top: 20,
-              right: 16,
-              child: MenuBackPill(
-                onPressed: () => unawaited(_exitBathAndClose()),
-              ),
-            ),
         ],
       ),
     );
