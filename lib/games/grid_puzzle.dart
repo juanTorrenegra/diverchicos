@@ -13,11 +13,11 @@ enum RoadDirection { north, south, east, west }
 
 extension _RoadDirectionOps on RoadDirection {
   RoadDirection get opposite => switch (this) {
-        RoadDirection.north => RoadDirection.south,
-        RoadDirection.south => RoadDirection.north,
-        RoadDirection.east => RoadDirection.west,
-        RoadDirection.west => RoadDirection.east,
-      };
+    RoadDirection.north => RoadDirection.south,
+    RoadDirection.south => RoadDirection.north,
+    RoadDirection.east => RoadDirection.west,
+    RoadDirection.west => RoadDirection.east,
+  };
 }
 
 enum RoadFigureType {
@@ -31,44 +31,34 @@ enum RoadFigureType {
 
 extension RoadFigureTypeX on RoadFigureType {
   String get assetPath => switch (this) {
-        RoadFigureType.straightVertical =>
-          '${_kAssetBase}straightVertical.png',
-        RoadFigureType.straightHorizontal =>
-          '${_kAssetBase}straightHorizontal.png',
-        RoadFigureType.cornerTopRight => '${_kAssetBase}cornerTopRight.png',
-        RoadFigureType.cornerTopLeft => '${_kAssetBase}cornerTopLeft.png',
-        RoadFigureType.cornerBottomRight =>
-          '${_kAssetBase}cornerBottomRight.png',
-        RoadFigureType.cornerBottomLeft =>
-          '${_kAssetBase}cornerBottomLeft.png',
-      };
+    RoadFigureType.straightVertical => '${_kAssetBase}straightVertical.png',
+    RoadFigureType.straightHorizontal => '${_kAssetBase}straightHorizontal.png',
+    RoadFigureType.cornerTopRight => '${_kAssetBase}cornerTopRight.png',
+    RoadFigureType.cornerTopLeft => '${_kAssetBase}cornerTopLeft.png',
+    RoadFigureType.cornerBottomRight => '${_kAssetBase}cornerBottomRight.png',
+    RoadFigureType.cornerBottomLeft => '${_kAssetBase}cornerBottomLeft.png',
+  };
 
   Set<RoadDirection> get connections => switch (this) {
-        RoadFigureType.straightVertical => {
-            RoadDirection.north,
-            RoadDirection.south,
-          },
-        RoadFigureType.straightHorizontal => {
-            RoadDirection.east,
-            RoadDirection.west,
-          },
-        RoadFigureType.cornerTopRight => {
-            RoadDirection.north,
-            RoadDirection.east,
-          },
-        RoadFigureType.cornerTopLeft => {
-            RoadDirection.north,
-            RoadDirection.west,
-          },
-        RoadFigureType.cornerBottomRight => {
-            RoadDirection.south,
-            RoadDirection.east,
-          },
-        RoadFigureType.cornerBottomLeft => {
-            RoadDirection.south,
-            RoadDirection.west,
-          },
-      };
+    RoadFigureType.straightVertical => {
+      RoadDirection.north,
+      RoadDirection.south,
+    },
+    RoadFigureType.straightHorizontal => {
+      RoadDirection.east,
+      RoadDirection.west,
+    },
+    RoadFigureType.cornerTopRight => {RoadDirection.north, RoadDirection.east},
+    RoadFigureType.cornerTopLeft => {RoadDirection.north, RoadDirection.west},
+    RoadFigureType.cornerBottomRight => {
+      RoadDirection.south,
+      RoadDirection.east,
+    },
+    RoadFigureType.cornerBottomLeft => {
+      RoadDirection.south,
+      RoadDirection.west,
+    },
+  };
 }
 
 class _RoadFigureInstance {
@@ -87,7 +77,7 @@ class _RoadFigureInstance {
 
 enum _GirlMotion { idle, walking, success, returning }
 
-/// Fullscreen grid puzzle: intro video, then path-building gameplay.
+/// Fullscreen grid puzzle: intro video, then path-building gameplay
 class GridPuzzleLayer extends StatefulWidget {
   const GridPuzzleLayer({super.key, required this.onClose});
 
@@ -154,8 +144,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
 
   Offset _figureHomeForIndex(int index) {
     final count = _kFigureTypes.length;
-    final leading =
-        (_kLogicalW - count * _kSlotSize.width) / (count + 1);
+    final leading = (_kLogicalW - count * _kSlotSize.width) / (count + 1);
     final x = leading + index * (_kSlotSize.width + leading);
     return Offset(x, _kRoadFiguresY);
   }
@@ -183,8 +172,8 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
   bool _isReservedSlot(int slot) => slot == _kGirlSlot || slot == _kPlaneSlot;
 
   int? _slotAtPosition(Offset figureTopLeft) {
-    final center = figureTopLeft +
-        Offset(_kSlotSize.width / 2, _kSlotSize.height / 2);
+    final center =
+        figureTopLeft + Offset(_kSlotSize.width / 2, _kSlotSize.height / 2);
     final local = center - _kGridOrigin;
     if (local.dx < 0 ||
         local.dy < 0 ||
@@ -192,10 +181,8 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
         local.dy > _kGridSize.height) {
       return null;
     }
-    final col =
-        (local.dx / _kSlotSize.width).floor().clamp(0, _kCols - 1);
-    final row =
-        (local.dy / _kSlotSize.height).floor().clamp(0, _kRows - 1);
+    final col = (local.dx / _kSlotSize.width).floor().clamp(0, _kCols - 1);
+    final row = (local.dy / _kSlotSize.height).floor().clamp(0, _kRows - 1);
     return row * _kCols + col;
   }
 
@@ -268,9 +255,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
       final path = queue.removeAt(0);
       final (row, col) = path.last;
       if (row == goalRow && col == goalCol) {
-        return [
-          for (final cell in path) cell.$1 * _kCols + cell.$2,
-        ];
+        return [for (final cell in path) cell.$1 * _kCols + cell.$2];
       }
 
       const deltas = [(-1, 0), (1, 0), (0, -1), (0, 1)];
@@ -304,12 +289,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
         final key = '$nr,$nc';
         if (visited.contains(key)) continue;
         if (!_canTraverse(row, col, nr, nc, placements)) continue;
-        visit(
-          nr,
-          nc,
-          [...path, nr * _kCols + nc],
-          {...visited, key},
-        );
+        visit(nr, nc, [...path, nr * _kCols + nc], {...visited, key});
       }
     }
 
@@ -413,7 +393,10 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
       vsync: this,
       duration: const Duration(milliseconds: 420),
     );
-    final animation = CurvedAnimation(parent: controller, curve: Curves.easeInOut);
+    final animation = CurvedAnimation(
+      parent: controller,
+      curve: Curves.easeInOut,
+    );
     final begin = _girlPosition;
     controller.addListener(() {
       if (!mounted) return;
@@ -425,13 +408,18 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     controller.dispose();
   }
 
-  Future<void> _animateFigureTo(_RoadFigureInstance figure, Offset target) async {
+  Future<void> _animateFigureTo(
+    _RoadFigureInstance figure,
+    Offset target,
+  ) async {
     final controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 320),
     );
-    final animation =
-        CurvedAnimation(parent: controller, curve: Curves.easeOutBack);
+    final animation = CurvedAnimation(
+      parent: controller,
+      curve: Curves.easeOutBack,
+    );
     final begin = figure.position;
     controller.addListener(() {
       if (!mounted) return;
@@ -453,11 +441,8 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
   void _spawnHolderCopy(RoadFigureType type) {
     final index = _kFigureTypes.indexOf(type);
     _figures.add(
-      _RoadFigureInstance(
-        id: _newFigureId(),
-        type: type,
-        holderIndex: index,
-      )..position = _figureHomeForIndex(index),
+      _RoadFigureInstance(id: _newFigureId(), type: type, holderIndex: index)
+        ..position = _figureHomeForIndex(index),
     );
   }
 
@@ -520,19 +505,11 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                if (_introReady &&
-                    _introController != null &&
-                    !_introFinished)
+                if (_introReady && _introController != null && !_introFinished)
+                  Positioned.fill(child: VideoPlayer(_introController!)),
+                if (_introReady && _introController != null && _introFinished)
                   Positioned.fill(
-                    child: VideoPlayer(_introController!),
-                  ),
-                if (_introReady &&
-                    _introController != null &&
-                    _introFinished)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: VideoPlayer(_introController!),
-                    ),
+                    child: IgnorePointer(child: VideoPlayer(_introController!)),
                   ),
                 if (_introFinished)
                   Positioned.fill(
@@ -644,8 +621,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
               height: _kSlotSize.height,
               child: Transform.translate(
                 offset: figure.id == _draggingFigureId
-                    ? figure.position -
-                        _slotTopLeft(figure.slotIndex!)
+                    ? figure.position - _slotTopLeft(figure.slotIndex!)
                     : Offset.zero,
                 child: _buildFigureGesture(figure, homePosition: null),
               ),
@@ -735,10 +711,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
                 child: Text(
                   figure.type.name,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.black,
-                  ),
+                  style: const TextStyle(fontSize: 10, color: Colors.black),
                 ),
               ),
             );
