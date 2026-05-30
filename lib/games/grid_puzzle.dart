@@ -77,7 +77,7 @@ class _RoadFigureInstance {
 
 enum _GirlMotion { idle, walking, success, returning }
 
-/// Fullscreen grid puzzle: intro video, then path-building gameplay
+/// Fullscreen grid puzzle: intro video, then path-building gameplay.
 class GridPuzzleLayer extends StatefulWidget {
   const GridPuzzleLayer({super.key, required this.onClose});
 
