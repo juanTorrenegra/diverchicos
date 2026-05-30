@@ -127,13 +127,6 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
           'mainMenu': (BuildContext context, game) {
             return Positioned.fill(
               child: MainMenuOverlay(
-                onAnimals: () {
-                  unawaited(AppAudio.instance.playAnimalsLoop());
-                  (game as DiverchicosGame)
-                    ..notifyEnteredMiniGame()
-                    ..overlays.remove('mainMenu')
-                    ..overlays.add('animals');
-                },
                 onKids: () {
                   final g = game as DiverchicosGame;
                   g.startKidsMode();

@@ -5,17 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app_audio.dart';
+import '../games/grid_puzzle.dart';
 import '../games/salud_game.dart';
 
 /// Main menu: radial green/yellow gradient, carousel + logo + circle grid.
 class MainMenuOverlay extends StatefulWidget {
   const MainMenuOverlay({
     super.key,
-    required this.onAnimals,
     required this.onKids,
   });
 
-  final VoidCallback onAnimals;
   final VoidCallback onKids;
 
   @override
@@ -25,6 +24,7 @@ class MainMenuOverlay extends StatefulWidget {
 class _MainMenuOverlayState extends State<MainMenuOverlay>
     with SingleTickerProviderStateMixin {
   bool _showSaludIntro = false;
+  bool _showGridPuzzle = false;
   AnimationController? _saludReturnWhiteFade;
 
   @override
@@ -61,9 +61,17 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
     setState(() => _showSaludIntro = true);
   }
 
+  void _openGridPuzzle() {
+    setState(() => _showGridPuzzle = true);
+  }
+
+  void _closeGridPuzzle() {
+    setState(() => _showGridPuzzle = false);
+  }
+
   List<MenuGameCardData> _cards() {
     return [
-      MenuGameCardData(title: 'ANIMALES', onTap: widget.onAnimals),
+      MenuGameCardData(title: 'PUZZLE', onTap: _openGridPuzzle),
       MenuGameCardData(title: 'KIDS', onTap: widget.onKids),
       MenuGameCardData(
         title: 'SALUD',
@@ -141,6 +149,10 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
             child: SaludCowCatIntroLayer(
               onClose: () => unawaited(_returnFromSaludToMenu()),
             ),
+          ),
+        if (_showGridPuzzle)
+          Positioned.fill(
+            child: GridPuzzleLayer(onClose: _closeGridPuzzle),
           ),
         if (_saludReturnWhiteFade != null)
           Positioned.fill(
