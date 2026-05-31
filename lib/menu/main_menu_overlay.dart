@@ -10,10 +10,7 @@ import '../games/salud_game.dart';
 
 /// Main menu: radial green/yellow gradient, carousel + logo + circle grid.
 class MainMenuOverlay extends StatefulWidget {
-  const MainMenuOverlay({
-    super.key,
-    required this.onKids,
-  });
+  const MainMenuOverlay({super.key, required this.onKids});
 
   final VoidCallback onKids;
 
@@ -65,23 +62,36 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
     setState(() => _showGridPuzzle = true);
   }
 
-  void _closeGridPuzzle() {
+  Future<void> _returnFromGridPuzzleToMenu() async {
     setState(() => _showGridPuzzle = false);
+    _saludReturnWhiteFade?.dispose();
+    _saludReturnWhiteFade = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+      value: 1.0,
+    );
+    if (!mounted) return;
+    setState(() {});
+    await _saludReturnWhiteFade!.reverse();
+    if (!mounted) return;
+    _saludReturnWhiteFade?.dispose();
+    _saludReturnWhiteFade = null;
+    if (mounted) setState(() {});
   }
 
   List<MenuGameCardData> _cards() {
     return [
-      MenuGameCardData(title: 'PUZZLE', onTap: _openGridPuzzle),
+      MenuGameCardData(
+        title: 'PUZZLE',
+        onTap: _openGridPuzzle,
+        imageAsset: MenuIcons.gridPuzzleThumbnailPng,
+      ),
       MenuGameCardData(title: 'KIDS', onTap: widget.onKids),
       MenuGameCardData(
         title: 'SALUD',
         onTap: _openSaludGame,
         imageAsset: MenuIcons.saludGamePng,
       ),
-      const MenuGameCardData(title: 'EXPLORACION'),
-      const MenuGameCardData(title: 'ROMPECABEZAS'),
-      const MenuGameCardData(title: 'RESOLUCION DE PROBLEMAS'),
-      const MenuGameCardData(title: 'TAREAS DEL HOGAR'),
     ];
   }
 
@@ -120,8 +130,8 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
                         child: Center(child: MenuCarousel(cards: cards)),
                       ),
                       Positioned(
-                        left: w / 11,
-                        top: h / 6,
+                        left: w / 9,
+                        top: h / 7.5,
                         width: w / 5,
                         child: Image.asset(
                           'assets/images/colorFriendsDiverchicos.png',
@@ -130,12 +140,9 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
                       ),
                       Positioned(
                         left: w / 20,
-                        top: h / 2.25,
+                        top: h / 3,
                         width: w / 3,
-                        child: MenuCircleGrid(
-                          gridWidth: w / 3,
-                          items: cards.take(6).toList(),
-                        ),
+                        child: MenuCircleGrid(gridWidth: w / 4, items: cards),
                       ),
                     ],
                   );
@@ -152,7 +159,9 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
           ),
         if (_showGridPuzzle)
           Positioned.fill(
-            child: GridPuzzleLayer(onClose: _closeGridPuzzle),
+            child: GridPuzzleLayer(
+              onClose: () => unawaited(_returnFromGridPuzzleToMenu()),
+            ),
           ),
         if (_saludReturnWhiteFade != null)
           Positioned.fill(
@@ -173,6 +182,8 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
 
 /// Shared paths for main menu carousel + circle thumbnails.
 abstract final class MenuIcons {
+  static const String gridPuzzleThumbnailPng =
+      'assets/images/gridPuzzleThumbnail.png';
   static const String saludGamePng = 'assets/images/vaky512x5012.png';
 }
 
@@ -233,10 +244,8 @@ class _MenuCarouselState extends State<MenuCarousel> {
         final laneHeight = constraints.maxHeight;
         final laneSize = Size(laneWidth, laneHeight);
 
-        final mainCardW =
-            laneWidth * MenuCarouselTuning.mainCardWidthFactor;
-        final mainCardH =
-            laneHeight * MenuCarouselTuning.mainCardHeightFactor;
+        final mainCardW = laneWidth * MenuCarouselTuning.mainCardWidthFactor;
+        final mainCardH = laneHeight * MenuCarouselTuning.mainCardHeightFactor;
         final curveOffsetY =
             laneHeight * MenuCarouselTuning.curveVerticalOffsetFactor;
         final leftShift =
@@ -269,25 +278,19 @@ class _MenuCarouselState extends State<MenuCarousel> {
                 padEnds: true,
                 clipBehavior: Clip.none,
                 itemBuilder: (context, index) {
-                  final card =
-                      widget.cards[index % widget.cards.length];
+                  final card = widget.cards[index % widget.cards.length];
                   final delta = index - _page;
                   final distance = delta.abs().clamp(0.0, 1.0);
 
                   final scale =
-                      1 -
-                      (1 - MenuCarouselTuning.sideCardScale) * distance;
+                      1 - (1 - MenuCarouselTuning.sideCardScale) * distance;
                   final opacity =
-                      1 -
-                      (1 - MenuCarouselTuning.sideCardOpacity) *
-                          distance;
+                      1 - (1 - MenuCarouselTuning.sideCardOpacity) * distance;
 
                   final dx = -leftShift * distance;
                   final dy = delta.sign * curveOffsetY * distance;
                   final tilt =
-                      delta.sign *
-                      MenuCarouselTuning.maxTiltRadians *
-                      distance;
+                      delta.sign * MenuCarouselTuning.maxTiltRadians * distance;
 
                   return Align(
                     alignment: Alignment.centerRight,
@@ -327,14 +330,11 @@ class _MenuCarouselState extends State<MenuCarousel> {
 
 /// Data model for carousel cards and circle grid items.
 class MenuGameCardData {
-  const MenuGameCardData({
-    required this.title,
-    this.onTap,
-    this.imageAsset,
-  });
+  const MenuGameCardData({required this.title, this.onTap, this.imageAsset});
 
   final String title;
   final VoidCallback? onTap;
+
   /// Optional artwork for carousel + matching circle tile.
   final String? imageAsset;
 }
@@ -382,8 +382,9 @@ class MenuGameCard extends StatelessWidget {
                   child: Center(
                     child: data.imageAsset != null
                         ? ClipRRect(
-                            borderRadius:
-                                BorderRadius.circular(borderRadius * 0.55),
+                            borderRadius: BorderRadius.circular(
+                              borderRadius * 0.55,
+                            ),
                             child: Image.asset(
                               data.imageAsset!,
                               fit: BoxFit.contain,
@@ -463,15 +464,17 @@ class SoonBadge extends StatelessWidget {
 }
 
 class _MoveCircleSelectionIntent extends Intent {
-  const _MoveCircleSelectionIntent(this.delta);
-  final int delta;
+  const _MoveCircleSelectionIntent(this.deltaRow, this.deltaCol);
+
+  final int deltaRow;
+  final int deltaCol;
 }
 
 class _ActivateCircleIntent extends Intent {
   const _ActivateCircleIntent();
 }
 
-/// 6 circle quick-actions linked to first six [MenuGameCardData] entries.
+/// Three circle quick-actions in a pyramid: one on top, two on the bottom.
 class MenuCircleGrid extends StatefulWidget {
   const MenuCircleGrid({
     super.key,
@@ -487,7 +490,6 @@ class MenuCircleGrid extends StatefulWidget {
 }
 
 class _MenuCircleGridState extends State<MenuCircleGrid> {
-  static const int _columns = 3;
   final FocusNode _focusNode = FocusNode(debugLabel: 'menu-circle-grid');
   int _selectedIndex = 0;
   int? _hoveredIndex;
@@ -495,10 +497,24 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
   int get _activeIndex => _hoveredIndex ?? _selectedIndex;
   int get _count => widget.items.length;
 
-  void _moveSelection(int delta) {
-    final next = (_selectedIndex + delta).clamp(0, _count - 1);
-    if (next != _selectedIndex) {
-      setState(() => _selectedIndex = next);
+  void _moveSelection(int deltaRow, int deltaCol) {
+    if (_count != 3) return;
+
+    int? next;
+    switch (_selectedIndex) {
+      case 0:
+        if (deltaRow > 0) next = 1;
+        if (deltaCol > 0) next = 2;
+      case 1:
+        if (deltaRow < 0) next = 0;
+        if (deltaCol > 0) next = 2;
+      case 2:
+        if (deltaRow < 0) next = 0;
+        if (deltaCol < 0) next = 1;
+    }
+
+    if (next != null && next != _selectedIndex) {
+      setState(() => _selectedIndex = next!);
     }
   }
 
@@ -527,25 +543,94 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
 
   @override
   Widget build(BuildContext context) {
-    final spacing = widget.gridWidth / 18;
-    final circleSize = (widget.gridWidth - spacing * 2) / _columns;
+    final spacing = widget.gridWidth / 12;
+    final circleSize = (widget.gridWidth - spacing) / 2;
+
+    Widget circleTile(int index) {
+      final isHighlighted = index == _activeIndex;
+      return MouseRegion(
+        onEnter: (_) {
+          if (!_focusNode.hasFocus) _focusNode.requestFocus();
+          setState(() {
+            _hoveredIndex = index;
+            _selectedIndex = index;
+          });
+        },
+        onExit: (_) {
+          setState(() => _hoveredIndex = null);
+        },
+        child: GestureDetector(
+          onTap: () {
+            if (!_focusNode.hasFocus) {
+              _focusNode.requestFocus();
+            }
+            setState(() => _selectedIndex = index);
+            _activateSelected();
+          },
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 130),
+            curve: Curves.easeOut,
+            scale: isHighlighted ? 1.12 : 1.0,
+            child: SizedBox(
+              width: circleSize,
+              height: circleSize,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0x66FFFFFF),
+                  border: Border.all(
+                    color: isHighlighted
+                        ? const Color(0xFFFFFFAA)
+                        : Colors.white,
+                    width: isHighlighted ? 4 : 3,
+                  ),
+                ),
+                child: Center(
+                  child: widget.items[index].imageAsset != null
+                      ? Padding(
+                          padding: EdgeInsets.all(circleSize * 0.1),
+                          child: ClipOval(
+                            child: Image.asset(
+                              widget.items[index].imageAsset!,
+                              fit: BoxFit.cover,
+                              width: circleSize * 0.8,
+                              height: circleSize * 0.8,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Icon(
+                                  Icons.add_photo_alternate_outlined,
+                                  color: Colors.white,
+                                  size: circleSize * 0.38,
+                                );
+                              },
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          Icons.add_photo_alternate_outlined,
+                          color: Colors.white,
+                          size: circleSize * 0.38,
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Focus(
       focusNode: _focusNode,
       autofocus: true,
       child: Shortcuts(
         shortcuts: const <ShortcutActivator, Intent>{
-          SingleActivator(
-            LogicalKeyboardKey.arrowLeft,
-          ): _MoveCircleSelectionIntent(-1),
-          SingleActivator(
-            LogicalKeyboardKey.arrowRight,
-          ): _MoveCircleSelectionIntent(1),
-          SingleActivator(LogicalKeyboardKey.arrowUp): _MoveCircleSelectionIntent(
-            -3,
-          ),
-          SingleActivator(
-            LogicalKeyboardKey.arrowDown,
-          ): _MoveCircleSelectionIntent(3),
+          SingleActivator(LogicalKeyboardKey.arrowLeft):
+              _MoveCircleSelectionIntent(0, -1),
+          SingleActivator(LogicalKeyboardKey.arrowRight):
+              _MoveCircleSelectionIntent(0, 1),
+          SingleActivator(LogicalKeyboardKey.arrowUp):
+              _MoveCircleSelectionIntent(-1, 0),
+          SingleActivator(LogicalKeyboardKey.arrowDown):
+              _MoveCircleSelectionIntent(1, 0),
           SingleActivator(LogicalKeyboardKey.enter): _ActivateCircleIntent(),
           SingleActivator(LogicalKeyboardKey.space): _ActivateCircleIntent(),
         },
@@ -553,11 +638,11 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
           actions: <Type, Action<Intent>>{
             _MoveCircleSelectionIntent:
                 CallbackAction<_MoveCircleSelectionIntent>(
-              onInvoke: (intent) {
-                _moveSelection(intent.delta);
-                return null;
-              },
-            ),
+                  onInvoke: (intent) {
+                    _moveSelection(intent.deltaRow, intent.deltaCol);
+                    return null;
+                  },
+                ),
             _ActivateCircleIntent: CallbackAction<_ActivateCircleIntent>(
               onInvoke: (intent) {
                 _activateSelected();
@@ -567,83 +652,23 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
           },
           child: SizedBox(
             width: widget.gridWidth,
-            child: Wrap(
-              spacing: spacing,
-              runSpacing: spacing,
-              children:
-                  List.generate(widget.items.length, (index) {
-                final isHighlighted = index == _activeIndex;
-                return MouseRegion(
-                  onEnter: (_) {
-                    if (!_focusNode.hasFocus) _focusNode.requestFocus();
-                    setState(() {
-                      _hoveredIndex = index;
-                      _selectedIndex = index;
-                    });
-                  },
-                  onExit: (_) {
-                    setState(() => _hoveredIndex = null);
-                  },
-                  child: GestureDetector(
-                    onTap: () {
-                      if (!_focusNode.hasFocus) {
-                        _focusNode.requestFocus();
-                      }
-                      setState(() => _selectedIndex = index);
-                      _activateSelected();
-                    },
-                    child: AnimatedScale(
-                      duration: const Duration(milliseconds: 130),
-                      curve: Curves.easeOut,
-                      scale: isHighlighted ? 1.12 : 1.0,
-                      child: SizedBox(
-                        width: circleSize,
-                        height: circleSize,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0x66FFFFFF),
-                            border: Border.all(
-                              color: isHighlighted
-                                  ? const Color(0xFFFFFFAA)
-                                  : Colors.white,
-                              width: isHighlighted ? 4 : 3,
-                            ),
-                          ),
-                          child: Center(
-                            child: widget.items[index].imageAsset != null
-                                ? Padding(
-                                    padding:
-                                        EdgeInsets.all(circleSize * 0.1),
-                                    child: ClipOval(
-                                      child: Image.asset(
-                                        widget.items[index].imageAsset!,
-                                        fit: BoxFit.cover,
-                                        width: circleSize * 0.8,
-                                        height: circleSize * 0.8,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                          return Icon(
-                                            Icons.add_photo_alternate_outlined,
-                                            color: Colors.white,
-                                            size: circleSize * 0.38,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  )
-                                : Icon(
-                                    Icons.add_photo_alternate_outlined,
-                                    color: Colors.white,
-                                    size: circleSize * 0.38,
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_count > 0) Center(child: circleTile(0)),
+                SizedBox(height: spacing),
+                if (_count > 1)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      circleTile(1),
+                      if (_count > 2) ...[
+                        SizedBox(width: spacing),
+                        circleTile(2),
+                      ],
+                    ],
                   ),
-                );
-              }),
+              ],
             ),
           ),
         ),

@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:video_player/video_player.dart';
 
 import '../utils/disable_video_pointer.dart';
 import '../widgets/menu_back_pill.dart';
 
 const String kGridPuzzleIntroAsset = 'assets/video/GridPuzzleIntro.mp4';
+const String kGridPuzzleEndAsset = 'assets/video/gridPuzzleEnd.mp4';
 const String _kAssetBase = 'assets/images/gridPuzzleGame/';
 
 enum RoadDirection { north, south, east, west }
@@ -77,6 +80,40 @@ class _RoadFigureInstance {
 
 enum _GirlMotion { idle, walking, success, returning }
 
+class _FallingStar {
+  _FallingStar({
+    required this.assetPath,
+    required this.x,
+    required this.rotation,
+    required this.fallSpeed,
+    required this.spawnMs,
+    required this.size,
+    required this.spinSpeed,
+  });
+
+  final String assetPath;
+  final double x;
+  final double rotation;
+  final double fallSpeed;
+  final int spawnMs;
+  final double size;
+  final double spinSpeed;
+
+  double get startY => -size;
+
+  bool hasSpawned(double elapsedMs) => elapsedMs >= spawnMs;
+
+  double yAt(double elapsedMs) {
+    if (!hasSpawned(elapsedMs)) return startY;
+    return startY + ((elapsedMs - spawnMs) / 1000) * fallSpeed;
+  }
+
+  double rotationAt(double elapsedMs) {
+    if (!hasSpawned(elapsedMs)) return rotation;
+    return rotation + ((elapsedMs - spawnMs) / 1000) * spinSpeed;
+  }
+}
+
 /// Fullscreen grid puzzle: intro video, then path-building gameplay.
 class GridPuzzleLayer extends StatefulWidget {
   const GridPuzzleLayer({super.key, required this.onClose});
@@ -106,9 +143,34 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
 
   static const List<RoadFigureType> _kFigureTypes = RoadFigureType.values;
 
+  static const List<String> _kStarAssets = [
+    'assets/images/cyanStar.png',
+    'assets/images/greenStar.png',
+    'assets/images/pinkStar.png',
+    'assets/images/purpleStar.png',
+    'assets/images/whiteStar.png',
+    'assets/images/yellowStar.png',
+  ];
+
+  static const int _kStarRainDurationMs = 6000;
+  static const int _kStarCopiesPerAsset = 20;
+  static const int _kWhiteFadeInMs = 3000;
+  static const int _kExitFadeMs = 1000;
+  static const int _kEndVideoHoldMs = 2000;
+
   VideoPlayerController? _introController;
   bool _introReady = false;
   bool _introFinished = false;
+
+  VideoPlayerController? _endingController;
+  bool _endingReady = false;
+  bool _gameplayVisible = true;
+
+  AnimationController? _whiteFade;
+  Ticker? _starRainTicker;
+  Stopwatch? _starRainStopwatch;
+  bool _starRainSpawnComplete = false;
+  Completer<void>? _starsFallenCompleter;
 
   int _nextFigureId = 0;
   late List<_RoadFigureInstance> _figures;
@@ -117,6 +179,8 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
   String? _draggingFigureId;
   _GirlMotion _girlMotion = _GirlMotion.idle;
   Offset _girlPosition = _kGridOrigin;
+
+  List<_FallingStar> _fallingStars = const [];
 
   @override
   void initState() {
@@ -366,10 +430,266 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     if (!mounted) return;
     if (success && path.last == _kPlaneSlot) {
       setState(() => _girlMotion = _GirlMotion.success);
+      unawaited(_runSuccessSequence());
       return;
     }
 
     await _walkGirlAndReturn(path);
+  }
+
+  Future<void> _runSuccessSequence() async {
+    await Future<void>.delayed(const Duration(seconds: 1));
+    if (!mounted || _girlMotion != _GirlMotion.success) return;
+
+    _startStarRain();
+    _whiteFade?.dispose();
+    _whiteFade = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _kWhiteFadeInMs),
+    );
+    setState(() {});
+
+    await _whiteFade!.forward();
+    if (!mounted) return;
+
+    await _hideGameplayAndLoadEndVideo();
+    if (!mounted) return;
+
+    await Future<void>.delayed(
+      Duration(
+        milliseconds: math.max(
+          0,
+          _kStarRainDurationMs -
+              (_starRainStopwatch?.elapsedMilliseconds ?? _kStarRainDurationMs),
+        ),
+      ),
+    );
+    if (!mounted) return;
+
+    _starRainSpawnComplete = true;
+    _pruneOffscreenStars();
+    if (_fallingStars.isEmpty) {
+      _stopStarRainTicker();
+    } else {
+      _starsFallenCompleter = Completer<void>();
+      await _starsFallenCompleter!.future;
+    }
+    if (!mounted) return;
+
+    await _whiteFade!.reverse();
+    if (!mounted) return;
+    _whiteFade?.dispose();
+    _whiteFade = null;
+    setState(() {});
+
+    await _playEndVideo();
+    if (!mounted) return;
+
+    _whiteFade = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _kExitFadeMs),
+    );
+    setState(() {});
+    await _whiteFade!.forward();
+    if (!mounted) return;
+    widget.onClose();
+  }
+
+  Future<void> _hideGameplayAndLoadEndVideo() async {
+    final intro = _introController;
+    _introController = null;
+    _introReady = false;
+    if (intro != null) {
+      intro.removeListener(_onIntroTick);
+      await intro.dispose();
+    }
+
+    final end = VideoPlayerController.asset(
+      kGridPuzzleEndAsset,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    try {
+      await end.initialize();
+      if (!mounted) {
+        await end.dispose();
+        return;
+      }
+      await end.setLooping(false);
+      await end.seekTo(Duration.zero);
+      await end.pause();
+      if (!mounted) {
+        await end.dispose();
+        return;
+      }
+      setState(() {
+        _gameplayVisible = false;
+        _endingController = end;
+        _endingReady = true;
+      });
+      unawaited(_releaseVideoPointerCapture());
+    } catch (_) {
+      await end.dispose();
+      if (mounted) widget.onClose();
+    }
+  }
+
+  Future<void> _playEndVideo() async {
+    final end = _endingController;
+    if (end == null || !_endingReady) return;
+
+    final completer = Completer<void>();
+    void onTick() {
+      final value = end.value;
+      if (!value.isInitialized || value.hasError) return;
+      if (value.isCompleted) {
+        end.removeListener(onTick);
+        if (!completer.isCompleted) completer.complete();
+      }
+    }
+
+    end.addListener(onTick);
+    await end.play();
+    if (mounted) setState(() {});
+    await completer.future;
+    await end.pause();
+    final duration = end.value.duration;
+    if (duration > Duration.zero) {
+      await end.seekTo(duration);
+    }
+    if (mounted) setState(() {});
+    await Future<void>.delayed(
+      const Duration(milliseconds: _kEndVideoHoldMs),
+    );
+  }
+
+  void _startStarRain() {
+    final random = math.Random();
+    final stars = <_FallingStar>[];
+    final totalStars = _kStarAssets.length * _kStarCopiesPerAsset;
+    var starIndex = 0;
+
+    for (final asset in _kStarAssets) {
+      for (var copy = 0; copy < _kStarCopiesPerAsset; copy++) {
+        final size = (34 + random.nextDouble() * 52) * 4;
+        final spawnProgress = starIndex / (totalStars - 1);
+        final spawnMs =
+            (math.pow(spawnProgress, 1.65) * (_kStarRainDurationMs - 350))
+                .round() +
+            random.nextInt(120);
+        stars.add(
+          _FallingStar(
+            assetPath: asset,
+            x: random.nextDouble() * (_kLogicalW - size),
+            rotation: random.nextDouble() * math.pi * 2,
+            fallSpeed: 220 + random.nextDouble() * 180,
+            spawnMs: spawnMs,
+            size: size,
+            spinSpeed: (random.nextDouble() - 0.5) * 1.8,
+          ),
+        );
+        starIndex++;
+      }
+    }
+
+    _stopStarRainTicker();
+    _starRainSpawnComplete = false;
+    _starsFallenCompleter = null;
+    _starRainStopwatch = Stopwatch()..start();
+    _starRainTicker = createTicker(_onStarRainTick)..start();
+
+    setState(() => _fallingStars = stars);
+  }
+
+  void _onStarRainTick(Duration _) {
+    if (!mounted || _starRainStopwatch == null) return;
+    _pruneOffscreenStars();
+    if (_starRainSpawnComplete && _fallingStars.isEmpty) {
+      _stopStarRainTicker();
+      final completer = _starsFallenCompleter;
+      if (completer != null && !completer.isCompleted) {
+        completer.complete();
+      }
+    }
+    setState(() {});
+  }
+
+  void _pruneOffscreenStars() {
+    final elapsed = _starRainStopwatch?.elapsedMilliseconds.toDouble() ?? 0;
+    _fallingStars = _fallingStars.where((star) {
+      if (!star.hasSpawned(elapsed)) {
+        return !_starRainSpawnComplete;
+      }
+      return star.yAt(elapsed) < _kLogicalH + star.size;
+    }).toList();
+  }
+
+  void _stopStarRainTicker() {
+    _starRainTicker?.dispose();
+    _starRainTicker = null;
+    _starRainStopwatch?.stop();
+    _starRainStopwatch = null;
+    _fallingStars = const [];
+  }
+
+  double get _starRainElapsedMs =>
+      _starRainStopwatch?.elapsedMilliseconds.toDouble() ?? 0;
+
+  Widget _buildStarRain() {
+    if (_fallingStars.isEmpty && _starRainStopwatch == null) {
+      return const SizedBox.shrink();
+    }
+
+    final elapsedMs = _starRainElapsedMs;
+    return Positioned.fill(
+      child: ClipRect(
+        child: IgnorePointer(
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              for (final star in _fallingStars)
+                if (star.hasSpawned(elapsedMs) &&
+                    star.yAt(elapsedMs) < _kLogicalH + star.size)
+                  Positioned(
+                    left: star.x,
+                    top: star.yAt(elapsedMs),
+                    width: star.size,
+                    height: star.size,
+                    child: Transform.rotate(
+                      angle: star.rotationAt(elapsedMs),
+                      child: Image.asset(
+                        star.assetPath,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.star_rounded,
+                            size: star.size,
+                            color: Colors.amber,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWhiteFadeOverlay() {
+    final ctrl = _whiteFade;
+    if (ctrl == null) return const SizedBox.shrink();
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: ctrl,
+          builder: (context, child) {
+            final t = ctrl.value.clamp(0.0, 1.0);
+            return ColoredBox(color: Color.fromRGBO(255, 255, 255, t));
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _walkGirlAndReturn(List<int> path) async {
@@ -487,8 +807,11 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
   @override
   void dispose() {
     restoreAppPointerEvents();
+    _stopStarRainTicker();
+    _whiteFade?.dispose();
     _introController?.removeListener(_onIntroTick);
     _introController?.dispose();
+    _endingController?.dispose();
     super.dispose();
   }
 
@@ -502,31 +825,51 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
           child: SizedBox(
             width: _kLogicalW,
             height: _kLogicalH,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                if (_introReady && _introController != null && !_introFinished)
-                  Positioned.fill(child: VideoPlayer(_introController!)),
-                if (_introReady && _introController != null && _introFinished)
-                  Positioned.fill(
-                    child: IgnorePointer(child: VideoPlayer(_introController!)),
-                  ),
-                if (_introFinished)
-                  Positioned.fill(
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        _buildGridArea(),
-                        _buildPlane(),
-                        _buildGirl(),
-                        _buildRoadFigureRow(),
-                      ],
+            child: ClipRect(
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  if (_gameplayVisible &&
+                      _introReady &&
+                      _introController != null &&
+                      !_introFinished)
+                    Positioned.fill(child: VideoPlayer(_introController!)),
+                  if (_gameplayVisible &&
+                      _introReady &&
+                      _introController != null &&
+                      _introFinished)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: VideoPlayer(_introController!),
+                      ),
                     ),
-                  )
-                else if (!_introReady)
-                  const ColoredBox(color: Colors.black),
-                GameLogicalBackPill(onPressed: widget.onClose),
-              ],
+                  if (_gameplayVisible && _introFinished)
+                    Positioned.fill(
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          _buildGridArea(),
+                          _buildPlane(),
+                          _buildGirl(),
+                          _buildRoadFigureRow(),
+                        ],
+                      ),
+                    )
+                  else if (!_introReady && _gameplayVisible)
+                    const ColoredBox(color: Colors.black),
+                  if (_endingReady && _endingController != null)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: VideoPlayer(_endingController!),
+                      ),
+                    ),
+                  _buildWhiteFadeOverlay(),
+                  _buildStarRain(),
+                  if (_girlMotion == _GirlMotion.idle ||
+                      _girlMotion == _GirlMotion.walking)
+                    GameLogicalBackPill(onPressed: widget.onClose),
+                ],
+              ),
             ),
           ),
         ),
