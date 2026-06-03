@@ -8,7 +8,6 @@ import '../app_audio.dart';
 import '../games/grid_puzzle.dart';
 import '../games/salud_game.dart';
 
-/// Main menu: radial green/yellow gradient, carousel + logo + circle grid
 class MainMenuOverlay extends StatefulWidget {
   const MainMenuOverlay({super.key, required this.onKids});
 
