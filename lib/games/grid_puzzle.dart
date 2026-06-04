@@ -152,11 +152,11 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     'assets/images/yellowStar.png',
   ];
 
-  static const int _kStarRainDurationMs = 6000;
+  static const int _kStarRainDurationMs = 4000;
   static const int _kStarCopiesPerAsset = 20;
-  static const int _kWhiteFadeInMs = 3000;
+  static const int _kWhiteFadeInMs = 2000;
   static const int _kExitFadeMs = 1000;
-  static const int _kEndVideoHoldMs = 2000;
+  static const int _kEndVideoHoldMs = 1000;
 
   VideoPlayerController? _introController;
   bool _introReady = false;
@@ -557,9 +557,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
       await end.seekTo(duration);
     }
     if (mounted) setState(() {});
-    await Future<void>.delayed(
-      const Duration(milliseconds: _kEndVideoHoldMs),
-    );
+    await Future<void>.delayed(const Duration(milliseconds: _kEndVideoHoldMs));
   }
 
   void _startStarRain() {
