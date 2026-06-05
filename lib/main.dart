@@ -75,8 +75,11 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
     );
   }
 
-  void _startExperience() {
+  Future<void> _startExperience() async {
     if (_started) return;
+    // Web audio must be warmed up from the very first user tap, otherwise
+    // subsequent play/resume calls can be blocked by the browser.
+    await AppAudio.instance.webWarmUpOnFirstTap();
     setState(() {
       _started = true;
       _game = _createGame();
@@ -93,7 +96,7 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
           body: SizedBox.expand(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: _startExperience,
+              onTap: () => unawaited(_startExperience()),
               child: const Center(
                 child: Text(
                   'TOCA PARA EMPEZAR',
