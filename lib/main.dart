@@ -139,11 +139,11 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
             return Positioned.fill(
               child: AnimalsFlutterOverlay(
                 onBack: () {
-                  unawaited(AppAudio.instance.playMenuLoop());
                   (game as DiverchicosGame)
                     ..notifyReturnedToMainMenu()
                     ..overlays.remove('animals')
                     ..overlays.add('mainMenu');
+                  unawaited(AppAudio.instance.returnToMenuMusic());
                 },
               ),
             );

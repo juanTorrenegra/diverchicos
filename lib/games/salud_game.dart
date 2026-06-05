@@ -56,6 +56,15 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
   /// Non-null while [SaludCatGameLayer] owns the cat pick → bath flow.
   VideoPlayerController? _catGamePick;
 
+  bool _exitingToMenu = false;
+
+  void _exitToMenu() {
+    if (_exitingToMenu) return;
+    _exitingToMenu = true;
+    _cancelIdleBlinkTimer();
+    widget.onClose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -82,7 +91,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
       });
     } catch (_) {
       await c.dispose();
-      if (mounted) widget.onClose();
+      if (mounted) _exitToMenu();
     }
   }
 
@@ -334,7 +343,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
                 child: SaludCowGameLayer(
                   pickController: _cowGamePick!,
                   onTeardownIntro: _teardownIntroForCowGame,
-                  onClose: widget.onClose,
+                  onClose: _exitToMenu,
                 ),
               )
             else if (_catGamePick != null)
@@ -342,7 +351,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
                 child: SaludCatGameLayer(
                   pickController: _catGamePick!,
                   onTeardownIntro: _teardownIntroForCatGame,
-                  onClose: widget.onClose,
+                  onClose: _exitToMenu,
                 ),
               )
             else ...[
@@ -387,7 +396,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
                               },
                             ),
                           ],
-                          GameLogicalBackPill(onPressed: widget.onClose),
+                          GameLogicalBackPill(onPressed: _exitToMenu),
                         ],
                       ),
                     ),
@@ -406,7 +415,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
                           child: Stack(
                             children: [
                               VideoPlayer(_pickController!),
-                              GameLogicalBackPill(onPressed: widget.onClose),
+                              GameLogicalBackPill(onPressed: _exitToMenu),
                             ],
                           ),
                         ),

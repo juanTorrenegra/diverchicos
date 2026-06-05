@@ -92,7 +92,7 @@ class DiverchicosGame extends FlameGame {
     _frog.markClosedUntilNextKidsReplay();
     overlays.add('mainMenu');
     gameState = GameState.menu;
-    unawaited(AppAudio.instance.playMenuLoop());
+    unawaited(AppAudio.instance.returnToMenuMusic());
   }
 
   @override

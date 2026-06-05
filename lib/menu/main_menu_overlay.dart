@@ -21,6 +21,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
     with SingleTickerProviderStateMixin {
   bool _showSaludIntro = false;
   bool _showGridPuzzle = false;
+  bool _exitingToMenu = false;
   AnimationController? _saludReturnWhiteFade;
 
   @override
@@ -29,11 +30,23 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
     super.dispose();
   }
 
-  Future<void> _returnFromSaludToMenu() async {
-    setState(() => _showSaludIntro = false);
-    if (AppAudio.instance.currentBgmAsset == AppAudio.preschoolerBgm) {
-      await AppAudio.instance.stopBgm();
-    }
+  /// IMPORTANT (web): Starting audio must happen inside the actual tap/click
+  /// call stack. So we synchronously dismiss the game + trigger menu music here,
+  /// then run the fade asynchronously.
+  void _beginExitMiniGameToMenu({required VoidCallback hideActiveGame}) {
+    if (_exitingToMenu) return;
+    _exitingToMenu = true;
+
+    hideActiveGame();
+    if (mounted) setState(() {});
+
+    // Do not await: web can block, and we want this in the gesture callback.
+    unawaited(AppAudio.instance.returnToMenuMusic());
+
+    unawaited(_runReturnFade());
+  }
+
+  Future<void> _runReturnFade() async {
     _saludReturnWhiteFade?.dispose();
     _saludReturnWhiteFade = AnimationController(
       vsync: this,
@@ -42,15 +55,19 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
     );
     if (!mounted) return;
     setState(() {});
+
     await _saludReturnWhiteFade!.reverse();
     if (!mounted) return;
+
     _saludReturnWhiteFade?.dispose();
     _saludReturnWhiteFade = null;
-    if (mounted) {
-      unawaited(AppAudio.instance.playMenuLoop());
-      setState(() {});
-    }
+    _exitingToMenu = false;
+    if (mounted) setState(() {});
   }
+
+  void _returnFromSaludToMenu() => _beginExitMiniGameToMenu(
+        hideActiveGame: () => _showSaludIntro = false,
+      );
 
   void _openSaludGame() {
     unawaited(AppAudio.instance.playPreschoolerLoop());
@@ -58,25 +75,13 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
   }
 
   void _openGridPuzzle() {
+    unawaited(AppAudio.instance.playGridPuzzleLoop());
     setState(() => _showGridPuzzle = true);
   }
 
-  Future<void> _returnFromGridPuzzleToMenu() async {
-    setState(() => _showGridPuzzle = false);
-    _saludReturnWhiteFade?.dispose();
-    _saludReturnWhiteFade = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-      value: 1.0,
-    );
-    if (!mounted) return;
-    setState(() {});
-    await _saludReturnWhiteFade!.reverse();
-    if (!mounted) return;
-    _saludReturnWhiteFade?.dispose();
-    _saludReturnWhiteFade = null;
-    if (mounted) setState(() {});
-  }
+  void _returnFromGridPuzzleToMenu() => _beginExitMiniGameToMenu(
+        hideActiveGame: () => _showGridPuzzle = false,
+      );
 
   List<MenuGameCardData> _cards() {
     return [
@@ -153,13 +158,13 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
         if (_showSaludIntro)
           Positioned.fill(
             child: SaludCowCatIntroLayer(
-              onClose: () => unawaited(_returnFromSaludToMenu()),
+              onClose: _returnFromSaludToMenu,
             ),
           ),
         if (_showGridPuzzle)
           Positioned.fill(
             child: GridPuzzleLayer(
-              onClose: () => unawaited(_returnFromGridPuzzleToMenu()),
+              onClose: _returnFromGridPuzzleToMenu,
             ),
           ),
         if (_saludReturnWhiteFade != null)
@@ -518,7 +523,6 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
   }
 
   void _activateSelected() {
-    unawaited(AppAudio.instance.stopBgm());
     final idx = _activeIndex;
     widget.items[idx].onTap?.call();
     if (widget.items[idx].onTap == null) {

@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
-import '../app_audio.dart';
 import '../widgets/menu_back_pill.dart';
 import 'salud_cat_game2.dart';
 import 'salud_cow_game.dart'
@@ -115,6 +114,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   bool _bathReady = false;
   bool _bathAnimFinished = false;
   AnimationController? _whiteFade;
+  bool _exitingToMenu = false;
 
   Offset _colgatePos = _kBathColgatePos;
   bool _colgateDragging = false;
@@ -948,9 +948,8 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   }
 
   Future<void> _fadeToWhiteTeardownAndReturnToMenu() async {
-    if (!mounted) return;
-
-    await AppAudio.instance.stopBgm();
+    if (!mounted || _exitingToMenu) return;
+    _exitingToMenu = true;
 
     _whiteFade?.dispose();
     _whiteFade = AnimationController(
@@ -961,29 +960,9 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     await _whiteFade!.forward();
     if (!mounted) return;
 
-    await _teardownAllCatGameMedia();
-    if (!mounted) return;
-
     _whiteFade?.dispose();
     _whiteFade = null;
     if (mounted) widget.onClose();
-  }
-
-  Future<void> _teardownAllCatGameMedia() async {
-    await _disposeEnding();
-    await _disposeMergeVideo();
-    _cancelCepilloCremaExitDelayTimer();
-    _cancelCepilloCremaExitSlide();
-    _cancelCepilloCremaIdleTimer();
-    _cancelCepilloCremaSnap();
-    await _disposeWaterPour();
-    await _disposeBath();
-    final pick = _pickHeld;
-    if (pick != null) {
-      await pick.dispose();
-      _pickHeld = null;
-    }
-    if (mounted) setState(() {});
   }
 
   void _maybeStartWaterPourCueLoop() {
@@ -1542,11 +1521,9 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     _scheduleColgateIdlePulse();
   }
 
-  Future<void> _exitBathAndClose() async {
-    await _teardownAllCatGameMedia();
-    _whiteFade?.dispose();
-    _whiteFade = null;
-    if (mounted) setState(() {});
+  void _exitBathAndClose() {
+    if (_exitingToMenu) return;
+    _exitingToMenu = true;
     widget.onClose();
   }
 
@@ -1706,7 +1683,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
                                 : const ColoredBox(color: Colors.black),
                           ),
                           GameLogicalBackPill(
-                            onPressed: () => unawaited(_exitBathAndClose()),
+                            onPressed: _exitBathAndClose,
                           ),
                         ],
                       ),
@@ -1820,7 +1797,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
                             ),
                           if (!_catEndingSequenceStarted)
                             GameLogicalBackPill(
-                              onPressed: () => unawaited(_exitBathAndClose()),
+                              onPressed: _exitBathAndClose,
                             ),
                         ],
                       ),

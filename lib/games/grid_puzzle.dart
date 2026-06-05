@@ -181,6 +181,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
   Offset _girlPosition = _kGridOrigin;
 
   List<_FallingStar> _fallingStars = const [];
+  bool _exitingToMenu = false;
 
   @override
   void initState() {
@@ -381,7 +382,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
       });
     } catch (_) {
       await c.dispose();
-      if (mounted) widget.onClose();
+      if (mounted) _exitToMenu();
     }
   }
 
@@ -492,7 +493,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     setState(() {});
     await _whiteFade!.forward();
     if (!mounted) return;
-    widget.onClose();
+    _exitToMenu();
   }
 
   Future<void> _hideGameplayAndLoadEndVideo() async {
@@ -529,7 +530,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
       unawaited(_releaseVideoPointerCapture());
     } catch (_) {
       await end.dispose();
-      if (mounted) widget.onClose();
+      if (mounted) _exitToMenu();
     }
   }
 
@@ -802,6 +803,13 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     }
   }
 
+  void _exitToMenu() {
+    if (_exitingToMenu) return;
+    _exitingToMenu = true;
+    restoreAppPointerEvents();
+    widget.onClose();
+  }
+
   @override
   void dispose() {
     restoreAppPointerEvents();
@@ -865,7 +873,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
                   _buildStarRain(),
                   if (_girlMotion == _GirlMotion.idle ||
                       _girlMotion == _GirlMotion.walking)
-                    GameLogicalBackPill(onPressed: widget.onClose),
+                    GameLogicalBackPill(onPressed: _exitToMenu),
                 ],
               ),
             ),
@@ -920,7 +928,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     );
   }
 
-  Widget _buildGridArea() {
+                                    Widget _buildGridArea() {
     return Positioned(
       left: _kGridOrigin.dx,
       top: _kGridOrigin.dy,
