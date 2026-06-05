@@ -24,7 +24,7 @@ enum GameState {
   transition,
 }
 
-/// Shell game: frog intro on canvas → main menu overlay; forwards kids mode replay.
+/// Shell game: frog intro on canvas → main menu overlay.
 ///
 /// Extend [gameState] for the planned fourth-button shapes game (`playing`/`cutscene`/`levelComplete`).
 class DiverchicosGame extends FlameGame {
@@ -76,23 +76,6 @@ class DiverchicosGame extends FlameGame {
     await _frog.onLoad();
     gameState = GameState.transition;
     _frog.updateSizesForViewport(size);
-  }
-
-  void startKidsMode() {
-    overlays.remove('mainMenu');
-    onIntroRequestedPortrait?.call();
-    gameState = GameState.transition;
-    _frog.resetForKidsReplay();
-    unawaited(AppAudio.instance.stopBgm());
-  }
-
-  void exitKidsMode() {
-    overlays.remove('kidsBack');
-    onLandscapeRequested?.call();
-    _frog.markClosedUntilNextKidsReplay();
-    overlays.add('mainMenu');
-    gameState = GameState.menu;
-    unawaited(AppAudio.instance.returnToMenuMusic());
   }
 
   @override

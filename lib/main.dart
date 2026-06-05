@@ -9,7 +9,6 @@ import 'app_audio.dart';
 import 'diverchicos_game.dart';
 import 'games/animals_game.dart';
 import 'menu/main_menu_overlay.dart';
-import 'widgets/menu_back_pill.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -129,13 +128,7 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
         overlayBuilderMap: {
           'mainMenu': (BuildContext context, game) {
             return Positioned.fill(
-              child: MainMenuOverlay(
-                onKids: () {
-                  final g = game as DiverchicosGame;
-                  g.startKidsMode();
-                  g.overlays.add('kidsBack');
-                },
-              ),
+              child: MainMenuOverlay(),
             );
           },
           'animals': (BuildContext context, game) {
@@ -148,20 +141,6 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
                     ..overlays.add('mainMenu');
                   unawaited(AppAudio.instance.returnToMenuMusic());
                 },
-              ),
-            );
-          },
-          'kidsBack': (BuildContext context, game) {
-            return Positioned.fill(
-              child: Align(
-                alignment: Alignment.topRight,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 20, right: 16),
-                  child: MenuBackPill(
-                    onPressed: () =>
-                        (game as DiverchicosGame).exitKidsMode(),
-                  ),
-                ),
               ),
             );
           },

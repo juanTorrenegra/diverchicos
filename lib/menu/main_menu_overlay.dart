@@ -6,12 +6,11 @@ import 'package:flutter/services.dart';
 
 import '../app_audio.dart';
 import '../games/grid_puzzle.dart';
+import '../games/pop_bunny.dart';
 import '../games/salud_game.dart';
 
 class MainMenuOverlay extends StatefulWidget {
-  const MainMenuOverlay({super.key, required this.onKids});
-
-  final VoidCallback onKids;
+  const MainMenuOverlay({super.key});
 
   @override
   State<MainMenuOverlay> createState() => _MainMenuOverlayState();
@@ -21,6 +20,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
     with SingleTickerProviderStateMixin {
   bool _showSaludIntro = false;
   bool _showGridPuzzle = false;
+  bool _showPopBunny = false;
   bool _exitingToMenu = false;
   AnimationController? _saludReturnWhiteFade;
 
@@ -79,8 +79,17 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
     setState(() => _showGridPuzzle = true);
   }
 
+  void _openPopBunny() {
+    unawaited(AppAudio.instance.stopBgm());
+    setState(() => _showPopBunny = true);
+  }
+
   void _returnFromGridPuzzleToMenu() => _beginExitMiniGameToMenu(
         hideActiveGame: () => _showGridPuzzle = false,
+      );
+
+  void _returnFromPopBunnyToMenu() => _beginExitMiniGameToMenu(
+        hideActiveGame: () => _showPopBunny = false,
       );
 
   List<MenuGameCardData> _cards() {
@@ -90,7 +99,11 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
         onTap: _openGridPuzzle,
         imageAsset: MenuIcons.gridPuzzleThumbnailPng,
       ),
-      MenuGameCardData(title: 'KIDS', onTap: widget.onKids),
+      MenuGameCardData(
+        title: 'KIDS',
+        onTap: _openPopBunny,
+        imageAsset: MenuIcons.bunnyPinkPng,
+      ),
       MenuGameCardData(
         title: 'SALUD',
         onTap: _openSaludGame,
@@ -167,6 +180,12 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
               onClose: _returnFromGridPuzzleToMenu,
             ),
           ),
+        if (_showPopBunny)
+          Positioned.fill(
+            child: PopBunnyLayer(
+              onClose: _returnFromPopBunnyToMenu,
+            ),
+          ),
         if (_saludReturnWhiteFade != null)
           Positioned.fill(
             child: IgnorePointer(
@@ -188,6 +207,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
 abstract final class MenuIcons {
   static const String gridPuzzleThumbnailPng =
       'assets/images/gridPuzzleThumbnail.png';
+  static const String bunnyPinkPng = 'assets/images/bunnyPink.png';
   static const String saludGamePng = 'assets/images/vaky512x5012.png';
 }
 
@@ -203,6 +223,8 @@ class MenuCarouselTuning {
   static double curveVerticalOffsetFactor = 0.02;
   static double laneLeftSpacerFactor = 0.16;
   static double laneRightPaddingFactor = 0.02;
+
+  static const double carouselImageScale = 2.0;
 
   static double cardBorderRadius(Size screen) => screen.width / 22;
 }
@@ -384,28 +406,31 @@ class MenuGameCard extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(28, 24, 28, 56),
                   child: Center(
-                    child: data.imageAsset != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(
-                              borderRadius * 0.55,
+                    child: Transform.scale(
+                      scale: MenuCarouselTuning.carouselImageScale,
+                      child: data.imageAsset != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                borderRadius * 0.55,
+                              ),
+                              child: Image.asset(
+                                data.imageAsset!,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(
+                                    Icons.image_outlined,
+                                    size: 72,
+                                    color: Color(0xCCFFFFFF),
+                                  );
+                                },
+                              ),
+                            )
+                          : const Icon(
+                              Icons.image_outlined,
+                              size: 72,
+                              color: Color(0xCCFFFFFF),
                             ),
-                            child: Image.asset(
-                              data.imageAsset!,
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(
-                                  Icons.image_outlined,
-                                  size: 72,
-                                  color: Color(0xCCFFFFFF),
-                                );
-                              },
-                            ),
-                          )
-                        : const Icon(
-                            Icons.image_outlined,
-                            size: 72,
-                            color: Color(0xCCFFFFFF),
-                          ),
+                    ),
                   ),
                 ),
               ),
