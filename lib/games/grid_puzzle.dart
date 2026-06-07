@@ -158,6 +158,13 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
   static const int _kExitFadeMs = 1000;
   static const int _kEndVideoHoldMs = 1000;
 
+  static const int _kFigureGlowUpMs = 2000;
+  static const int _kFigureGlowDownMs = 2000;
+  static const int _kFigureGlowPauseMs = 2000;
+  static const int _kFigureGlowCycleMs =
+      _kFigureGlowUpMs + _kFigureGlowDownMs + _kFigureGlowPauseMs;
+  static const Color _kFigureGlowPink = Color(0xFFFFB7C5);
+
   VideoPlayerController? _introController;
   bool _introReady = false;
   bool _introFinished = false;
@@ -182,6 +189,9 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
 
   List<_FallingStar> _fallingStars = const [];
   bool _exitingToMenu = false;
+
+  AnimationController? _figureGlowController;
+  int _figureGlowIndex = 0;
 
   @override
   void initState() {
@@ -394,8 +404,74 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     if (value.isCompleted && !_introFinished) {
       unawaited(v.pause());
       setState(() => _introFinished = true);
+      _startFigureGlowCycle();
       unawaited(_releaseVideoPointerCapture());
     }
+  }
+
+  void _startFigureGlowCycle() {
+    _figureGlowController?.dispose();
+    _figureGlowIndex = 0;
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _kFigureGlowCycleMs),
+    );
+    controller.addListener(() {
+      if (mounted) setState(() {});
+    });
+    controller.addStatusListener((status) {
+      if (status != AnimationStatus.completed || !mounted) return;
+      setState(() {
+        _figureGlowIndex = (_figureGlowIndex + 1) % _kFigureTypes.length;
+      });
+      controller.forward(from: 0);
+    });
+    _figureGlowController = controller;
+    controller.forward();
+  }
+
+  double _figureGlowIntensity(int holderIndex) {
+    final controller = _figureGlowController;
+    if (!_introFinished || controller == null || holderIndex != _figureGlowIndex) {
+      return 0;
+    }
+
+    final elapsedMs = controller.value * _kFigureGlowCycleMs;
+    if (elapsedMs < _kFigureGlowUpMs) {
+      return Curves.easeInOut.transform(elapsedMs / _kFigureGlowUpMs);
+    }
+    if (elapsedMs < _kFigureGlowUpMs + _kFigureGlowDownMs) {
+      final t = (elapsedMs - _kFigureGlowUpMs) / _kFigureGlowDownMs;
+      return 1.0 - Curves.easeInOut.transform(t);
+    }
+    return 0;
+  }
+
+  Widget _buildFigureGlowWrapper(int holderIndex, Widget child) {
+    final glow = _figureGlowIntensity(holderIndex);
+    if (glow <= 0) return child;
+
+    final scale = 1.0 + glow * 0.22;
+    return Transform.scale(
+      scale: scale,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: _kFigureGlowPink.withValues(alpha: glow * 0.95),
+              blurRadius: 10 + glow * 34,
+              spreadRadius: glow * 14,
+            ),
+            BoxShadow(
+              color: const Color(0xFFFFE4EC).withValues(alpha: glow * 0.75),
+              blurRadius: 4 + glow * 18,
+              spreadRadius: glow * 6,
+            ),
+          ],
+        ),
+        child: child,
+      ),
+    );
   }
 
   void _onGridTapped() {
@@ -815,6 +891,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     restoreAppPointerEvents();
     _stopStarRainTicker();
     _whiteFade?.dispose();
+    _figureGlowController?.dispose();
     _introController?.removeListener(_onIntroTick);
     _introController?.dispose();
     _endingController?.dispose();
@@ -922,13 +999,16 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
         ? figure.position - home
         : Offset.zero;
 
-    return Transform.translate(
-      offset: dragOffset,
-      child: _buildFigureGesture(figure, homePosition: home),
+    return _buildFigureGlowWrapper(
+      index,
+      Transform.translate(
+        offset: dragOffset,
+        child: _buildFigureGesture(figure, homePosition: home),
+      ),
     );
   }
 
-                                    Widget _buildGridArea() {
+  Widget _buildGridArea() {
     return Positioned(
       left: _kGridOrigin.dx,
       top: _kGridOrigin.dy,
