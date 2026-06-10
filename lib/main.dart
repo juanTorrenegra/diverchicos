@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 
 import 'app_audio.dart';
 import 'diverchicos_game.dart';
-import 'games/animals_game.dart';
 import 'menu/main_menu_overlay.dart';
 
 void main() {
@@ -129,19 +128,6 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
           'mainMenu': (BuildContext context, game) {
             return Positioned.fill(
               child: MainMenuOverlay(),
-            );
-          },
-          'animals': (BuildContext context, game) {
-            return Positioned.fill(
-              child: AnimalsFlutterOverlay(
-                onBack: () {
-                  (game as DiverchicosGame)
-                    ..notifyReturnedToMainMenu()
-                    ..overlays.remove('animals')
-                    ..overlays.add('mainMenu');
-                  unawaited(AppAudio.instance.returnToMenuMusic());
-                },
-              ),
             );
           },
         },
