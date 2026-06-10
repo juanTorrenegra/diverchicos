@@ -56,11 +56,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
   /// Non-null while [SaludCatGameLayer] owns the cat pick → bath flow.
   VideoPlayerController? _catGamePick;
 
-  bool _exitingToMenu = false;
-
   void _exitToMenu() {
-    if (_exitingToMenu) return;
-    _exitingToMenu = true;
     _cancelIdleBlinkTimer();
     widget.onClose();
   }

@@ -951,18 +951,22 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     if (!mounted || _exitingToMenu) return;
     _exitingToMenu = true;
 
+    await _disposeEnding();
+    if (!mounted) return;
+
     _whiteFade?.dispose();
     _whiteFade = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
     );
     setState(() {});
+
     await _whiteFade!.forward();
     if (!mounted) return;
 
     _whiteFade?.dispose();
     _whiteFade = null;
-    if (mounted) widget.onClose();
+    widget.onClose();
   }
 
   void _maybeStartWaterPourCueLoop() {

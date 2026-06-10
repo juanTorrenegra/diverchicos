@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app_audio.dart';
+import '../games/chicken_path_game.dart';
 import '../games/grid_puzzle.dart';
 import '../games/pop_bunny.dart';
 import '../games/salud_game.dart';
@@ -21,6 +22,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
   bool _showSaludIntro = false;
   bool _showGridPuzzle = false;
   bool _showPopBunny = false;
+  bool _showChickenPath = false;
   bool _exitingToMenu = false;
   AnimationController? _saludReturnWhiteFade;
 
@@ -34,7 +36,12 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
   /// call stack. So we synchronously dismiss the game + trigger menu music here,
   /// then run the fade asynchronously.
   void _beginExitMiniGameToMenu({required VoidCallback hideActiveGame}) {
-    if (_exitingToMenu) return;
+    if (_exitingToMenu) {
+      hideActiveGame();
+      if (mounted) setState(() {});
+      unawaited(AppAudio.instance.returnToMenuMusic());
+      return;
+    }
     _exitingToMenu = true;
 
     hideActiveGame();
@@ -70,6 +77,9 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
       );
 
   void _openSaludGame() {
+    _exitingToMenu = false;
+    _saludReturnWhiteFade?.dispose();
+    _saludReturnWhiteFade = null;
     unawaited(AppAudio.instance.playPreschoolerLoop());
     setState(() => _showSaludIntro = true);
   }
@@ -84,12 +94,21 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
     setState(() => _showPopBunny = true);
   }
 
+  void _openChickenPath() {
+    unawaited(AppAudio.instance.stopBgm());
+    setState(() => _showChickenPath = true);
+  }
+
   void _returnFromGridPuzzleToMenu() => _beginExitMiniGameToMenu(
         hideActiveGame: () => _showGridPuzzle = false,
       );
 
   void _returnFromPopBunnyToMenu() => _beginExitMiniGameToMenu(
         hideActiveGame: () => _showPopBunny = false,
+      );
+
+  void _returnFromChickenPathToMenu() => _beginExitMiniGameToMenu(
+        hideActiveGame: () => _showChickenPath = false,
       );
 
   List<MenuGameCardData> _cards() {
@@ -103,6 +122,11 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
         title: 'KIDS',
         onTap: _openPopBunny,
         imageAsset: MenuIcons.bunnyPinkPng,
+      ),
+      MenuGameCardData(
+        title: 'CHICKEN PATH',
+        onTap: _openChickenPath,
+        imageAsset: MenuIcons.chickenPng,
       ),
       MenuGameCardData(
         title: 'SALUD',
@@ -186,6 +210,12 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
               onClose: _returnFromPopBunnyToMenu,
             ),
           ),
+        if (_showChickenPath)
+          Positioned.fill(
+            child: ChickenPathLayer(
+              onClose: _returnFromChickenPathToMenu,
+            ),
+          ),
         if (_saludReturnWhiteFade != null)
           Positioned.fill(
             child: IgnorePointer(
@@ -208,6 +238,7 @@ abstract final class MenuIcons {
   static const String gridPuzzleThumbnailPng =
       'assets/images/gridPuzzleThumbnail.png';
   static const String bunnyPinkPng = 'assets/images/bunnyPink.png';
+  static const String chickenPng = 'assets/images/chicken.png';
   static const String saludGamePng = 'assets/images/vaky512x5012.png';
 }
 
@@ -527,23 +558,40 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
   int get _count => widget.items.length;
 
   void _moveSelection(int deltaRow, int deltaCol) {
-    if (_count != 3) return;
-
-    int? next;
-    switch (_selectedIndex) {
-      case 0:
-        if (deltaRow > 0) next = 1;
-        if (deltaCol > 0) next = 2;
-      case 1:
-        if (deltaRow < 0) next = 0;
-        if (deltaCol > 0) next = 2;
-      case 2:
-        if (deltaRow < 0) next = 0;
-        if (deltaCol < 0) next = 1;
+    if (_count == 3) {
+      int? next;
+      switch (_selectedIndex) {
+        case 0:
+          if (deltaRow > 0) next = 1;
+          if (deltaCol > 0) next = 2;
+        case 1:
+          if (deltaRow < 0) next = 0;
+          if (deltaCol > 0) next = 2;
+        case 2:
+          if (deltaRow < 0) next = 0;
+          if (deltaCol < 0) next = 1;
+      }
+      if (next != null && next != _selectedIndex) {
+        setState(() => _selectedIndex = next!);
+      }
+      return;
     }
 
-    if (next != null && next != _selectedIndex) {
-      setState(() => _selectedIndex = next!);
+    if (_count == 4) {
+      const neighbors = <List<int?>>[
+        [null, 1, 2, null], // 0: right->1, down->2
+        [null, null, 3, 0], // 1: down->3, left->0
+        [0, 3, null, null], // 2: up->0, right->3
+        [1, null, null, 2], // 3: up->1, left->2
+      ];
+      int? next;
+      if (deltaCol > 0) next = neighbors[_selectedIndex][1];
+      if (deltaCol < 0) next = neighbors[_selectedIndex][3];
+      if (deltaRow > 0) next = neighbors[_selectedIndex][2];
+      if (deltaRow < 0) next = neighbors[_selectedIndex][0];
+      if (next != null && next != _selectedIndex) {
+        setState(() => _selectedIndex = next!);
+      }
     }
   }
 
@@ -680,24 +728,47 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
           },
           child: SizedBox(
             width: widget.gridWidth,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_count > 0) Center(child: circleTile(0)),
-                SizedBox(height: spacing),
-                if (_count > 1)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+            child: _count == 4
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      circleTile(1),
-                      if (_count > 2) ...[
-                        SizedBox(width: spacing),
-                        circleTile(2),
-                      ],
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          circleTile(0),
+                          SizedBox(width: spacing),
+                          circleTile(1),
+                        ],
+                      ),
+                      SizedBox(height: spacing),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          circleTile(2),
+                          SizedBox(width: spacing),
+                          circleTile(3),
+                        ],
+                      ),
+                    ],
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_count > 0) Center(child: circleTile(0)),
+                      SizedBox(height: spacing),
+                      if (_count > 1)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            circleTile(1),
+                            if (_count > 2) ...[
+                              SizedBox(width: spacing),
+                              circleTile(2),
+                            ],
+                          ],
+                        ),
                     ],
                   ),
-              ],
-            ),
           ),
         ),
       ),
