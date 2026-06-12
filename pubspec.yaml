@@ -75,6 +75,7 @@ flutter:
     - assets/images/cowAnimations/jumpToIdle/
     - assets/images/bathGame/
     - assets/images/gridPuzzleGame/
+    - assets/images/chicken/
     - assets/video/
     - assets/video/salud/
     - assets/video/chicken/

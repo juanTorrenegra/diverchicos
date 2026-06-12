@@ -238,7 +238,7 @@ abstract final class MenuIcons {
   static const String gridPuzzleThumbnailPng =
       'assets/images/gridPuzzleThumbnail.png';
   static const String bunnyPinkPng = 'assets/images/bunnyPink.png';
-  static const String chickenPng = 'assets/images/chicken.png';
+  static const String chickenPng = 'assets/images/chicken/chicken.png';
   static const String saludGamePng = 'assets/images/vaky512x5012.png';
 }
 
