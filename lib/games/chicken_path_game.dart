@@ -9,11 +9,13 @@ import '../widgets/menu_back_pill.dart';
 
 const String kChickenIntroAsset = 'assets/video/chicken/chickenIntro.mp4';
 const String kChickenLevel1Asset = 'assets/video/chicken/chickenLevel1.mp4';
+const String kChickenTransition1to2Asset =
+    'assets/video/chicken/chickenTransition1to2.mp4';
 const String _kAssetBase = 'assets/images/chicken/';
 const String kChickenGenAsset = '${_kAssetBase}gen.png';
 const String kChickenSpriteAsset = '${_kAssetBase}chicken.png';
 
-enum _ChickenPhase { intro, level1, gameplay }
+enum _ChickenPhase { intro, level1, gameplay, transition1to2 }
 
 enum _RoadDirection { north, south, east, west }
 
@@ -142,6 +144,9 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   VideoPlayerController? _level1Controller;
   bool _level1Ready = false;
 
+  VideoPlayerController? _transition1to2Controller;
+  bool _transition1to2Ready = false;
+
   int _nextFigureId = 0;
   late List<_RoadFigureInstance> _figures;
   final Map<int, String> _slotOccupants = {};
@@ -153,6 +158,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   int _figureGlowIndex = 0;
   bool _exitingToMenu = false;
   bool _introToLevel1Started = false;
+  bool _transition1to2Started = false;
 
   @override
   void initState() {
@@ -341,6 +347,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     if (!mounted) return;
     if (success && path.last == _kChickenSlot) {
       setState(() => _genMotion = _GenMotion.success);
+      unawaited(_bootstrapTransition1to2());
       return;
     }
 
@@ -479,6 +486,59 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     setState(() => _phase = _ChickenPhase.gameplay);
     _startFigureGlowCycle();
     unawaited(_releaseVideoPointerCapture());
+  }
+
+  Future<void> _bootstrapTransition1to2() async {
+    if (_transition1to2Started) return;
+    _transition1to2Started = true;
+
+    _figureGlowController?.dispose();
+    _figureGlowController = null;
+
+    final level1 = _level1Controller;
+    _level1Controller = null;
+    _level1Ready = false;
+    if (level1 != null) {
+      level1.removeListener(_onLevel1Tick);
+      await level1.dispose();
+    }
+    if (!mounted) return;
+
+    setState(() => _phase = _ChickenPhase.transition1to2);
+
+    final c = VideoPlayerController.asset(
+      kChickenTransition1to2Asset,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    try {
+      await c.initialize();
+      if (!mounted) {
+        await c.dispose();
+        return;
+      }
+      await c.setLooping(false);
+      c.addListener(_onTransition1to2Tick);
+      await c.play();
+      setState(() {
+        _transition1to2Controller = c;
+        _transition1to2Ready = true;
+      });
+    } catch (_) {
+      await c.dispose();
+    }
+  }
+
+  void _onTransition1to2Tick() {
+    final v = _transition1to2Controller;
+    if (v == null || !mounted || _phase != _ChickenPhase.transition1to2) {
+      return;
+    }
+    final value = v.value;
+    if (!value.isInitialized || value.hasError) return;
+    if (value.isCompleted) {
+      v.removeListener(_onTransition1to2Tick);
+      unawaited(v.pause());
+    }
   }
 
   Future<void> _releaseVideoPointerCapture() async {
@@ -669,6 +729,8 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     _introController?.dispose();
     _level1Controller?.removeListener(_onLevel1Tick);
     _level1Controller?.dispose();
+    _transition1to2Controller?.removeListener(_onTransition1to2Tick);
+    _transition1to2Controller?.dispose();
     super.dispose();
   }
 
@@ -899,6 +961,12 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
                   Positioned.fill(child: VideoPlayer(_level1Controller!))
                 else if (_phase == _ChickenPhase.gameplay)
                   Positioned.fill(child: _buildGameplay())
+                else if (_phase == _ChickenPhase.transition1to2 &&
+                    _transition1to2Ready &&
+                    _transition1to2Controller != null)
+                  Positioned.fill(
+                    child: VideoPlayer(_transition1to2Controller!),
+                  )
                 else
                   const ColoredBox(color: Colors.black),
                 if (_phase == _ChickenPhase.intro &&
