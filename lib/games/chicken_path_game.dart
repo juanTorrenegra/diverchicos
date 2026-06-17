@@ -8,16 +8,18 @@ import '../utils/disable_video_pointer.dart';
 import '../widgets/menu_back_pill.dart';
 
 const String kChickenIntroAsset = 'assets/video/chicken/chickenIntro.mp4';
-const String kChickenLevel1Asset = 'assets/video/chicken/chickenLevel1.mp4';
-const String kChickenTransition1to2Asset =
-    'assets/video/chicken/chickenTransition1to2.mp4';
+const String _kVideoBase = 'assets/video/chicken/';
 const String _kAssetBase = 'assets/images/chicken/';
 const String kChickenGenAsset = '${_kAssetBase}gen.png';
 const String kChickenSpriteAsset = '${_kAssetBase}chicken.png';
+const String kChickenRockAsset = '${_kAssetBase}rock.png';
+const String kChickenBushAsset = '${_kAssetBase}bush.png';
 
-enum _ChickenPhase { intro, level1, gameplay, transition1to2 }
+enum _ChickenPhase { intro, levelVideo, gameplay, transitionVideo }
 
 enum _RoadDirection { north, south, east, west }
+
+enum _ObstacleType { rock, bush }
 
 extension _RoadDirectionOps on _RoadDirection {
   _RoadDirection get opposite => switch (this) {
@@ -81,6 +83,38 @@ extension _ChickenRoadFigureTypeX on ChickenRoadFigureType {
 
 enum _GenMotion { idle, walking, success, returning }
 
+class _ChickenLevelConfig {
+  const _ChickenLevelConfig({
+    required this.cols,
+    required this.rows,
+    required this.gridSize,
+    required this.gridOriginY,
+    required this.genSlot,
+    required this.chickenSlot,
+    required this.levelVideoAsset,
+    this.transitionVideoAsset,
+    this.obstacles = const {},
+  });
+
+  final int cols;
+  final int rows;
+  final Size gridSize;
+  final double gridOriginY;
+  final int genSlot;
+  final int chickenSlot;
+  final String levelVideoAsset;
+  final String? transitionVideoAsset;
+  final Map<int, _ObstacleType> obstacles;
+
+  Size gridSlotSize(double logicalW) =>
+      Size(gridSize.width / cols, gridSize.height / rows);
+
+  Offset gridOrigin(double logicalW) =>
+      Offset((logicalW - gridSize.width) / 2, gridOriginY);
+
+  Set<int> get reservedSlots => {genSlot, chickenSlot, ...obstacles.keys};
+}
+
 class _RoadFigureInstance {
   _RoadFigureInstance({
     required this.id,
@@ -95,7 +129,7 @@ class _RoadFigureInstance {
   int? slotIndex;
 }
 
-/// Chicken path: intro video → level-1 video → path-building gameplay.
+/// Chicken path: intro → (level video → gameplay → transition)* for 5 levels.
 class ChickenPathLayer extends StatefulWidget {
   const ChickenPathLayer({super.key, required this.onClose});
 
@@ -110,19 +144,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   static const double _kLogicalW = 1980;
   static const double _kLogicalH = 1080;
 
-  static const Size _kGridSize = Size(367, 370);
-  static const int _kCols = 2;
-  static const int _kRows = 2;
-  static const Size _kGridSlotSize = Size(367 / 2, 370 / 2);
   static const Size _kRoadSlotSize = Size(188, 185);
-
-  static const int _kGenSlot = 0;
-  static const int _kChickenSlot = 3;
-
-  static final Offset _kGridOrigin = Offset(
-    (_kLogicalW - _kGridSize.width) / 2,
-    200,
-  );
   static const double _kRoadFiguresY = 844;
   static const Color _kGridBackground = Color(0xFF51A160);
 
@@ -136,16 +158,89 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   static const List<ChickenRoadFigureType> _kFigureTypes =
       ChickenRoadFigureType.values;
 
+  static const List<_ChickenLevelConfig> _kLevels = [
+    _ChickenLevelConfig(
+      cols: 2,
+      rows: 2,
+      gridSize: Size(367, 370),
+      gridOriginY: 200,
+      genSlot: 0,
+      chickenSlot: 3,
+      levelVideoAsset: '${_kVideoBase}chickenLevel1.mp4',
+      transitionVideoAsset: '${_kVideoBase}chickenTransition1to2.mp4',
+    ),
+    _ChickenLevelConfig(
+      cols: 3,
+      rows: 3,
+      gridSize: Size(555, 564),
+      gridOriginY: 100,
+      genSlot: 6,
+      chickenSlot: 2,
+      levelVideoAsset: '${_kVideoBase}chickenLevel2.mp4',
+      transitionVideoAsset: '${_kVideoBase}chickenTransition2to3.mp4',
+    ),
+    _ChickenLevelConfig(
+      cols: 4,
+      rows: 4,
+      gridSize: Size(740, 752),
+      gridOriginY: 100,
+      genSlot: 0,
+      chickenSlot: 11,
+      levelVideoAsset: '${_kVideoBase}chickenLevel3.mp4',
+      transitionVideoAsset: '${_kVideoBase}chickenTransition3to4.mp4',
+      obstacles: {6: _ObstacleType.bush, 8: _ObstacleType.rock},
+    ),
+    _ChickenLevelConfig(
+      cols: 5,
+      rows: 4,
+      gridSize: Size(925, 752),
+      gridOriginY: 100,
+      genSlot: 15,
+      chickenSlot: 4,
+      levelVideoAsset: '${_kVideoBase}chickenLevel4.mp4',
+      transitionVideoAsset: '${_kVideoBase}chickenTransition4to5.mp4',
+      obstacles: {
+        14: _ObstacleType.bush,
+        7: _ObstacleType.bush,
+        1: _ObstacleType.rock,
+      },
+    ),
+    _ChickenLevelConfig(
+      cols: 6,
+      rows: 4,
+      gridSize: Size(1110, 752),
+      gridOriginY: 100,
+      genSlot: 0,
+      chickenSlot: 23,
+      levelVideoAsset: '${_kVideoBase}chickenLevel5.mp4',
+      obstacles: {
+        4: _ObstacleType.bush,
+        18: _ObstacleType.bush,
+        13: _ObstacleType.rock,
+        15: _ObstacleType.rock,
+      },
+    ),
+  ];
+
   _ChickenPhase _phase = _ChickenPhase.intro;
+  int _levelIndex = 0;
+
+  _ChickenLevelConfig get _level => _kLevels[_levelIndex];
+  int get _cols => _level.cols;
+  int get _rows => _level.rows;
+  Size get _gridSize => _level.gridSize;
+  Offset get _gridOrigin => _level.gridOrigin(_kLogicalW);
+  Size get _gridSlotSize => _level.gridSlotSize(_kLogicalW);
+  int get _genSlot => _level.genSlot;
+  int get _chickenSlot => _level.chickenSlot;
 
   VideoPlayerController? _introController;
   bool _introReady = false;
 
-  VideoPlayerController? _level1Controller;
-  bool _level1Ready = false;
-
-  VideoPlayerController? _transition1to2Controller;
-  bool _transition1to2Ready = false;
+  VideoPlayerController? _videoController;
+  bool _videoReady = false;
+  VoidCallback? _videoOnComplete;
+  bool _videoBootstrapInFlight = false;
 
   int _nextFigureId = 0;
   late List<_RoadFigureInstance> _figures;
@@ -157,12 +252,21 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   AnimationController? _figureGlowController;
   int _figureGlowIndex = 0;
   bool _exitingToMenu = false;
-  bool _introToLevel1Started = false;
-  bool _transition1to2Started = false;
+  bool _introToLevelStarted = false;
 
   @override
   void initState() {
     super.initState();
+    _resetFiguresForLevel();
+    unawaited(_bootstrapIntro());
+  }
+
+  String _newFigureId() => 'chicken_road_${_nextFigureId++}';
+
+  void _resetFiguresForLevel() {
+    _slotOccupants.clear();
+    _draggingFigureId = null;
+    _genMotion = _GenMotion.idle;
     _figures = [
       for (var i = 0; i < _kFigureTypes.length; i++)
         _RoadFigureInstance(
@@ -171,23 +275,20 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
           holderIndex: i,
         )..position = _figureHomeForIndex(i),
     ];
-    _genPosition = _slotTopLeft(_kGenSlot);
-    unawaited(_bootstrapIntro());
+    _genPosition = _slotTopLeft(_genSlot);
   }
 
-  String _newFigureId() => 'chicken_road_${_nextFigureId++}';
-
   Offset _slotTopLeft(int slot) {
-    final row = slot ~/ _kCols;
-    final col = slot % _kCols;
-    return _kGridOrigin +
-        Offset(col * _kGridSlotSize.width, row * _kGridSlotSize.height);
+    final row = slot ~/ _cols;
+    final col = slot % _cols;
+    return _gridOrigin +
+        Offset(col * _gridSlotSize.width, row * _gridSlotSize.height);
   }
 
   Offset _slotLocalTopLeft(int slot) {
-    final row = slot ~/ _kCols;
-    final col = slot % _kCols;
-    return Offset(col * _kGridSlotSize.width, row * _kGridSlotSize.height);
+    final row = slot ~/ _cols;
+    final col = slot % _cols;
+    return Offset(col * _gridSlotSize.width, row * _gridSlotSize.height);
   }
 
   Offset _figureHomeForIndex(int index) {
@@ -199,7 +300,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
 
   bool _isHomeFigure(_RoadFigureInstance figure) => figure.slotIndex == null;
 
-  bool _isReservedSlot(int slot) => slot == _kGenSlot || slot == _kChickenSlot;
+  bool _isReservedSlot(int slot) => _level.reservedSlots.contains(slot);
 
   Iterable<_RoadFigureInstance> get _placedGridFigures sync* {
     for (final figure in _figures) {
@@ -239,16 +340,21 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     }
     final enterDir = exitDir.opposite;
 
-    final fromSlot = fromRow * _kCols + fromCol;
-    final toSlot = toRow * _kCols + toCol;
+    final fromSlot = fromRow * _cols + fromCol;
+    final toSlot = toRow * _cols + toCol;
 
-    if (fromSlot == _kGenSlot) {
-      if (toSlot == _kChickenSlot) return false;
+    if (_level.obstacles.containsKey(fromSlot) ||
+        _level.obstacles.containsKey(toSlot)) {
+      return false;
+    }
+
+    if (fromSlot == _genSlot) {
+      if (toSlot == _chickenSlot) return false;
       final toType = placements[toSlot];
       return toType != null && toType.connections.contains(enterDir);
     }
 
-    if (toSlot == _kChickenSlot) {
+    if (toSlot == _chickenSlot) {
       final fromType = placements[fromSlot];
       return fromType != null && fromType.connections.contains(exitDir);
     }
@@ -261,27 +367,29 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   }
 
   List<int>? _findPathToChicken() {
-    const goalRow = 1;
-    const goalCol = 1;
+    final startRow = _genSlot ~/ _cols;
+    final startCol = _genSlot % _cols;
+    final goalRow = _chickenSlot ~/ _cols;
+    final goalCol = _chickenSlot % _cols;
     final placements = _placementTypes;
 
     final queue = <List<(int, int)>>[
-      [(0, 0)],
+      [(startRow, startCol)],
     ];
-    final visited = <String>{'0,0'};
+    final visited = <String>{'$startRow,$startCol'};
 
     while (queue.isNotEmpty) {
       final path = queue.removeAt(0);
       final (row, col) = path.last;
       if (row == goalRow && col == goalCol) {
-        return [for (final cell in path) cell.$1 * _kCols + cell.$2];
+        return [for (final cell in path) cell.$1 * _cols + cell.$2];
       }
 
       const deltas = [(-1, 0), (1, 0), (0, -1), (0, 1)];
       for (final (dr, dc) in deltas) {
         final nr = row + dr;
         final nc = col + dc;
-        if (nr < 0 || nc < 0 || nr >= _kRows || nc >= _kCols) continue;
+        if (nr < 0 || nc < 0 || nr >= _rows || nc >= _cols) continue;
         final key = '$nr,$nc';
         if (visited.contains(key)) continue;
         if (!_canTraverse(row, col, nr, nc, placements)) continue;
@@ -294,7 +402,9 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
 
   List<int>? _findLongestWalkFromStart() {
     final placements = _placementTypes;
-    var best = <int>[_kGenSlot];
+    final startRow = _genSlot ~/ _cols;
+    final startCol = _genSlot % _cols;
+    var best = <int>[_genSlot];
 
     void visit(int row, int col, List<int> path, Set<String> visited) {
       if (path.length > best.length) best = List<int>.from(path);
@@ -302,15 +412,15 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
       for (final (dr, dc) in deltas) {
         final nr = row + dr;
         final nc = col + dc;
-        if (nr < 0 || nc < 0 || nr >= _kRows || nc >= _kCols) continue;
+        if (nr < 0 || nc < 0 || nr >= _rows || nc >= _cols) continue;
         final key = '$nr,$nc';
         if (visited.contains(key)) continue;
         if (!_canTraverse(row, col, nr, nc, placements)) continue;
-        visit(nr, nc, [...path, nr * _kCols + nc], {...visited, key});
+        visit(nr, nc, [...path, nr * _cols + nc], {...visited, key});
       }
     }
 
-    visit(0, 0, const [_kGenSlot], {'0,0'});
+    visit(startRow, startCol, [_genSlot], {'$startRow,$startCol'});
     return best.length > 1 ? best : null;
   }
 
@@ -345,13 +455,52 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     }
 
     if (!mounted) return;
-    if (success && path.last == _kChickenSlot) {
+    if (success && path.last == _chickenSlot) {
       setState(() => _genMotion = _GenMotion.success);
-      unawaited(_bootstrapTransition1to2());
+      unawaited(_onLevelComplete());
       return;
     }
 
     await _walkGenAndReturn(path);
+  }
+
+  Future<void> _onLevelComplete() async {
+    _figureGlowController?.dispose();
+    _figureGlowController = null;
+
+    final transitionAsset = _level.transitionVideoAsset;
+    if (transitionAsset == null || _levelIndex >= _kLevels.length - 1) {
+      return;
+    }
+
+    await _disposeActiveVideo();
+    if (!mounted) return;
+
+    final advanced = await _bootstrapVideo(
+      transitionAsset,
+      phase: _ChickenPhase.transitionVideo,
+      onComplete: _onTransitionVideoComplete,
+    );
+    if (!advanced && mounted) {
+      unawaited(_advanceToNextLevel());
+    }
+  }
+
+  Future<void> _onTransitionVideoComplete() async {
+    await _advanceToNextLevel();
+  }
+
+  Future<void> _advanceToNextLevel() async {
+    if (_levelIndex >= _kLevels.length - 1) return;
+
+    _levelIndex++;
+    _resetFiguresForLevel();
+    if (!mounted) return;
+
+    final started = await _bootstrapLevelVideo();
+    if (!started && mounted) {
+      _beginGameplay();
+    }
   }
 
   Future<void> _walkGenAndReturn(List<int> path) async {
@@ -366,7 +515,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     if (!mounted) return;
     setState(() {
       _genMotion = _GenMotion.idle;
-      _genPosition = _slotTopLeft(_kGenSlot);
+      _genPosition = _slotTopLeft(_genSlot);
     });
   }
 
@@ -390,6 +539,91 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     controller.dispose();
   }
 
+  Future<void> _disposeActiveVideo() async {
+    final v = _videoController;
+    _videoController = null;
+    _videoReady = false;
+    _videoOnComplete = null;
+    if (v != null) {
+      v.removeListener(_onVideoTick);
+      await v.dispose();
+    }
+  }
+
+  Future<bool> _bootstrapVideo(
+    String asset, {
+    required _ChickenPhase phase,
+    required VoidCallback onComplete,
+  }) async {
+    if (_videoBootstrapInFlight) return false;
+    _videoBootstrapInFlight = true;
+
+    await _disposeActiveVideo();
+    if (!mounted) {
+      _videoBootstrapInFlight = false;
+      return false;
+    }
+
+    setState(() => _phase = phase);
+    _videoOnComplete = onComplete;
+
+    final c = VideoPlayerController.asset(
+      asset,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    try {
+      await c.initialize();
+      if (!mounted) {
+        await c.dispose();
+        _videoBootstrapInFlight = false;
+        return false;
+      }
+      await c.setLooping(false);
+      c.addListener(_onVideoTick);
+      await c.play();
+      setState(() {
+        _videoController = c;
+        _videoReady = true;
+      });
+      _videoBootstrapInFlight = false;
+      return true;
+    } catch (_) {
+      await c.dispose();
+      _videoOnComplete = null;
+      _videoBootstrapInFlight = false;
+      return false;
+    }
+  }
+
+  void _onVideoTick() {
+    final v = _videoController;
+    if (v == null || !mounted) return;
+    final value = v.value;
+    if (!value.isInitialized || value.hasError) return;
+    if (!value.isCompleted) return;
+
+    unawaited(_finishActiveVideo());
+  }
+
+  Future<void> _finishActiveVideo() async {
+    final v = _videoController;
+    if (v == null) return;
+
+    v.removeListener(_onVideoTick);
+    await v.pause();
+
+    final onComplete = _videoOnComplete;
+    _videoOnComplete = null;
+    onComplete?.call();
+  }
+
+  void _skipTransitionVideo() {
+    if (_phase != _ChickenPhase.transitionVideo || _videoOnComplete == null) {
+      return;
+    }
+    unawaited(_finishActiveVideo());
+  }
+
   Future<void> _bootstrapIntro() async {
     final c = VideoPlayerController.asset(
       kChickenIntroAsset,
@@ -410,7 +644,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
       });
     } catch (_) {
       await c.dispose();
-      if (mounted) _exitToMenu();
+      if (mounted) unawaited(_startFirstLevel());
     }
   }
 
@@ -421,20 +655,26 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     if (!value.isInitialized || value.hasError) return;
     if (value.isCompleted) {
       v.removeListener(_onIntroTick);
-      unawaited(_bootstrapLevel1());
+      unawaited(_startFirstLevel());
     }
   }
 
   void _skipIntro() {
-    if (_phase != _ChickenPhase.intro || _introToLevel1Started) return;
+    if (_phase != _ChickenPhase.intro || _introToLevelStarted) return;
     _introController?.removeListener(_onIntroTick);
-    unawaited(_bootstrapLevel1());
+    unawaited(_startFirstLevel());
   }
 
-  Future<void> _bootstrapLevel1() async {
-    if (_introToLevel1Started) return;
-    _introToLevel1Started = true;
+  Future<void> _startFirstLevel() async {
+    if (_introToLevelStarted) return;
+    _introToLevelStarted = true;
+    await _disposeIntro();
+    if (!mounted) return;
+    final started = await _bootstrapLevelVideo();
+    if (!started && mounted) _beginGameplay();
+  }
 
+  Future<void> _disposeIntro() async {
     final intro = _introController;
     _introController = null;
     _introReady = false;
@@ -442,43 +682,17 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
       intro.removeListener(_onIntroTick);
       await intro.dispose();
     }
-    if (!mounted) return;
-
-    setState(() => _phase = _ChickenPhase.level1);
-
-    final c = VideoPlayerController.asset(
-      kChickenLevel1Asset,
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-    );
-    try {
-      await c.initialize();
-      if (!mounted) {
-        await c.dispose();
-        return;
-      }
-      await c.setLooping(false);
-      c.addListener(_onLevel1Tick);
-      await c.play();
-      setState(() {
-        _level1Controller = c;
-        _level1Ready = true;
-      });
-    } catch (_) {
-      await c.dispose();
-      if (mounted) _beginGameplay();
-    }
   }
 
-  void _onLevel1Tick() {
-    final v = _level1Controller;
-    if (v == null || !mounted || _phase != _ChickenPhase.level1) return;
-    final value = v.value;
-    if (!value.isInitialized || value.hasError) return;
-    if (value.isCompleted) {
-      v.removeListener(_onLevel1Tick);
-      unawaited(v.pause());
-      _beginGameplay();
-    }
+  Future<bool> _bootstrapLevelVideo() async {
+    if (!mounted) return false;
+
+    final started = await _bootstrapVideo(
+      _level.levelVideoAsset,
+      phase: _ChickenPhase.levelVideo,
+      onComplete: _beginGameplay,
+    );
+    return started;
   }
 
   void _beginGameplay() {
@@ -486,59 +700,6 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     setState(() => _phase = _ChickenPhase.gameplay);
     _startFigureGlowCycle();
     unawaited(_releaseVideoPointerCapture());
-  }
-
-  Future<void> _bootstrapTransition1to2() async {
-    if (_transition1to2Started) return;
-    _transition1to2Started = true;
-
-    _figureGlowController?.dispose();
-    _figureGlowController = null;
-
-    final level1 = _level1Controller;
-    _level1Controller = null;
-    _level1Ready = false;
-    if (level1 != null) {
-      level1.removeListener(_onLevel1Tick);
-      await level1.dispose();
-    }
-    if (!mounted) return;
-
-    setState(() => _phase = _ChickenPhase.transition1to2);
-
-    final c = VideoPlayerController.asset(
-      kChickenTransition1to2Asset,
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-    );
-    try {
-      await c.initialize();
-      if (!mounted) {
-        await c.dispose();
-        return;
-      }
-      await c.setLooping(false);
-      c.addListener(_onTransition1to2Tick);
-      await c.play();
-      setState(() {
-        _transition1to2Controller = c;
-        _transition1to2Ready = true;
-      });
-    } catch (_) {
-      await c.dispose();
-    }
-  }
-
-  void _onTransition1to2Tick() {
-    final v = _transition1to2Controller;
-    if (v == null || !mounted || _phase != _ChickenPhase.transition1to2) {
-      return;
-    }
-    final value = v.value;
-    if (!value.isInitialized || value.hasError) return;
-    if (value.isCompleted) {
-      v.removeListener(_onTransition1to2Tick);
-      unawaited(v.pause());
-    }
   }
 
   Future<void> _releaseVideoPointerCapture() async {
@@ -617,16 +778,16 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   int? _slotAtPosition(Offset figureTopLeft, Size figureSize) {
     final center =
         figureTopLeft + Offset(figureSize.width / 2, figureSize.height / 2);
-    final local = center - _kGridOrigin;
+    final local = center - _gridOrigin;
     if (local.dx < 0 ||
         local.dy < 0 ||
-        local.dx > _kGridSize.width ||
-        local.dy > _kGridSize.height) {
+        local.dx > _gridSize.width ||
+        local.dy > _gridSize.height) {
       return null;
     }
-    final col = (local.dx / _kGridSlotSize.width).floor().clamp(0, _kCols - 1);
-    final row = (local.dy / _kGridSlotSize.height).floor().clamp(0, _kRows - 1);
-    return row * _kCols + col;
+    final col = (local.dx / _gridSlotSize.width).floor().clamp(0, _cols - 1);
+    final row = (local.dy / _gridSlotSize.height).floor().clamp(0, _rows - 1);
+    return row * _cols + col;
   }
 
   _RoadFigureInstance? _figureById(String id) {
@@ -727,19 +888,17 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     _figureGlowController?.dispose();
     _introController?.removeListener(_onIntroTick);
     _introController?.dispose();
-    _level1Controller?.removeListener(_onLevel1Tick);
-    _level1Controller?.dispose();
-    _transition1to2Controller?.removeListener(_onTransition1to2Tick);
-    _transition1to2Controller?.dispose();
+    _videoController?.removeListener(_onVideoTick);
+    _videoController?.dispose();
     super.dispose();
   }
 
   Widget _buildGenInGrid() {
     return Positioned(
-      left: _genPosition.dx - _kGridOrigin.dx,
-      top: _genPosition.dy - _kGridOrigin.dy,
-      width: _kGridSlotSize.width,
-      height: _kGridSlotSize.height,
+      left: _genPosition.dx - _gridOrigin.dx,
+      top: _genPosition.dy - _gridOrigin.dy,
+      width: _gridSlotSize.width,
+      height: _gridSlotSize.height,
       child: IgnorePointer(
         child: Image.asset(
           kChickenGenAsset,
@@ -753,18 +912,45 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   }
 
   Widget _buildChickenInGrid() {
-    final pos = _slotLocalTopLeft(_kChickenSlot);
+    final pos = _slotLocalTopLeft(_chickenSlot);
     return Positioned(
       left: pos.dx,
       top: pos.dy,
-      width: _kGridSlotSize.width,
-      height: _kGridSlotSize.height,
+      width: _gridSlotSize.width,
+      height: _gridSlotSize.height,
       child: IgnorePointer(
         child: Image.asset(
           kChickenSpriteAsset,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
             return const ColoredBox(color: Color(0xFFFF9800));
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildObstacleInGrid(int slot, _ObstacleType type) {
+    final pos = _slotLocalTopLeft(slot);
+    final asset = switch (type) {
+      _ObstacleType.rock => kChickenRockAsset,
+      _ObstacleType.bush => kChickenBushAsset,
+    };
+    final fallback = switch (type) {
+      _ObstacleType.rock => const Color(0xFF795548),
+      _ObstacleType.bush => const Color(0xFF388E3C),
+    };
+    return Positioned(
+      left: pos.dx,
+      top: pos.dy,
+      width: _gridSlotSize.width,
+      height: _gridSlotSize.height,
+      child: IgnorePointer(
+        child: Image.asset(
+          asset,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return ColoredBox(color: fallback);
           },
         ),
       ),
@@ -849,10 +1035,10 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
 
   Widget _buildGridArea() {
     return Positioned(
-      left: _kGridOrigin.dx,
-      top: _kGridOrigin.dy,
-      width: _kGridSize.width,
-      height: _kGridSize.height,
+      left: _gridOrigin.dx,
+      top: _gridOrigin.dy,
+      width: _gridSize.width,
+      height: _gridSize.height,
       child: DecoratedBox(
         decoration: const BoxDecoration(color: _kGridBackground),
         child: GestureDetector(
@@ -861,13 +1047,13 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              for (var slot = 0; slot < _kCols * _kRows; slot++)
+              for (var slot = 0; slot < _cols * _rows; slot++)
                 if (!_isReservedSlot(slot))
                   Positioned(
                     left: _slotLocalTopLeft(slot).dx,
                     top: _slotLocalTopLeft(slot).dy,
-                    width: _kGridSlotSize.width,
-                    height: _kGridSlotSize.height,
+                    width: _gridSlotSize.width,
+                    height: _gridSlotSize.height,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: const Color(0x22000000),
@@ -878,12 +1064,14 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
                       ),
                     ),
                   ),
+              for (final entry in _level.obstacles.entries)
+                _buildObstacleInGrid(entry.key, entry.value),
               for (final figure in _placedGridFigures)
                 Positioned(
                   left: _slotLocalTopLeft(figure.slotIndex!).dx,
                   top: _slotLocalTopLeft(figure.slotIndex!).dy,
-                  width: _kGridSlotSize.width,
-                  height: _kGridSlotSize.height,
+                  width: _gridSlotSize.width,
+                  height: _gridSlotSize.height,
                   child: Transform.translate(
                     offset: figure.id == _draggingFigureId
                         ? figure.position - _slotTopLeft(figure.slotIndex!)
@@ -891,7 +1079,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
                     child: _buildFigureGesture(
                       figure,
                       homePosition: null,
-                      displaySize: _kGridSlotSize,
+                      displaySize: _gridSlotSize,
                     ),
                   ),
                 ),
@@ -904,16 +1092,19 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     );
   }
 
-  Widget _buildIntroSkipButton() {
+  Widget _buildVideoSkipButton({
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return Positioned(
       left: 16,
       top: 20,
       child: PointerInterceptor(
         child: Material(
-          color: const Color(0xFF2196F3),
+          color: color,
           borderRadius: BorderRadius.circular(10),
           child: InkWell(
-            onTap: _skipIntro,
+            onTap: onTap,
             borderRadius: BorderRadius.circular(10),
             child: const SizedBox(width: 48, height: 48),
           ),
@@ -922,13 +1113,27 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     );
   }
 
+  Widget _buildIntroSkipButton() {
+    return _buildVideoSkipButton(
+      color: const Color(0xFF2196F3),
+      onTap: _skipIntro,
+    );
+  }
+
+  Widget _buildTransitionSkipButton() {
+    return _buildVideoSkipButton(
+      color: const Color(0xFF4CAF50),
+      onTap: _skipTransitionVideo,
+    );
+  }
+
   Widget _buildGameplay() {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        if (_level1Ready && _level1Controller != null)
+        if (_videoReady && _videoController != null)
           Positioned.fill(
-            child: IgnorePointer(child: VideoPlayer(_level1Controller!)),
+            child: IgnorePointer(child: VideoPlayer(_videoController!)),
           )
         else
           const ColoredBox(color: Colors.black),
@@ -936,6 +1141,24 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
         _buildRoadFigureRow(),
       ],
     );
+  }
+
+  Widget _buildMainLayer() {
+    if (_phase == _ChickenPhase.intro &&
+        _introReady &&
+        _introController != null) {
+      return VideoPlayer(_introController!);
+    }
+    if ((_phase == _ChickenPhase.levelVideo ||
+            _phase == _ChickenPhase.transitionVideo) &&
+        _videoReady &&
+        _videoController != null) {
+      return VideoPlayer(_videoController!);
+    }
+    if (_phase == _ChickenPhase.gameplay) {
+      return _buildGameplay();
+    }
+    return const ColoredBox(color: Colors.black);
   }
 
   @override
@@ -951,28 +1174,15 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
             child: Stack(
               clipBehavior: Clip.hardEdge,
               children: [
-                if (_phase == _ChickenPhase.intro &&
-                    _introReady &&
-                    _introController != null)
-                  Positioned.fill(child: VideoPlayer(_introController!))
-                else if (_phase == _ChickenPhase.level1 &&
-                    _level1Ready &&
-                    _level1Controller != null)
-                  Positioned.fill(child: VideoPlayer(_level1Controller!))
-                else if (_phase == _ChickenPhase.gameplay)
-                  Positioned.fill(child: _buildGameplay())
-                else if (_phase == _ChickenPhase.transition1to2 &&
-                    _transition1to2Ready &&
-                    _transition1to2Controller != null)
-                  Positioned.fill(
-                    child: VideoPlayer(_transition1to2Controller!),
-                  )
-                else
-                  const ColoredBox(color: Colors.black),
+                Positioned.fill(child: _buildMainLayer()),
                 if (_phase == _ChickenPhase.intro &&
                     _introReady &&
                     _introController != null)
                   _buildIntroSkipButton(),
+                if (_phase == _ChickenPhase.transitionVideo &&
+                    _videoReady &&
+                    _videoController != null)
+                  _buildTransitionSkipButton(),
                 GameLogicalBackPill(onPressed: _exitToMenu),
               ],
             ),
