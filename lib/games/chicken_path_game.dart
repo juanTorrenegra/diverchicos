@@ -178,6 +178,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
       chickenSlot: 2,
       levelVideoAsset: '${_kVideoBase}chickenLevel2.mp4',
       transitionVideoAsset: '${_kVideoBase}chickenTransition2to3.mp4',
+      obstacles: {4: _ObstacleType.rock},
     ),
     _ChickenLevelConfig(
       cols: 4,
