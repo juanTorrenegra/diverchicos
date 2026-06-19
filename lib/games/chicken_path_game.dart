@@ -19,7 +19,7 @@ enum _ChickenPhase { intro, levelVideo, gameplay, transitionVideo }
 
 enum _RoadDirection { north, south, east, west }
 
-enum _ObstacleType { rock, bush } //..
+enum _ObstacleType { rock, bush } //...
 
 extension _RoadDirectionOps on _RoadDirection {
   _RoadDirection get opposite => switch (this) {
