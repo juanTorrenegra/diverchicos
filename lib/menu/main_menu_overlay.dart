@@ -95,7 +95,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
   }
 
   void _openChickenPath() {
-    unawaited(AppAudio.instance.stopBgm());
+    unawaited(AppAudio.instance.playChickenPathLoop());
     setState(() => _showChickenPath = true);
   }
 

@@ -9,13 +9,14 @@ import '../widgets/menu_back_pill.dart';
 
 const String kChickenIntroAsset = 'assets/video/chicken/chickenIntro.mp4';
 const String _kVideoBase = 'assets/video/chicken/';
+const String kChickenEndingAsset = '${_kVideoBase}chickenEnding.mp4';
 const String _kAssetBase = 'assets/images/chicken/';
 const String kChickenGenAsset = '${_kAssetBase}gen.png';
 const String kChickenSpriteAsset = '${_kAssetBase}chicken.png';
 const String kChickenRockAsset = '${_kAssetBase}rock.png';
 const String kChickenBushAsset = '${_kAssetBase}bush.png';
 
-enum _ChickenPhase { intro, levelVideo, gameplay, transitionVideo }
+enum _ChickenPhase { intro, levelVideo, gameplay, transitionVideo, endingVideo }
 
 enum _RoadDirection { north, south, east, west }
 
@@ -469,10 +470,24 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     _figureGlowController?.dispose();
     _figureGlowController = null;
 
-    final transitionAsset = _level.transitionVideoAsset;
-    if (transitionAsset == null || _levelIndex >= _kLevels.length - 1) {
+    final isLastLevel = _levelIndex >= _kLevels.length - 1;
+    if (isLastLevel) {
+      await _disposeActiveVideo();
+      if (!mounted) return;
+
+      final played = await _bootstrapVideo(
+        kChickenEndingAsset,
+        phase: _ChickenPhase.endingVideo,
+        onComplete: _onEndingVideoComplete,
+      );
+      if (!played && mounted) {
+        await _teardownAndExitToMenu();
+      }
       return;
     }
+
+    final transitionAsset = _level.transitionVideoAsset;
+    if (transitionAsset == null) return;
 
     await _disposeActiveVideo();
     if (!mounted) return;
@@ -484,6 +499,25 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     );
     if (!advanced && mounted) {
       unawaited(_advanceToNextLevel());
+    }
+  }
+
+  void _onEndingVideoComplete() {
+    unawaited(_teardownAndExitToMenu());
+  }
+
+  Future<void> _teardownAndExitToMenu() async {
+    if (_exitingToMenu) return;
+    _exitingToMenu = true;
+
+    _figureGlowController?.dispose();
+    _figureGlowController = null;
+    await _disposeIntro();
+    await _disposeActiveVideo();
+    restoreAppPointerEvents();
+
+    if (mounted) {
+      widget.onClose();
     }
   }
 
@@ -1151,7 +1185,8 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
       return VideoPlayer(_introController!);
     }
     if ((_phase == _ChickenPhase.levelVideo ||
-            _phase == _ChickenPhase.transitionVideo) &&
+            _phase == _ChickenPhase.transitionVideo ||
+            _phase == _ChickenPhase.endingVideo) &&
         _videoReady &&
         _videoController != null) {
       return VideoPlayer(_videoController!);
@@ -1184,7 +1219,8 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
                     _videoReady &&
                     _videoController != null)
                   _buildTransitionSkipButton(),
-                GameLogicalBackPill(onPressed: _exitToMenu),
+                if (_phase != _ChickenPhase.endingVideo)
+                  GameLogicalBackPill(onPressed: _exitToMenu),
               ],
             ),
           ),
