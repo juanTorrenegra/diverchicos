@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../utils/cutscene_instruction_loop.dart';
 import '../widgets/menu_back_pill.dart';
 import 'salud_cat_game.dart';
 import 'salud_cow_game.dart';
+import 'salud_instruction_audio.dart';
 
 /// Bundled cow/cat intro clip for the SALUD entry point.
 const String kSaludCowCatIntroAsset = 'assets/video/salud/cowCatIntro.mp4';
@@ -50,6 +52,8 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
 
   Timer? _idleBlinkTimer;
 
+  final CutsceneInstructionLoop _instructions = CutsceneInstructionLoop();
+
   /// Non-null while [SaludCowGameLayer] owns the cow pick → bath flow.
   VideoPlayerController? _cowGamePick;
 
@@ -58,6 +62,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
 
   void _exitToMenu() {
     _cancelIdleBlinkTimer();
+    unawaited(_instructions.stop());
     widget.onClose();
   }
 
@@ -100,6 +105,9 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
       unawaited(v.pause());
       if (!_showTapTargets) {
         setState(() => _showTapTargets = true);
+        unawaited(
+          _instructions.start(SaludInstructionAudio.cowCatIntro),
+        );
         _scheduleIdleBlink();
       }
     }
@@ -233,12 +241,14 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
 
   Future<void> _teardownIntroForCowGame() async {
     _cancelIdleBlinkTimer();
+    await _instructions.stop();
     await _disposeBlink();
     await _disposeIntro();
   }
 
   Future<void> _teardownIntroForCatGame() async {
     _cancelIdleBlinkTimer();
+    await _instructions.stop();
     await _disposeBlink();
     await _disposeIntro();
   }
@@ -252,6 +262,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
     _pickBusy = true;
     _lastPickWasCow = assetPath == kSaludCowPickAsset;
     _cancelIdleBlinkTimer();
+    await _instructions.stop();
     await _disposeBlink();
     await _disposePick();
     if (!mounted) return;
@@ -311,6 +322,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
   @override
   void dispose() {
     _cancelIdleBlinkTimer();
+    unawaited(_instructions.stop());
     _introController?.removeListener(_onIntroTick);
     _introController?.dispose();
     final pick = _pickController;

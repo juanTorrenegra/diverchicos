@@ -80,6 +80,7 @@ flutter:
     - assets/video/salud/
     - assets/video/chicken/
     - assets/audio/
+    - assets/audio/salud/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

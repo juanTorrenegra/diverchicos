@@ -25,15 +25,12 @@ class AppAudio {
   static const String gridPuzzleBgm = 'audio/mrJelly.mp3';
   static const String chickenPathBgm = 'audio/daft_cat.mp3';
 
-  final double _baseBgmVolume = 1.0;
-  double _instructionDuckFactor = 1.0;
+  final double _baseBgmVolume = 0.5;
   String? _currentBgmAsset;
 
-  bool get isInstructionDucked => _instructionDuckFactor < 1.0;
   String? get currentBgmAsset => _currentBgmAsset;
 
-  double get _bgmVolume =>
-      (_baseBgmVolume * _instructionDuckFactor).clamp(0.0, 1.0);
+  double get _bgmVolume => _baseBgmVolume.clamp(0.0, 1.0);
 
   Future<T> _enqueue<T>(Future<T> Function() action) {
     final next = _audioChain.then((_) => action());
@@ -42,6 +39,16 @@ class AppAudio {
   }
 
   Future<void> _applyBgmVolume() async {
+    if (kIsWeb) {
+      final current = _webCurrentBgm;
+      if (current != null) {
+        final p = _webBgmPlayers[current];
+        if (p != null) {
+          await p.setVolume(_bgmVolume);
+        }
+      }
+      return;
+    }
     await _bgmPlayer.setVolume(_bgmVolume);
   }
 
@@ -180,20 +187,6 @@ class AppAudio {
     return _enqueue(() async {
       _currentBgmAsset = null;
       await _bgmPlayer.stop();
-    });
-  }
-
-  Future<void> duckBackgroundForInstructions() {
-    return _enqueue(() async {
-      _instructionDuckFactor = 0.5;
-      await _applyBgmVolume();
-    });
-  }
-
-  Future<void> restoreBackgroundVolume() {
-    return _enqueue(() async {
-      _instructionDuckFactor = 1.0;
-      await _applyBgmVolume();
     });
   }
 
