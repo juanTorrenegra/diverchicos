@@ -322,7 +322,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
   @override
   void dispose() {
     _cancelIdleBlinkTimer();
-    unawaited(_instructions.stop());
+    unawaited(_instructions.dispose());
     _introController?.removeListener(_onIntroTick);
     _introController?.dispose();
     final pick = _pickController;

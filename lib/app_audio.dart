@@ -25,12 +25,17 @@ class AppAudio {
   static const String gridPuzzleBgm = 'audio/mrJelly.mp3';
   static const String chickenPathBgm = 'audio/daft_cat.mp3';
 
+  static const double instructionBgmVolume = 0.1;
+
   final double _baseBgmVolume = 0.5;
+  bool _instructionDucked = false;
   String? _currentBgmAsset;
 
   String? get currentBgmAsset => _currentBgmAsset;
 
-  double get _bgmVolume => _baseBgmVolume.clamp(0.0, 1.0);
+  double get _bgmVolume =>
+      (_instructionDucked ? instructionBgmVolume : _baseBgmVolume)
+          .clamp(0.0, 1.0);
 
   Future<T> _enqueue<T>(Future<T> Function() action) {
     final next = _audioChain.then((_) => action());
@@ -188,6 +193,20 @@ class AppAudio {
       _currentBgmAsset = null;
       await _bgmPlayer.stop();
     });
+  }
+
+  /// Lowers BGM while a cutscene instruction clip is playing.
+  Future<void> duckBgmForInstructionPlayback() {
+    _instructionDucked = true;
+    if (kIsWeb) return _applyBgmVolume();
+    return _enqueue(_applyBgmVolume);
+  }
+
+  /// Restores BGM to normal after an instruction clip finishes or [stop] is called.
+  Future<void> restoreBgmAfterInstructionPlayback() {
+    _instructionDucked = false;
+    if (kIsWeb) return _applyBgmVolume();
+    return _enqueue(_applyBgmVolume);
   }
 
   Future<void> stopAll() {

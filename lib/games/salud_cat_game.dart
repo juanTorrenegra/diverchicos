@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
+import '../utils/cutscene_instruction_loop.dart';
 import '../widgets/menu_back_pill.dart';
 import 'salud_cat_game2.dart';
 import 'salud_cow_game.dart'
@@ -13,6 +14,7 @@ import 'salud_cow_game.dart'
         kSaludBathCepilloConCremaPng,
         kSaludBathCepilloPng,
         kSaludBathColgatePng;
+import 'salud_instruction_audio.dart';
 
 const String kSaludCatEntersBathAsset = 'assets/video/salud/catEntersBath.mp4';
 const String kSaludCatToothpasteDirtyTeethAsset =
@@ -115,6 +117,8 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   bool _bathAnimFinished = false;
   AnimationController? _whiteFade;
   bool _exitingToMenu = false;
+
+  final CutsceneInstructionLoop _instructions = CutsceneInstructionLoop();
 
   Offset _colgatePos = _kBathColgatePos;
   bool _colgateDragging = false;
@@ -234,6 +238,45 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     return colgateRect.overlaps(hit);
   }
 
+  bool get _brushInstructionsEligible =>
+      _teethScrubZoneActive &&
+      _cepilloCremaVisible &&
+      !_cepilloCremaLockedAfterTask &&
+      !_cepilloCremaSettlingPostCelebration;
+
+  void _startBrushInstructions() {
+    if (!_brushInstructionsEligible) return;
+    unawaited(_instructions.start(SaludInstructionAudio.cepilloADientes));
+  }
+
+  void _pauseBrushInstructions() {
+    if (_instructions.isRunning && !_instructions.isPaused) {
+      unawaited(_instructions.pause());
+    }
+  }
+
+  void _resumeBrushInstructionsIfIdle() {
+    if (!_brushInstructionsEligible) return;
+    if (_cepilloCremaDragging || _snapCepilloCremaActive) return;
+    if (_instructions.isRunning && _instructions.isPaused) {
+      unawaited(_instructions.resume());
+    } else if (!_instructions.isRunning) {
+      _startBrushInstructions();
+    }
+  }
+
+  Future<void> _stopBrushInstructions() => _instructions.stop();
+
+  void _startWaterCupInstructions() {
+    unawaited(_instructions.start(SaludInstructionAudio.aguaAvaso));
+  }
+
+  void _startWaterMouthInstructions() {
+    unawaited(_instructions.start(SaludInstructionAudio.aguaABoca));
+  }
+
+  Future<void> _stopWaterInstructions() => _instructions.stop();
+
   @override
   void initState() {
     super.initState();
@@ -321,6 +364,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
       if (mounted) {
         setState(() => _bathAnimFinished = true);
         _scheduleColgateIdlePulse();
+        unawaited(_instructions.start(SaludInstructionAudio.cremaACepillo));
       }
     }
   }
@@ -351,11 +395,13 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
       _teethScrubZoneActive = true;
     });
     _scheduleCepilloCremaIdlePulse();
+    _startBrushInstructions();
   }
 
   Future<void> _onMergeColgateCepillo() async {
     if (_mergeTriggered || !mounted) return;
     _mergeTriggered = true;
+    await _instructions.stop();
     _cancelColgateIdleTimer();
     _cancelColgateSnap();
     _cepilloDragPulse.stop();
@@ -674,6 +720,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     if (_postTaskProbeLoopStarted) return;
     _postTaskProbeLoopStarted = true;
     _postTaskProbePulseController.repeat();
+    _startWaterCupInstructions();
   }
 
   void _onPostTaskProbeTap() {
@@ -841,6 +888,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   void _onWaterPourCueTap() {
     if (!mounted || !_waterPourReady || _waterPourCueDismissed) return;
     _stopWaterPourCueLoop();
+    _startWaterMouthInstructions();
     setState(() {
       _waterPourCueDismissed = true;
       _teethScrubZoneActive = false;
@@ -854,6 +902,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
 
   void _onCatPhase2Complete() {
     if (_catEndingSequenceStarted || !mounted) return;
+    unawaited(_stopWaterInstructions());
     unawaited(_runCatEndingSequence());
   }
 
@@ -1118,6 +1167,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     });
     _cepilloCremaSnapController.reset();
     _scheduleCepilloCremaIdlePulse();
+    _resumeBrushInstructionsIfIdle();
   }
 
   void _startCepilloCremaSnapBack() {
@@ -1134,6 +1184,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
       _cepilloCremaPos = _kBathCepilloPos;
       setState(() {});
       _scheduleCepilloCremaIdlePulse();
+      _resumeBrushInstructionsIfIdle();
       return;
     }
 
@@ -1160,6 +1211,8 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     if (_cepilloCremaLockedAfterTask || _cepilloCremaSettlingPostCelebration) {
       return;
     }
+
+    unawaited(_stopBrushInstructions());
 
     _cancelCepilloCremaIdleTimer();
     _idleCepilloCremaPulse.stop();
@@ -1280,6 +1333,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
           _idleCepilloCremaPulse.stop();
           _idleCepilloCremaPulse.reset();
           _cancelCepilloCremaSnap();
+          _pauseBrushInstructions();
           setState(() => _cepilloCremaDragging = true);
         },
         onPanEnd: (_) {
@@ -1613,6 +1667,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
 
   @override
   void dispose() {
+    unawaited(_instructions.dispose());
     final held = _pickHeld;
     if (held != null) {
       held.dispose();
