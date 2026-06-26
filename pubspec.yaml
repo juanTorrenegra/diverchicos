@@ -76,7 +76,9 @@ flutter:
     - assets/images/bathGame/
     - assets/images/gridPuzzleGame/
     - assets/images/chicken/
+    - assets/images/pairs/
     - assets/video/
+    - assets/video/pairs/
     - assets/video/salud/
     - assets/video/chicken/
     - assets/audio/

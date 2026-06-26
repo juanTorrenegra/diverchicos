@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../app_audio.dart';
 import '../games/chicken_path_game.dart';
 import '../games/grid_puzzle.dart';
+import '../games/pairs.dart';
 import '../games/pop_bunny.dart';
 import '../games/salud_game.dart';
 
@@ -23,6 +24,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
   bool _showGridPuzzle = false;
   bool _showPopBunny = false;
   bool _showChickenPath = false;
+  bool _showPairs = false;
   bool _exitingToMenu = false;
   AnimationController? _saludReturnWhiteFade;
 
@@ -99,6 +101,11 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
     setState(() => _showChickenPath = true);
   }
 
+  void _openPairs() {
+    unawaited(AppAudio.instance.stopBgm());
+    setState(() => _showPairs = true);
+  }
+
   void _returnFromGridPuzzleToMenu() => _beginExitMiniGameToMenu(
         hideActiveGame: () => _showGridPuzzle = false,
       );
@@ -109,6 +116,10 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
 
   void _returnFromChickenPathToMenu() => _beginExitMiniGameToMenu(
         hideActiveGame: () => _showChickenPath = false,
+      );
+
+  void _returnFromPairsToMenu() => _beginExitMiniGameToMenu(
+        hideActiveGame: () => _showPairs = false,
       );
 
   List<MenuGameCardData> _cards() {
@@ -132,6 +143,11 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
         title: 'SALUD',
         onTap: _openSaludGame,
         imageAsset: MenuIcons.saludGamePng,
+      ),
+      MenuGameCardData(
+        title: 'PAIRS',
+        onTap: _openPairs,
+        imageAsset: MenuIcons.pairsGamePng,
       ),
     ];
   }
@@ -216,6 +232,12 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
               onClose: _returnFromChickenPathToMenu,
             ),
           ),
+        if (_showPairs)
+          Positioned.fill(
+            child: PairsLayer(
+              onClose: _returnFromPairsToMenu,
+            ),
+          ),
         if (_saludReturnWhiteFade != null)
           Positioned.fill(
             child: IgnorePointer(
@@ -240,6 +262,7 @@ abstract final class MenuIcons {
   static const String bunnyPinkPng = 'assets/images/bunnyPink.png';
   static const String chickenPng = 'assets/images/chicken/chicken.png';
   static const String saludGamePng = 'assets/images/vaky512x5012.png';
+  static const String pairsGamePng = 'assets/images/pairs/backCard.png';
 }
 
 /// Tweak carousel size, spacing, and animation from here.
@@ -592,6 +615,25 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
       if (next != null && next != _selectedIndex) {
         setState(() => _selectedIndex = next!);
       }
+      return;
+    }
+
+    if (_count == 5) {
+      const neighbors = <List<int?>>[
+        [null, 1, 2, null], // 0
+        [null, null, 3, 0], // 1
+        [0, 3, 4, 1], // 2
+        [1, 4, null, 2], // 3
+        [2, null, null, 3], // 4
+      ];
+      int? next;
+      if (deltaCol > 0) next = neighbors[_selectedIndex][1];
+      if (deltaCol < 0) next = neighbors[_selectedIndex][3];
+      if (deltaRow > 0) next = neighbors[_selectedIndex][2];
+      if (deltaRow < 0) next = neighbors[_selectedIndex][0];
+      if (next != null && next != _selectedIndex) {
+        setState(() => _selectedIndex = next!);
+      }
     }
   }
 
@@ -728,7 +770,7 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
           },
           child: SizedBox(
             width: widget.gridWidth,
-            child: _count == 4
+            child: _count == 5
                 ? Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -747,11 +789,36 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
                           circleTile(2),
                           SizedBox(width: spacing),
                           circleTile(3),
+                          SizedBox(width: spacing),
+                          circleTile(4),
                         ],
                       ),
                     ],
                   )
-                : Column(
+                : _count == 4
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              circleTile(0),
+                              SizedBox(width: spacing),
+                              circleTile(1),
+                            ],
+                          ),
+                          SizedBox(height: spacing),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              circleTile(2),
+                              SizedBox(width: spacing),
+                              circleTile(3),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (_count > 0) Center(child: circleTile(0)),
