@@ -24,6 +24,7 @@ class CutsceneInstructionLoop {
   AudioPlayer? _player;
   StreamSubscription<void>? _completeSub;
   String? _asset;
+  Duration _replayInterval = const Duration(seconds: 3);
   bool _running = false;
   bool _paused = false;
 
@@ -33,8 +34,16 @@ class CutsceneInstructionLoop {
   /// Plays [asset] to completion, waits [interval], then repeats until [stop].
   ///
   /// [asset] is relative to `assets/` (e.g. `audio/salud/foo.mp3`).
-  Future<void> start(String asset) async {
-    if (_running && !_paused && _asset == asset) return;
+  Future<void> start(String asset, {Duration? interval}) async {
+    final replayInterval = interval ?? this.interval;
+    if (_running &&
+        !_paused &&
+        _asset == asset &&
+        _replayInterval == replayInterval) {
+      return;
+    }
+
+    _replayInterval = replayInterval;
 
     final previousAsset = _asset;
     await _haltCurrentPlayback(clearAsset: true);
@@ -103,7 +112,7 @@ class CutsceneInstructionLoop {
   Future<void> _scheduleReplay() async {
     if (!_running || _paused) return;
     await AppAudio.instance.restoreBgmAfterInstructionPlayback();
-    await Future<void>.delayed(interval);
+    await Future<void>.delayed(_replayInterval);
     if (!_running || _paused) return;
     await _playFromStart();
   }

@@ -5,7 +5,9 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:video_player/video_player.dart';
 
 import '../utils/disable_video_pointer.dart';
+import '../utils/alternating_instruction_loop.dart';
 import '../widgets/menu_back_pill.dart';
+import 'chicken_instruction_audio.dart';
 
 const String kChickenIntroAsset = 'assets/video/chicken/chickenIntro.mp4';
 const String _kVideoBase = 'assets/video/chicken/';
@@ -256,6 +258,21 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   bool _exitingToMenu = false;
   bool _introToLevelStarted = false;
 
+  final AlternatingInstructionLoop _instructions = AlternatingInstructionLoop();
+
+  void _startLevelInstructions() {
+    unawaited(
+      _instructions.start(
+        ChickenInstructionAudio.levelAlternating,
+        interval: const Duration(seconds: 8),
+      ),
+    );
+  }
+
+  Future<void> _stopLevelInstructions() => _instructions.stop();
+
+  Future<void> _pauseLevelInstructions() => _instructions.pause();
+
   @override
   void initState() {
     super.initState();
@@ -458,6 +475,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
 
     if (!mounted) return;
     if (success && path.last == _chickenSlot) {
+      unawaited(_pauseLevelInstructions());
       setState(() => _genMotion = _GenMotion.success);
       unawaited(_onLevelComplete());
       return;
@@ -467,6 +485,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   }
 
   Future<void> _onLevelComplete() async {
+    await _stopLevelInstructions();
     _figureGlowController?.dispose();
     _figureGlowController = null;
 
@@ -510,6 +529,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     if (_exitingToMenu) return;
     _exitingToMenu = true;
 
+    await _stopLevelInstructions();
     _figureGlowController?.dispose();
     _figureGlowController = null;
     await _disposeIntro();
@@ -621,6 +641,9 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
         _videoReady = true;
       });
       _videoBootstrapInFlight = false;
+      if (phase == _ChickenPhase.levelVideo) {
+        _startLevelInstructions();
+      }
       return true;
     } catch (_) {
       await c.dispose();
@@ -733,6 +756,9 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   void _beginGameplay() {
     if (!mounted || _phase == _ChickenPhase.gameplay) return;
     setState(() => _phase = _ChickenPhase.gameplay);
+    if (!_instructions.isRunning) {
+      _startLevelInstructions();
+    }
     _startFigureGlowCycle();
     unawaited(_releaseVideoPointerCapture());
   }
@@ -913,12 +939,14 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   void _exitToMenu() {
     if (_exitingToMenu) return;
     _exitingToMenu = true;
+    unawaited(_stopLevelInstructions());
     restoreAppPointerEvents();
     widget.onClose();
   }
 
   @override
   void dispose() {
+    unawaited(_instructions.dispose());
     restoreAppPointerEvents();
     _figureGlowController?.dispose();
     _introController?.removeListener(_onIntroTick);

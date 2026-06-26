@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:video_player/video_player.dart';
 
+import '../utils/cutscene_instruction_loop.dart';
 import '../utils/disable_video_pointer.dart';
 import '../widgets/menu_back_pill.dart';
+import 'chicken_instruction_audio.dart';
 
 const String kGridPuzzleIntroAsset = 'assets/video/GridPuzzleIntro.mp4';
 const String kGridPuzzleEndAsset = 'assets/video/gridPuzzleEnd.mp4';
@@ -192,6 +194,21 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
 
   AnimationController? _figureGlowController;
   int _figureGlowIndex = 0;
+
+  final CutsceneInstructionLoop _instructions = CutsceneInstructionLoop();
+
+  void _startGameplayInstructions() {
+    unawaited(
+      _instructions.start(
+        ChickenInstructionAudio.fichasParaCamino,
+        interval: const Duration(seconds: 6),
+      ),
+    );
+  }
+
+  Future<void> _stopGameplayInstructions() => _instructions.stop();
+
+  Future<void> _pauseGameplayInstructions() => _instructions.pause();
 
   @override
   void initState() {
@@ -404,6 +421,9 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     if (value.isCompleted && !_introFinished) {
       unawaited(v.pause());
       setState(() => _introFinished = true);
+      if (!_instructions.isRunning) {
+        _startGameplayInstructions();
+      }
       _startFigureGlowCycle();
       unawaited(_releaseVideoPointerCapture());
     }
@@ -506,6 +526,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
 
     if (!mounted) return;
     if (success && path.last == _kPlaneSlot) {
+      unawaited(_pauseGameplayInstructions());
       setState(() => _girlMotion = _GirlMotion.success);
       unawaited(_runSuccessSequence());
       return;
@@ -515,6 +536,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
   }
 
   Future<void> _runSuccessSequence() async {
+    await _stopGameplayInstructions();
     await Future<void>.delayed(const Duration(seconds: 1));
     if (!mounted || _girlMotion != _GirlMotion.success) return;
 
@@ -882,12 +904,14 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
   void _exitToMenu() {
     if (_exitingToMenu) return;
     _exitingToMenu = true;
+    unawaited(_stopGameplayInstructions());
     restoreAppPointerEvents();
     widget.onClose();
   }
 
   @override
   void dispose() {
+    unawaited(_instructions.dispose());
     restoreAppPointerEvents();
     _stopStarRainTicker();
     _whiteFade?.dispose();
