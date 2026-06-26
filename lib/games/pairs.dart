@@ -13,12 +13,15 @@ const String kPairsBackgroundVideoAsset =
 const String _kPairsImageBase = 'assets/images/pairs/';
 const String kPairsBackCardAsset = '${_kPairsImageBase}backCard.png';
 
-/// **Card size** — change these two values to resize every card on screen.
+/// **Base card size** (levels 4–5). Levels 1–3 use [kPairsEarlyLevelCardScale].
 /// Coordinates use the 1980×1080 logical game frame (see [_kLogicalW] / [_kLogicalH]).
 const double kPairsCardWidth = 160;
 const double kPairsCardHeight = 220;
 
-/// Gap between cards in the 3×3 play grid.
+/// Levels 1–3 render cards at base size × this factor (70% bigger → 1.7×).
+const double kPairsEarlyLevelCardScale = 1.7;
+
+/// Minimum gap between cards; early levels expand spacing to fill more of the screen.
 const double kPairsGridGap = 28;
 
 const double _kLogicalW = 1980;
@@ -36,7 +39,29 @@ const List<String> kPairsAnimalAssets = [
   '${_kPairsImageBase}canvaRana.png',
 ];
 
-enum _PairsPhase { loading, dealing, flipAll, playing }
+class _PairsLevelConfig {
+  const _PairsLevelConfig({
+    required this.pairCount,
+    required this.cols,
+    required this.rows,
+  });
+
+  final int pairCount;
+  final int cols;
+  final int rows;
+
+  int get cardCount => pairCount * 2;
+}
+
+const List<_PairsLevelConfig> _kLevels = [
+  _PairsLevelConfig(pairCount: 2, cols: 2, rows: 2),
+  _PairsLevelConfig(pairCount: 3, cols: 3, rows: 2),
+  _PairsLevelConfig(pairCount: 4, cols: 4, rows: 2),
+  _PairsLevelConfig(pairCount: 6, cols: 4, rows: 3),
+  _PairsLevelConfig(pairCount: 9, cols: 6, rows: 3),
+];
+
+enum _PairsPhase { loading, dealing, flipAll, playing, levelTransition, complete }
 
 class _PairCardModel {
   _PairCardModel({
@@ -54,9 +79,10 @@ class _PairCardModel {
   double flipAngle = 0;
   bool faceUp = true;
   bool placed = false;
+  bool matched = false;
 }
 
-/// Memory-style pairs board: intro deal animation, then flip and tap to reveal.
+/// Memory-style pairs board with five levels and match-two gameplay.
 class PairsLayer extends StatefulWidget {
   const PairsLayer({super.key, required this.onClose});
 
@@ -72,63 +98,117 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
   static const Duration _kPulseDuration = Duration(milliseconds: 1500);
   static const Duration _kPreFlipDelay = Duration(seconds: 2);
   static const Duration _kFlipDuration = Duration(milliseconds: 600);
+  static const Duration _kMismatchDelay = Duration(seconds: 1);
+  static const Duration _kLevelFadeDuration = Duration(milliseconds: 1500);
+
+  final math.Random _rng = math.Random();
 
   VideoPlayerController? _bgController;
   bool _bgReady = false;
   bool _exitingToMenu = false;
 
   _PairsPhase _phase = _PairsPhase.loading;
-  late final List<_PairCardModel> _cards;
+  int _levelIndex = 0;
+  List<_PairCardModel> _cards = [];
+  int _nextCardId = 0;
+
+  _PairCardModel? _firstSelection;
+  bool _isResolving = false;
+  int _matchedPairCount = 0;
+
+  AnimationController? _whiteFade;
 
   final Map<String, AnimationController> _flipControllers =
       <String, AnimationController>{};
 
+  _PairsLevelConfig get _currentLevel => _kLevels[_levelIndex];
+
+  double get _cardWidth =>
+      _levelIndex < 3 ? kPairsCardWidth * kPairsEarlyLevelCardScale : kPairsCardWidth;
+
+  double get _cardHeight =>
+      _levelIndex < 3 ? kPairsCardHeight * kPairsEarlyLevelCardScale : kPairsCardHeight;
+
   Offset get _stackPosition => Offset(
-        _kLogicalW / 2 - kPairsCardWidth / 2,
-        _kLogicalH + kPairsCardHeight * 0.35,
+        _kLogicalW / 2 - _cardWidth / 2,
+        _kLogicalH + _cardHeight * 0.35,
       );
 
   Offset get _centerPosition => Offset(
-        _kLogicalW / 2 - kPairsCardWidth / 2,
-        _kLogicalH / 2 - kPairsCardHeight / 2,
+        _kLogicalW / 2 - _cardWidth / 2,
+        _kLogicalH / 2 - _cardHeight / 2,
       );
 
   @override
   void initState() {
     super.initState();
-    _cards = _buildCards();
-    for (final card in _cards) {
-      card.position = _stackPosition;
-    }
     unawaited(_bootstrapBackground());
   }
 
-  List<_PairCardModel> _buildCards() {
-    final positions = _gridPositions();
+  List<_PairCardModel> _buildCardsForLevel(int levelIndex) {
+    final level = _kLevels[levelIndex];
+    final positions = _gridPositions(level);
+    final animals = _shuffledPairsForLevel(level.pairCount);
+
     return [
-      for (var i = 0; i < kPairsAnimalAssets.length; i++)
+      for (var i = 0; i < animals.length; i++)
         _PairCardModel(
-          id: 'pair_$i',
-          animalAsset: kPairsAnimalAssets[i],
+          id: 'card_${_nextCardId++}',
+          animalAsset: animals[i],
           gridPosition: positions[i],
         ),
     ];
   }
 
-  List<Offset> _gridPositions() {
-    const cols = 3;
-    const rows = 3;
-    final totalW = cols * kPairsCardWidth + (cols - 1) * kPairsGridGap;
-    final totalH = rows * kPairsCardHeight + (rows - 1) * kPairsGridGap;
+  List<String> _shuffledPairsForLevel(int pairCount) {
+    final pool = List<String>.from(kPairsAnimalAssets)..shuffle(_rng);
+    final selected = pool.take(pairCount).toList();
+    final deck = <String>[...selected, ...selected]..shuffle(_rng);
+    return deck;
+  }
+
+  List<Offset> _gridPositions(_PairsLevelConfig level) {
+    final cols = level.cols;
+    final rows = level.rows;
+
+    final targetFillW = level.pairCount <= 2
+        ? 0.62
+        : level.pairCount <= 3
+            ? 0.72
+            : 0.88;
+    final targetFillH = level.pairCount <= 2
+        ? 0.68
+        : level.pairCount <= 3
+            ? 0.74
+            : 0.80;
+
+    final availW = _kLogicalW * targetFillW;
+    final availH = _kLogicalH * targetFillH;
+
+    final gapX = cols > 1
+        ? math.max(
+            kPairsGridGap,
+            (availW - cols * _cardWidth) / (cols - 1),
+          )
+        : 0.0;
+    final gapY = rows > 1
+        ? math.max(
+            kPairsGridGap,
+            (availH - rows * _cardHeight) / (rows - 1),
+          )
+        : 0.0;
+
+    final totalW = cols * _cardWidth + (cols - 1) * gapX;
+    final totalH = rows * _cardHeight + (rows - 1) * gapY;
     final startX = (_kLogicalW - totalW) / 2;
-    final startY = (_kLogicalH - totalH) / 2 + 36;
+    final startY = (_kLogicalH - totalH) / 2 + 20;
 
     return [
       for (var row = 0; row < rows; row++)
         for (var col = 0; col < cols; col++)
           Offset(
-            startX + col * (kPairsCardWidth + kPairsGridGap),
-            startY + row * (kPairsCardHeight + kPairsGridGap),
+            startX + col * (_cardWidth + gapX),
+            startY + row * (_cardHeight + gapY),
           ),
     ];
   }
@@ -150,20 +230,37 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
         _bgController = c;
         _bgReady = true;
       });
-      unawaited(_runIntroSequence());
+      unawaited(_startLevel(skipInitialDelay: false));
     } catch (_) {
       await c.dispose();
       if (mounted) _exitToMenu();
     }
   }
 
-  Future<void> _runIntroSequence() async {
-    setState(() => _phase = _PairsPhase.dealing);
-    await Future<void>.delayed(_kInitialDelay);
-    if (!mounted) return;
+  Future<void> _startLevel({required bool skipInitialDelay}) async {
+    _firstSelection = null;
+    _isResolving = false;
+    _matchedPairCount = 0;
 
-    for (var i = 0; i < _cards.length; i++) {
-      await _dealCard(_cards[i]);
+    _cards = _buildCardsForLevel(_levelIndex);
+    for (final card in _cards) {
+      card.position = _stackPosition;
+    }
+    if (mounted) setState(() {});
+
+    await _runLevelIntroSequence(skipInitialDelay: skipInitialDelay);
+  }
+
+  Future<void> _runLevelIntroSequence({required bool skipInitialDelay}) async {
+    setState(() => _phase = _PairsPhase.dealing);
+
+    if (!skipInitialDelay) {
+      await Future<void>.delayed(_kInitialDelay);
+      if (!mounted) return;
+    }
+
+    for (final card in _cards) {
+      await _dealCard(card);
       if (!mounted) return;
     }
 
@@ -273,6 +370,7 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     void tick() {
       final angle = controller.value * math.pi;
       for (final card in _cards) {
+        if (card.matched) continue;
         card.flipAngle = angle;
         card.faceUp = angle < math.pi / 2;
       }
@@ -285,10 +383,18 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     controller.dispose();
 
     for (final card in _cards) {
+      if (card.matched) continue;
       card.flipAngle = math.pi;
       card.faceUp = false;
     }
     if (mounted) setState(() {});
+  }
+
+  void _disposeFlipControllers() {
+    for (final c in _flipControllers.values) {
+      c.dispose();
+    }
+    _flipControllers.clear();
   }
 
   AnimationController _flipControllerFor(_PairCardModel card) {
@@ -302,11 +408,8 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     );
   }
 
-  Future<void> _toggleCard(_PairCardModel card) async {
-    if (_phase != _PairsPhase.playing) return;
-
+  Future<void> _flipCardTo(_PairCardModel card, {required bool faceUp}) async {
     final controller = _flipControllerFor(card);
-    final goingFaceUp = !card.faceUp;
 
     void tick() {
       final angle = controller.value * math.pi;
@@ -318,16 +421,93 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     controller.removeListener(tick);
     controller.addListener(tick);
 
-    if (goingFaceUp) {
+    if (faceUp) {
       await controller.reverse(from: controller.value);
     } else {
       await controller.forward(from: controller.value);
     }
 
     controller.removeListener(tick);
-    card.flipAngle = goingFaceUp ? 0 : math.pi;
-    card.faceUp = goingFaceUp;
+    card.flipAngle = faceUp ? 0 : math.pi;
+    card.faceUp = faceUp;
     if (mounted) setState(() {});
+  }
+
+  Future<void> _onCardTapped(_PairCardModel card) async {
+    if (_phase != _PairsPhase.playing || _isResolving) return;
+    if (card.matched || card.faceUp) return;
+
+    await _flipCardTo(card, faceUp: true);
+    if (!mounted || _phase != _PairsPhase.playing) return;
+
+    final first = _firstSelection;
+    if (first == null) {
+      setState(() => _firstSelection = card);
+      return;
+    }
+
+    if (first.id == card.id) return;
+
+    _firstSelection = null;
+    _isResolving = true;
+
+    if (first.animalAsset == card.animalAsset) {
+      first.matched = true;
+      card.matched = true;
+      _matchedPairCount++;
+      _isResolving = false;
+      setState(() {});
+
+      if (_matchedPairCount >= _currentLevel.pairCount) {
+        unawaited(_onLevelComplete());
+      }
+      return;
+    }
+
+    await Future<void>.delayed(_kMismatchDelay);
+    if (!mounted) return;
+
+    await Future.wait([
+      _flipCardTo(first, faceUp: false),
+      _flipCardTo(card, faceUp: false),
+    ]);
+
+    _isResolving = false;
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _onLevelComplete() async {
+    if (!mounted || _phase != _PairsPhase.playing) return;
+
+    setState(() => _phase = _PairsPhase.levelTransition);
+
+    final isLastLevel = _levelIndex >= _kLevels.length - 1;
+
+    _whiteFade ??= AnimationController(
+      vsync: this,
+      duration: _kLevelFadeDuration,
+    );
+    _whiteFade!.value = 0;
+    await _whiteFade!.forward();
+    if (!mounted) return;
+
+    _disposeFlipControllers();
+    _firstSelection = null;
+    _isResolving = false;
+
+    if (isLastLevel) {
+      setState(() => _phase = _PairsPhase.complete);
+      await _whiteFade!.reverse();
+      return;
+    }
+
+    _levelIndex++;
+    setState(() => _cards = []);
+
+    await _whiteFade!.reverse();
+    if (!mounted) return;
+
+    unawaited(_startLevel(skipInitialDelay: true));
   }
 
   void _exitToMenu() {
@@ -338,9 +518,8 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    for (final c in _flipControllers.values) {
-      c.dispose();
-    }
+    _disposeFlipControllers();
+    _whiteFade?.dispose();
     _bgController?.dispose();
     super.dispose();
   }
@@ -367,6 +546,20 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
                 else
                   const ColoredBox(color: Color(0xFF2E7D32)),
                 for (final card in _cards) _buildCard(card),
+                if (_whiteFade != null)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: AnimatedBuilder(
+                        animation: _whiteFade!,
+                        builder: (context, child) {
+                          final t = _whiteFade!.value.clamp(0.0, 1.0);
+                          return ColoredBox(
+                            color: Color.fromRGBO(255, 255, 255, t),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
                 GameLogicalBackPill(onPressed: _exitToMenu),
               ],
             ),
@@ -377,18 +570,23 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
   }
 
   Widget _buildCard(_PairCardModel card) {
-    final w = kPairsCardWidth * card.scale;
-    final h = kPairsCardHeight * card.scale;
-    final canTap = _phase == _PairsPhase.playing;
+    final baseW = _cardWidth;
+    final baseH = _cardHeight;
+    final w = baseW * card.scale;
+    final h = baseH * card.scale;
+    final canTap = _phase == _PairsPhase.playing &&
+        !card.matched &&
+        !card.faceUp &&
+        !_isResolving;
 
     return Positioned(
-      left: card.position.dx + (kPairsCardWidth - w) / 2,
-      top: card.position.dy + (kPairsCardHeight - h) / 2,
+      left: card.position.dx + (baseW - w) / 2,
+      top: card.position.dy + (baseH - h) / 2,
       width: w,
       height: h,
       child: PointerInterceptor(
         child: GestureDetector(
-          onTap: canTap ? () => unawaited(_toggleCard(card)) : null,
+          onTap: canTap ? () => unawaited(_onCardTapped(card)) : null,
           child: _FlipCardFace(
             flipAngle: card.flipAngle,
             width: w,
