@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
+import '../utils/cutscene_instruction_loop.dart';
+import 'salud_instruction_audio.dart';
+
 const String kSaludCatMouthRinseAsset = 'assets/video/salud/catMouthRinse.mp4';
 
 const String kSaludBathSoapPng = 'assets/images/bathGame/soap.png';
@@ -136,6 +139,10 @@ class _SaludCatGame2LayerState extends State<SaludCatGame2Layer>
   bool _soapDisposed = false;
   bool _phaseCompleteNotified = false;
 
+  final CutsceneInstructionLoop _instructions = CutsceneInstructionLoop();
+  bool _soapBodyInstructionsStarted = false;
+  bool _bodyWaterInstructionsStarted = false;
+
   late final ValueNotifier<double> _triangleX;
   late final ValueNotifier<double> _triangleY;
   bool _triangleUnlocked = false;
@@ -239,6 +246,20 @@ class _SaludCatGame2LayerState extends State<SaludCatGame2Layer>
     return s;
   }
 
+  void _startSoapBodyInstructions() {
+    if (_soapBodyInstructionsStarted) return;
+    _soapBodyInstructionsStarted = true;
+    unawaited(_instructions.start(SaludInstructionAudio.jabonAcuerpo));
+  }
+
+  void _switchToBodyWaterInstructions() {
+    if (_bodyWaterInstructionsStarted) return;
+    _bodyWaterInstructionsStarted = true;
+    unawaited(_instructions.start(SaludInstructionAudio.aguaAcuerpo));
+  }
+
+  Future<void> _stopPhase2Instructions() => _instructions.stop();
+
   Future<void> _loadSoapAssetSize() async {
     try {
       final s = await _decodeAssetImageSize(kSaludBathSoapPng);
@@ -257,6 +278,7 @@ class _SaludCatGame2LayerState extends State<SaludCatGame2Layer>
       unawaited(v.pause());
       if (mounted) {
         setState(() => _mouthRinseFinished = true);
+        _startSoapBodyInstructions();
         _scheduleSoapIdlePulse();
       }
     }
@@ -415,6 +437,7 @@ class _SaludCatGame2LayerState extends State<SaludCatGame2Layer>
         hadStarsThisFrame &&
         _soapCompletionStars.isEmpty) {
       _triangleUnlocked = true;
+      _switchToBodyWaterInstructions();
       _playTriangleIdlePulse();
       _beginSoapPostCelebrationSnap();
     }
@@ -819,6 +842,7 @@ class _SaludCatGame2LayerState extends State<SaludCatGame2Layer>
   }
 
   void _disposeTriangleAndParticles() {
+    unawaited(_stopPhase2Instructions());
     _triangleDisposed = true;
     _triangleExiting = false;
     _soapBubbles.clear();
@@ -1168,6 +1192,7 @@ class _SaludCatGame2LayerState extends State<SaludCatGame2Layer>
 
   @override
   void dispose() {
+    unawaited(_instructions.dispose());
     _cancelSoapIdleTimer();
     _cancelSoapSnap();
     _idleSoapPulse.stop();

@@ -944,6 +944,7 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     }
     final now = DateTime.now().millisecondsSinceEpoch;
     _stopPostTaskProbeLoop();
+    _startWaterMouthInstructions();
     setState(() {
       _postTaskProbeDismissed = true;
       _waterPourBubbleEpochMs = now;
@@ -1034,7 +1035,7 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
   void _onWaterPourCueTap() {
     if (!mounted || !_waterPourReady || _waterPourCueDismissed) return;
     _stopWaterPourCueLoop();
-    _startWaterMouthInstructions();
+    unawaited(_stopWaterInstructions());
     setState(() {
       _waterPourCueDismissed = true;
       _cowPhase2Active = true;

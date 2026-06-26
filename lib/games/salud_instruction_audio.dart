@@ -19,6 +19,12 @@ abstract final class SaludInstructionAudio {
   /// After cup is filled — bring water to the mouth.
   static const String aguaABoca = 'audio/salud/aguaABoca.mp3';
 
+  /// After mouth rinse — scrub body with soap.
+  static const String jabonAcuerpo = 'audio/salud/jabonAcuerpo.mp3';
+
+  /// Triangle spawns water drops — rinse body with water.
+  static const String aguaAcuerpo = 'audio/salud/aguaAcuerpo.mp3';
+
   // Add one line per cutscene as clips are recorded, e.g.:
   // static const String cowPick = 'audio/salud/vakyCowPick.mp3';
 }

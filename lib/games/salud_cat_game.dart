@@ -729,6 +729,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     }
     final now = DateTime.now().millisecondsSinceEpoch;
     _stopPostTaskProbeLoop();
+    _startWaterMouthInstructions();
     setState(() {
       _postTaskProbeDismissed = true;
       _cepilloCremaInactive = true;
@@ -888,7 +889,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   void _onWaterPourCueTap() {
     if (!mounted || !_waterPourReady || _waterPourCueDismissed) return;
     _stopWaterPourCueLoop();
-    _startWaterMouthInstructions();
+    unawaited(_stopWaterInstructions());
     setState(() {
       _waterPourCueDismissed = true;
       _teethScrubZoneActive = false;
