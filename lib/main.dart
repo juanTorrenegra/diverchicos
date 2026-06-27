@@ -15,7 +15,7 @@ void main() {
   runApp(const DiverchicosApp());
 }
 
-/// Hide status/navigation chrome on Android so the game uses full screen.
+/// Hide status/navigation chrome on Android so the game uses full screen
 void _hideAndroidStatusBarForGame() {
   if (kIsWeb) return;
   if (defaultTargetPlatform != TargetPlatform.android) return;
@@ -51,9 +51,7 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
 
   Future<void> _setPortraitIntroOrientation() async {
     if (!_isAndroidOnly) return;
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
 
   Future<void> _setLandscapeOrientation() async {
@@ -67,8 +65,7 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
   DiverchicosGame _createGame() {
     return DiverchicosGame(
       onIntroCompleted: () => unawaited(_setLandscapeOrientation()),
-      onIntroRequestedPortrait: () =>
-          unawaited(_setPortraitIntroOrientation()),
+      onIntroRequestedPortrait: () => unawaited(_setPortraitIntroOrientation()),
       onLandscapeRequested: () => unawaited(_setLandscapeOrientation()),
     );
   }
@@ -117,8 +114,7 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme:
-            ColorScheme.fromSeed(seedColor: const Color(0xFF5E35B1)),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5E35B1)),
       ),
       home: GameWidget(
         game: game,
@@ -126,9 +122,7 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
             const ColoredBox(color: Color.fromRGBO(28, 49, 132, 1)),
         overlayBuilderMap: {
           'mainMenu': (BuildContext context, game) {
-            return Positioned.fill(
-              child: MainMenuOverlay(),
-            );
+            return Positioned.fill(child: MainMenuOverlay());
           },
         },
       ),
