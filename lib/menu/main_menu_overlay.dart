@@ -199,7 +199,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
                         left: w / 20,
                         top: h / 3,
                         width: w / 3,
-                        child: MenuCircleGrid(gridWidth: w / 4, items: cards),
+                        child: MenuCircleGrid(gridWidth: w / 3, items: cards),
                       ),
                     ],
                   );
@@ -262,7 +262,7 @@ abstract final class MenuIcons {
   static const String bunnyPinkPng = 'assets/images/bunnyPink.png';
   static const String chickenPng = 'assets/images/chicken/chicken.png';
   static const String saludGamePng = 'assets/images/vaky512x5012.png';
-  static const String pairsGamePng = 'assets/images/pairs/backCard.png';
+  static const String pairsGamePng = 'assets/images/pairs/canvaJaguar.png';
 }
 
 /// Tweak carousel size, spacing, and animation from here.
@@ -557,7 +557,7 @@ class _ActivateCircleIntent extends Intent {
   const _ActivateCircleIntent();
 }
 
-/// Three circle quick-actions in a pyramid: one on top, two on the bottom.
+/// Circle quick-actions beside the main-menu carousel.
 class MenuCircleGrid extends StatefulWidget {
   const MenuCircleGrid({
     super.key,
@@ -573,6 +573,9 @@ class MenuCircleGrid extends StatefulWidget {
 }
 
 class _MenuCircleGridState extends State<MenuCircleGrid> {
+  static const double _kCircleSizeScale = 0.972;
+  static const double _kHighlightScale = 1.08;
+
   final FocusNode _focusNode = FocusNode(debugLabel: 'menu-circle-grid');
   int _selectedIndex = 0;
   int? _hoveredIndex;
@@ -661,11 +664,18 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
 
   @override
   Widget build(BuildContext context) {
-    final spacing = widget.gridWidth / 12;
-    final circleSize = (widget.gridWidth - spacing) / 2;
+    final maxPerRow = _count >= 5 ? 3 : (_count >= 2 ? 2 : 1);
+    final circleSize = _kCircleSizeScale *
+        widget.gridWidth /
+        (maxPerRow + 0.22 * (maxPerRow - 1));
+    final gap = maxPerRow > 1
+        ? (widget.gridWidth - maxPerRow * circleSize) / (maxPerRow - 1)
+        : 0.0;
 
     Widget circleTile(int index) {
       final isHighlighted = index == _activeIndex;
+      final isPairs = widget.items[index].imageAsset == MenuIcons.pairsGamePng;
+      final imageSize = circleSize * (isPairs ? 0.64 : 0.8);
       return MouseRegion(
         onEnter: (_) {
           if (!_focusNode.hasFocus) _focusNode.requestFocus();
@@ -685,13 +695,14 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
             setState(() => _selectedIndex = index);
             _activateSelected();
           },
-          child: AnimatedScale(
-            duration: const Duration(milliseconds: 130),
-            curve: Curves.easeOut,
-            scale: isHighlighted ? 1.12 : 1.0,
-            child: SizedBox(
-              width: circleSize,
-              height: circleSize,
+          child: SizedBox(
+            width: circleSize,
+            height: circleSize,
+            child: AnimatedScale(
+              duration: const Duration(milliseconds: 130),
+              curve: Curves.easeOut,
+              scale: isHighlighted ? _kHighlightScale : 1.0,
+              alignment: Alignment.center,
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
@@ -711,8 +722,8 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
                             child: Image.asset(
                               widget.items[index].imageAsset!,
                               fit: BoxFit.cover,
-                              width: circleSize * 0.8,
-                              height: circleSize * 0.8,
+                              width: imageSize,
+                              height: imageSize,
                               errorBuilder: (context, error, stackTrace) {
                                 return Icon(
                                   Icons.add_photo_alternate_outlined,
@@ -735,6 +746,53 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
         ),
       );
     }
+
+    Widget centeredRow(List<int> indices) {
+      return SizedBox(
+        width: widget.gridWidth,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < indices.length; i++) ...[
+              if (i > 0) SizedBox(width: gap),
+              circleTile(indices[i]),
+            ],
+          ],
+        ),
+      );
+    }
+
+    Widget grid = SizedBox(
+      width: widget.gridWidth,
+      child: _count == 5
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                centeredRow(const [0, 1]),
+                SizedBox(height: gap),
+                centeredRow(const [2, 3, 4]),
+              ],
+            )
+          : _count == 4
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    centeredRow(const [0, 1]),
+                    SizedBox(height: gap),
+                    centeredRow(const [2, 3]),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_count > 0) centeredRow(const [0]),
+                    if (_count > 1) ...[
+                      SizedBox(height: gap),
+                      centeredRow([for (var i = 1; i < _count; i++) i]),
+                    ],
+                  ],
+                ),
+    );
 
     return Focus(
       focusNode: _focusNode,
@@ -768,75 +826,7 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
               },
             ),
           },
-          child: SizedBox(
-            width: widget.gridWidth,
-            child: _count == 5
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          circleTile(0),
-                          SizedBox(width: spacing),
-                          circleTile(1),
-                        ],
-                      ),
-                      SizedBox(height: spacing),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          circleTile(2),
-                          SizedBox(width: spacing),
-                          circleTile(3),
-                          SizedBox(width: spacing),
-                          circleTile(4),
-                        ],
-                      ),
-                    ],
-                  )
-                : _count == 4
-                    ? Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              circleTile(0),
-                              SizedBox(width: spacing),
-                              circleTile(1),
-                            ],
-                          ),
-                          SizedBox(height: spacing),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              circleTile(2),
-                              SizedBox(width: spacing),
-                              circleTile(3),
-                            ],
-                          ),
-                        ],
-                      )
-                    : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_count > 0) Center(child: circleTile(0)),
-                      SizedBox(height: spacing),
-                      if (_count > 1)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            circleTile(1),
-                            if (_count > 2) ...[
-                              SizedBox(width: spacing),
-                              circleTile(2),
-                            ],
-                          ],
-                        ),
-                    ],
-                  ),
-          ),
+          child: grid,
         ),
       ),
     );
