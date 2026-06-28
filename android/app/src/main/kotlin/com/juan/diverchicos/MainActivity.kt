@@ -1,4 +1,4 @@
-package com.example.diverchicos
+package com.juan.diverchicos
 
 import io.flutter.embedding.android.FlutterActivity
 
