@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../app_audio.dart';
 import '../games/chicken_path_game.dart';
+import '../games/creditos.dart';
 import '../games/grid_puzzle.dart';
 import '../games/pairs.dart';
 import '../games/pop_bunny.dart';
@@ -25,6 +26,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
   bool _showPopBunny = false;
   bool _showChickenPath = false;
   bool _showPairs = false;
+  bool _showCreditos = false;
   bool _exitingToMenu = false;
   AnimationController? _saludReturnWhiteFade;
 
@@ -74,9 +76,8 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
     if (mounted) setState(() {});
   }
 
-  void _returnFromSaludToMenu() => _beginExitMiniGameToMenu(
-        hideActiveGame: () => _showSaludIntro = false,
-      );
+  void _returnFromSaludToMenu() =>
+      _beginExitMiniGameToMenu(hideActiveGame: () => _showSaludIntro = false);
 
   void _openSaludGame() {
     _exitingToMenu = false;
@@ -102,50 +103,54 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
   }
 
   void _openPairs() {
-    unawaited(AppAudio.instance.stopBgm());
+    unawaited(AppAudio.instance.playPairsLoop());
     setState(() => _showPairs = true);
   }
 
-  void _returnFromGridPuzzleToMenu() => _beginExitMiniGameToMenu(
-        hideActiveGame: () => _showGridPuzzle = false,
-      );
+  void _returnFromGridPuzzleToMenu() =>
+      _beginExitMiniGameToMenu(hideActiveGame: () => _showGridPuzzle = false);
 
-  void _returnFromPopBunnyToMenu() => _beginExitMiniGameToMenu(
-        hideActiveGame: () => _showPopBunny = false,
-      );
+  void _returnFromPopBunnyToMenu() =>
+      _beginExitMiniGameToMenu(hideActiveGame: () => _showPopBunny = false);
 
-  void _returnFromChickenPathToMenu() => _beginExitMiniGameToMenu(
-        hideActiveGame: () => _showChickenPath = false,
-      );
+  void _returnFromChickenPathToMenu() =>
+      _beginExitMiniGameToMenu(hideActiveGame: () => _showChickenPath = false);
 
-  void _returnFromPairsToMenu() => _beginExitMiniGameToMenu(
-        hideActiveGame: () => _showPairs = false,
-      );
+  void _returnFromPairsToMenu() =>
+      _beginExitMiniGameToMenu(hideActiveGame: () => _showPairs = false);
+
+  void _openCreditos() {
+    setState(() => _showCreditos = true);
+  }
+
+  void _returnFromCreditosToMenu() {
+    setState(() => _showCreditos = false);
+  }
 
   List<MenuGameCardData> _cards() {
     return [
       MenuGameCardData(
-        title: 'PUZZLE',
+        title: 'AVIONES',
         onTap: _openGridPuzzle,
         imageAsset: MenuIcons.gridPuzzleThumbnailPng,
       ),
       MenuGameCardData(
-        title: 'KIDS',
-        onTap: _openPopBunny,
+        title: 'CREDITOS',
+        onTap: _openCreditos,
         imageAsset: MenuIcons.bunnyPinkPng,
       ),
       MenuGameCardData(
-        title: 'CHICKEN PATH',
+        title: 'POLLO LOCO',
         onTap: _openChickenPath,
         imageAsset: MenuIcons.chickenPng,
       ),
       MenuGameCardData(
-        title: 'SALUD',
+        title: 'EL BAÑO',
         onTap: _openSaludGame,
         imageAsset: MenuIcons.saludGamePng,
       ),
       MenuGameCardData(
-        title: 'PAIRS',
+        title: 'PARES ANIMALES',
         onTap: _openPairs,
         imageAsset: MenuIcons.pairsGamePng,
       ),
@@ -199,7 +204,22 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
                         left: w / 20,
                         top: h / 3,
                         width: w / 3,
-                        child: MenuCircleGrid(gridWidth: w / 3, items: cards),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            MenuCircleGrid(gridWidth: w / 3, items: cards),
+                            SizedBox(height: h / 14),
+                            GestureDetector(
+                              onTap: _openCreditos,
+                              child: Image.asset(
+                                MenuIcons.creditosPng,
+                                fit: BoxFit.contain,
+                                width: w / 5,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   );
@@ -210,33 +230,25 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
         ),
         if (_showSaludIntro)
           Positioned.fill(
-            child: SaludCowCatIntroLayer(
-              onClose: _returnFromSaludToMenu,
-            ),
+            child: SaludCowCatIntroLayer(onClose: _returnFromSaludToMenu),
           ),
         if (_showGridPuzzle)
           Positioned.fill(
-            child: GridPuzzleLayer(
-              onClose: _returnFromGridPuzzleToMenu,
-            ),
+            child: GridPuzzleLayer(onClose: _returnFromGridPuzzleToMenu),
           ),
         if (_showPopBunny)
           Positioned.fill(
-            child: PopBunnyLayer(
-              onClose: _returnFromPopBunnyToMenu,
-            ),
+            child: PopBunnyLayer(onClose: _returnFromPopBunnyToMenu),
           ),
         if (_showChickenPath)
           Positioned.fill(
-            child: ChickenPathLayer(
-              onClose: _returnFromChickenPathToMenu,
-            ),
+            child: ChickenPathLayer(onClose: _returnFromChickenPathToMenu),
           ),
         if (_showPairs)
+          Positioned.fill(child: PairsLayer(onClose: _returnFromPairsToMenu)),
+        if (_showCreditos)
           Positioned.fill(
-            child: PairsLayer(
-              onClose: _returnFromPairsToMenu,
-            ),
+            child: CreditosLayer(onClose: _returnFromCreditosToMenu),
           ),
         if (_saludReturnWhiteFade != null)
           Positioned.fill(
@@ -263,6 +275,7 @@ abstract final class MenuIcons {
   static const String chickenPng = 'assets/images/chicken/chicken.png';
   static const String saludGamePng = 'assets/images/vaky512x5012.png';
   static const String pairsGamePng = 'assets/images/pairs/canvaJaguar.png';
+  static const String creditosPng = 'assets/images/creditos.png';
 }
 
 /// Tweak carousel size, spacing, and animation from here.
@@ -665,7 +678,8 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
   @override
   Widget build(BuildContext context) {
     final maxPerRow = _count >= 5 ? 3 : (_count >= 2 ? 2 : 1);
-    final circleSize = _kCircleSizeScale *
+    final circleSize =
+        _kCircleSizeScale *
         widget.gridWidth /
         (maxPerRow + 0.22 * (maxPerRow - 1));
     final gap = maxPerRow > 1
@@ -774,24 +788,24 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
               ],
             )
           : _count == 4
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    centeredRow(const [0, 1]),
-                    SizedBox(height: gap),
-                    centeredRow(const [2, 3]),
-                  ],
-                )
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_count > 0) centeredRow(const [0]),
-                    if (_count > 1) ...[
-                      SizedBox(height: gap),
-                      centeredRow([for (var i = 1; i < _count; i++) i]),
-                    ],
-                  ],
-                ),
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                centeredRow(const [0, 1]),
+                SizedBox(height: gap),
+                centeredRow(const [2, 3]),
+              ],
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_count > 0) centeredRow(const [0]),
+                if (_count > 1) ...[
+                  SizedBox(height: gap),
+                  centeredRow([for (var i = 1; i < _count; i++) i]),
+                ],
+              ],
+            ),
     );
 
     return Focus(

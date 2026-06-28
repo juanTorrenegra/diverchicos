@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 
 import '../app_audio.dart';
+import 'instruction_audio_context.dart';
 
 /// Alternates between instruction clips on a fixed timer (shared singleton).
 ///
@@ -71,9 +72,13 @@ class AlternatingInstructionLoop {
 
   static Future<AudioPlayer> _ensurePlayerForAsset(String asset) async {
     final existing = _assetPlayers[asset];
-    if (existing != null) return existing;
+    if (existing != null) {
+      await InstructionAudioContext.applyTo(existing);
+      return existing;
+    }
 
     final player = AudioPlayer();
+    await InstructionAudioContext.applyTo(player);
     await player.setReleaseMode(ReleaseMode.stop);
     await player.setSource(AssetSource(asset));
     _assetPlayers[asset] = player;

@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:video_player/video_player.dart';
 
+import '../utils/cutscene_instruction_loop.dart';
 import '../widgets/menu_back_pill.dart';
+import 'pairs_instruction_audio.dart';
 
 const String kPairsBackgroundVideoAsset =
     'assets/video/pairs/pairsGreenBG.mp4';
@@ -120,6 +122,19 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
 
   final Map<String, AnimationController> _flipControllers =
       <String, AnimationController>{};
+
+  final CutsceneInstructionLoop _instructions = CutsceneInstructionLoop();
+
+  void _startGameplayInstructions() {
+    unawaited(
+      _instructions.start(
+        PairsInstructionAudio.volteaCartas,
+        interval: const Duration(seconds: 15),
+      ),
+    );
+  }
+
+  Future<void> _stopGameplayInstructions() => _instructions.stop();
 
   _PairsLevelConfig get _currentLevel => _kLevels[_levelIndex];
 
@@ -271,6 +286,7 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     if (!mounted) return;
 
     setState(() => _phase = _PairsPhase.playing);
+    _startGameplayInstructions();
   }
 
   Future<void> _dealCard(_PairCardModel card) async {
@@ -479,6 +495,7 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
   Future<void> _onLevelComplete() async {
     if (!mounted || _phase != _PairsPhase.playing) return;
 
+    unawaited(_stopGameplayInstructions());
     setState(() => _phase = _PairsPhase.levelTransition);
 
     final isLastLevel = _levelIndex >= _kLevels.length - 1;
@@ -518,6 +535,7 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    unawaited(_instructions.dispose());
     _disposeFlipControllers();
     _whiteFade?.dispose();
     _bgController?.dispose();

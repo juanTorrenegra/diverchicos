@@ -24,6 +24,7 @@ class AppAudio {
   static const String preschoolerBgm = 'audio/preschooler.mp3';
   static const String gridPuzzleBgm = 'audio/mrJelly.mp3';
   static const String chickenPathBgm = 'audio/daft_cat.mp3';
+  static const String pairsBgm = 'audio/forestBirds.mp3';
 
   static const double instructionBgmVolume = 0.1;
 
@@ -74,6 +75,7 @@ class AppAudio {
       preschoolerBgm,
       gridPuzzleBgm,
       chickenPathBgm,
+      pairsBgm,
     ]) {
       final p = await ensureLoopingBgm(asset);
       await p.setReleaseMode(ReleaseMode.loop);
@@ -184,6 +186,8 @@ class AppAudio {
 
   Future<void> playChickenPathLoop() => _startBgmLoop(chickenPathBgm);
 
+  Future<void> playPairsLoop() => _startBgmLoop(pairsBgm);
+
   Future<void> stopBgm() {
     if (kIsWeb) {
       _currentBgmAsset = null;
@@ -206,7 +210,13 @@ class AppAudio {
   Future<void> restoreBgmAfterInstructionPlayback() {
     _instructionDucked = false;
     if (kIsWeb) return _applyBgmVolume();
-    return _enqueue(_applyBgmVolume);
+    return _enqueue(() async {
+      await _applyBgmVolume();
+      if (_currentBgmAsset != null &&
+          _bgmPlayer.state != PlayerState.playing) {
+        await _bgmPlayer.resume();
+      }
+    });
   }
 
   Future<void> stopAll() {
