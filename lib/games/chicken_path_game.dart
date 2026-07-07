@@ -157,6 +157,12 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   static const int _kSlotCircleCycleMs =
       _kSlotCircleAnimateMs + _kSlotCirclePauseMs;
   static const double _kSlotCircleMaxOpacity = 0.55;
+  static const double _kPlayButtonSize = 500;
+  static const double _kPlayButtonPeakSize = 700;
+  static const double _kPlayButtonGap = 24;
+  static const int _kPlayButtonAppearMs = 1000;
+  static const int _kPlayButtonGrowMs = 600;
+  static const double _kPlayButtonStartScale = 0.01;
   static const Color _kGridBackground = Color(0xFF51A160);
 
   static const List<ChickenRoadFigureType> _kFigureTypes =
@@ -256,8 +262,10 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
 
   bool _exitingToMenu = false;
   bool _introToLevelStarted = false;
+  bool _pathReady = false;
 
   AnimationController? _slotCirclePulseController;
+  AnimationController? _playButtonAppearController;
 
   final AlternatingInstructionLoop _instructions = AlternatingInstructionLoop();
 
@@ -287,6 +295,8 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     _slotOccupants.clear();
     _draggingFigureId = null;
     _genMotion = _GenMotion.idle;
+    _pathReady = false;
+    _disposePlayButtonAppearAnimation();
     _figures = [
       for (var i = 0; i < _kFigureTypes.length; i++)
         _RoadFigureInstance(
@@ -451,16 +461,124 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
       return;
     }
 
-    final pathToChicken = _findPathToChicken();
-    if (pathToChicken != null) {
-      unawaited(_walkGen(pathToChicken, success: true));
-      return;
-    }
+    if (_pathReady) return;
 
     final fallbackPath = _findLongestWalkFromStart();
     if (fallbackPath != null) {
       unawaited(_walkGen(fallbackPath, success: false));
     }
+  }
+
+  void _updatePathReadyState() {
+    if (!mounted ||
+        _phase != _ChickenPhase.gameplay ||
+        _genMotion != _GenMotion.idle) {
+      return;
+    }
+    final ready = _findPathToChicken() != null;
+    if (ready == _pathReady) return;
+    if (ready) {
+      _startPlayButtonAppearAnimation();
+    } else {
+      _disposePlayButtonAppearAnimation();
+    }
+    setState(() => _pathReady = ready);
+  }
+
+  void _startPlayButtonAppearAnimation() {
+    _playButtonAppearController?.dispose();
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _kPlayButtonAppearMs),
+    );
+    controller.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _playButtonAppearController = controller;
+    controller.forward(from: 0);
+  }
+
+  void _disposePlayButtonAppearAnimation() {
+    _playButtonAppearController?.dispose();
+    _playButtonAppearController = null;
+  }
+
+  double _playButtonScale() {
+    final controller = _playButtonAppearController;
+    if (!_pathReady || controller == null) return 1;
+
+    final elapsedMs = controller.value * _kPlayButtonAppearMs;
+    final peakScale = _kPlayButtonPeakSize / _kPlayButtonSize;
+
+    if (elapsedMs <= _kPlayButtonGrowMs) {
+      final t = elapsedMs / _kPlayButtonGrowMs;
+      return _kPlayButtonStartScale +
+          (peakScale - _kPlayButtonStartScale) * Curves.easeOut.transform(t);
+    }
+
+    final t =
+        (elapsedMs - _kPlayButtonGrowMs) /
+        (_kPlayButtonAppearMs - _kPlayButtonGrowMs);
+    return peakScale + (1 - peakScale) * Curves.easeInOut.transform(t);
+  }
+
+  void _clearPathReady() {
+    if (!_pathReady) return;
+    _disposePlayButtonAppearAnimation();
+    setState(() => _pathReady = false);
+  }
+
+  void _tryStartGenWalk() {
+    if (_phase != _ChickenPhase.gameplay ||
+        _draggingFigureId != null ||
+        _genMotion != _GenMotion.idle ||
+        !_pathReady) {
+      return;
+    }
+
+    final pathToChicken = _findPathToChicken();
+    if (pathToChicken == null) {
+      _clearPathReady();
+      return;
+    }
+
+    _clearPathReady();
+    unawaited(_walkGen(pathToChicken, success: true));
+  }
+
+  Widget _buildPlayButton() {
+    if (!_pathReady) return const SizedBox.shrink();
+
+    final top = _gridOrigin.dy + (_gridSize.height - _kPlayButtonSize) / 2;
+    final left = _gridOrigin.dx - _kPlayButtonGap - _kPlayButtonSize;
+
+    return Positioned(
+      left: left,
+      top: top,
+      width: _kPlayButtonSize,
+      height: _kPlayButtonSize,
+      child: Transform.scale(
+        scale: _playButtonScale(),
+        child: PointerInterceptor(
+          child: Material(
+            color: const Color.fromARGB(255, 232, 6, 6),
+            elevation: 8,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: _tryStartGenWalk,
+              customBorder: const CircleBorder(),
+              child: const Center(
+                child: Icon(
+                  Icons.play_arrow_rounded,
+                  size: 440,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _walkGen(List<int> path, {required bool success}) async {
@@ -569,6 +687,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
       _genMotion = _GenMotion.idle;
       _genPosition = _slotTopLeft(_genSlot);
     });
+    _updatePathReadyState();
   }
 
   Future<void> _animateGenTo(Offset target) async {
@@ -893,7 +1012,10 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
       }
       setState(() => _draggingFigureId = null);
       await _animateFigureTo(figure, _figureHomeForIndex(figure.holderIndex));
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {});
+        _updatePathReadyState();
+      }
       return;
     }
 
@@ -912,6 +1034,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     } else if (mounted) {
       setState(() {});
     }
+    _updatePathReadyState();
   }
 
   _RoadFigureInstance? _homeFigureForSlot(int index) {
@@ -935,6 +1058,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     unawaited(_instructions.dispose());
     restoreAppPointerEvents();
     _slotCirclePulseController?.dispose();
+    _disposePlayButtonAppearAnimation();
     _introController?.removeListener(_onIntroTick);
     _introController?.dispose();
     _videoController?.removeListener(_onVideoTick);
@@ -948,7 +1072,9 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
       top: _genPosition.dy - _gridOrigin.dy,
       width: _gridSlotSize.width,
       height: _gridSlotSize.height,
-      child: IgnorePointer(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _pathReady ? _tryStartGenWalk : null,
         child: Image.asset(
           kChickenGenAsset,
           fit: BoxFit.contain,
@@ -1024,7 +1150,13 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
             _slotOccupants.remove(slot);
           }
         }
-        setState(() => _draggingFigureId = figure.id);
+        setState(() {
+          _draggingFigureId = figure.id;
+          if (figure.slotIndex != null) {
+            _disposePlayButtonAppearAnimation();
+            _pathReady = false;
+          }
+        });
       },
       onPanUpdate: (details) {
         if (_draggingFigureId != figure.id) return;
@@ -1184,6 +1316,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
         else
           const ColoredBox(color: Colors.black),
         _buildGridArea(),
+        _buildPlayButton(),
         _buildRoadFigureSlotCircles(),
         _buildRoadFigureRow(),
       ],

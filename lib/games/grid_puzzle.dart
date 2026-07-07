@@ -144,12 +144,18 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
 
   /// Home row for the six road sprites, directly under the puzzle grid.
   static const double _kRoadFiguresY = 844;
-  static const double _kSlotCircleSize = 250;
+  static const double _kSlotCircleSize = 300;
   static const int _kSlotCircleAnimateMs = 2000;
   static const int _kSlotCirclePauseMs = 2000;
   static const int _kSlotCircleCycleMs =
       _kSlotCircleAnimateMs + _kSlotCirclePauseMs;
   static const double _kSlotCircleMaxOpacity = 0.55;
+  static const double _kPlayButtonSize = 500;
+  static const double _kPlayButtonPeakSize = 700;
+  static const double _kPlayButtonGap = 24;
+  static const int _kPlayButtonAppearMs = 1000;
+  static const int _kPlayButtonGrowMs = 600;
+  static const double _kPlayButtonStartScale = 0.01;
 
   static const List<RoadFigureType> _kFigureTypes = RoadFigureType.values;
 
@@ -195,8 +201,10 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
 
   List<_FallingStar> _fallingStars = const [];
   bool _exitingToMenu = false;
+  bool _pathReady = false;
 
   AnimationController? _slotCirclePulseController;
+  AnimationController? _playButtonAppearController;
 
   final CutsceneInstructionLoop _instructions = CutsceneInstructionLoop();
 
@@ -533,16 +541,120 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
       return;
     }
 
-    final pathToPlane = _findPathToPlane();
-    if (pathToPlane != null) {
-      unawaited(_walkGirl(pathToPlane, success: true));
-      return;
-    }
+    if (_pathReady) return;
 
     final fallbackPath = _findLongestWalkFromStart();
     if (fallbackPath != null) {
       unawaited(_walkGirl(fallbackPath, success: false));
     }
+  }
+
+  void _updatePathReadyState() {
+    if (!mounted || _girlMotion != _GirlMotion.idle) return;
+    final ready = _findPathToPlane() != null;
+    if (ready == _pathReady) return;
+    if (ready) {
+      _startPlayButtonAppearAnimation();
+    } else {
+      _disposePlayButtonAppearAnimation();
+    }
+    setState(() => _pathReady = ready);
+  }
+
+  void _startPlayButtonAppearAnimation() {
+    _playButtonAppearController?.dispose();
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _kPlayButtonAppearMs),
+    );
+    controller.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _playButtonAppearController = controller;
+    controller.forward(from: 0);
+  }
+
+  void _disposePlayButtonAppearAnimation() {
+    _playButtonAppearController?.dispose();
+    _playButtonAppearController = null;
+  }
+
+  double _playButtonScale() {
+    final controller = _playButtonAppearController;
+    if (!_pathReady || controller == null) return 1;
+
+    final elapsedMs = controller.value * _kPlayButtonAppearMs;
+    final peakScale = _kPlayButtonPeakSize / _kPlayButtonSize;
+
+    if (elapsedMs <= _kPlayButtonGrowMs) {
+      final t = elapsedMs / _kPlayButtonGrowMs;
+      return _kPlayButtonStartScale +
+          (peakScale - _kPlayButtonStartScale) * Curves.easeOut.transform(t);
+    }
+
+    final t =
+        (elapsedMs - _kPlayButtonGrowMs) /
+        (_kPlayButtonAppearMs - _kPlayButtonGrowMs);
+    return peakScale + (1 - peakScale) * Curves.easeInOut.transform(t);
+  }
+
+  void _clearPathReady() {
+    if (!_pathReady) return;
+    _disposePlayButtonAppearAnimation();
+    setState(() => _pathReady = false);
+  }
+
+  void _tryStartGirlWalk() {
+    if (!_introFinished ||
+        _draggingFigureId != null ||
+        _girlMotion != _GirlMotion.idle ||
+        !_pathReady) {
+      return;
+    }
+
+    final pathToPlane = _findPathToPlane();
+    if (pathToPlane == null) {
+      _clearPathReady();
+      return;
+    }
+
+    _clearPathReady();
+    unawaited(_walkGirl(pathToPlane, success: true));
+  }
+
+  Widget _buildPlayButton() {
+    if (!_pathReady) return const SizedBox.shrink();
+
+    final top = _kGridOrigin.dy + (_kGridSize.height - _kPlayButtonSize) / 2;
+    final left = _kGridOrigin.dx - _kPlayButtonGap - _kPlayButtonSize;
+
+    return Positioned(
+      left: left,
+      top: top,
+      width: _kPlayButtonSize,
+      height: _kPlayButtonSize,
+      child: Transform.scale(
+        scale: _playButtonScale(),
+        child: PointerInterceptor(
+          child: Material(
+            color: const Color.fromARGB(255, 232, 6, 6),
+            elevation: 8,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: _tryStartGirlWalk,
+              customBorder: const CircleBorder(),
+              child: const Center(
+                child: Icon(
+                  Icons.play_arrow_rounded,
+                  size: 440,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _walkGirl(List<int> path, {required bool success}) async {
@@ -835,6 +947,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
       _girlMotion = _GirlMotion.idle;
       _girlPosition = _slotTopLeft(_kGirlSlot);
     });
+    _updatePathReadyState();
   }
 
   Future<void> _animateGirlTo(Offset target) async {
@@ -913,7 +1026,10 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
       }
       setState(() => _draggingFigureId = null);
       await _animateFigureTo(figure, _figureHomeForIndex(figure.holderIndex));
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {});
+        _updatePathReadyState();
+      }
       return;
     }
 
@@ -931,6 +1047,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     } else if (mounted) {
       setState(() {});
     }
+    _updatePathReadyState();
   }
 
   void _exitToMenu() {
@@ -948,6 +1065,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     _stopStarRainTicker();
     _whiteFade?.dispose();
     _slotCirclePulseController?.dispose();
+    _disposePlayButtonAppearAnimation();
     _introController?.removeListener(_onIntroTick);
     _introController?.dispose();
     _endingController?.dispose();
@@ -990,6 +1108,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
                         clipBehavior: Clip.none,
                         children: [
                           _buildGridArea(),
+                          _buildPlayButton(),
                           _buildPlane(),
                           _buildGirl(),
                           _buildRoadFigureSlotCircles(),
@@ -1122,7 +1241,9 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
       top: _girlPosition.dy,
       width: _kSlotSize.width,
       height: _kSlotSize.height,
-      child: IgnorePointer(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _pathReady ? _tryStartGirlWalk : null,
         child: Image.asset(
           '${_kAssetBase}girl.png',
           fit: BoxFit.contain,
@@ -1170,7 +1291,13 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
             _slotOccupants.remove(slot);
           }
         }
-        setState(() => _draggingFigureId = figure.id);
+        setState(() {
+          _draggingFigureId = figure.id;
+          if (figure.slotIndex != null) {
+            _disposePlayButtonAppearAnimation();
+            _pathReady = false;
+          }
+        });
       },
       onPanUpdate: (details) {
         if (_draggingFigureId != figure.id) return;
