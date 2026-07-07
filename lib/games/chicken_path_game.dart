@@ -151,13 +151,6 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   static const double _kRoadFiguresY = 844;
   static const Color _kGridBackground = Color(0xFF51A160);
 
-  static const int _kFigureGlowUpMs = 2000;
-  static const int _kFigureGlowDownMs = 2000;
-  static const int _kFigureGlowPauseMs = 2000;
-  static const int _kFigureGlowCycleMs =
-      _kFigureGlowUpMs + _kFigureGlowDownMs + _kFigureGlowPauseMs;
-  static const Color _kFigureGlowPink = Color(0xFFFFB7C5);
-
   static const List<ChickenRoadFigureType> _kFigureTypes =
       ChickenRoadFigureType.values;
 
@@ -253,8 +246,6 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   _GenMotion _genMotion = _GenMotion.idle;
   Offset _genPosition = Offset.zero;
 
-  AnimationController? _figureGlowController;
-  int _figureGlowIndex = 0;
   bool _exitingToMenu = false;
   bool _introToLevelStarted = false;
 
@@ -486,8 +477,6 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
 
   Future<void> _onLevelComplete() async {
     await _stopLevelInstructions();
-    _figureGlowController?.dispose();
-    _figureGlowController = null;
 
     final isLastLevel = _levelIndex >= _kLevels.length - 1;
     if (isLastLevel) {
@@ -530,8 +519,6 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     _exitingToMenu = true;
 
     await _stopLevelInstructions();
-    _figureGlowController?.dispose();
-    _figureGlowController = null;
     await _disposeIntro();
     await _disposeActiveVideo();
     restoreAppPointerEvents();
@@ -759,7 +746,6 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     if (!_instructions.isRunning) {
       _startLevelInstructions();
     }
-    _startFigureGlowCycle();
     unawaited(_releaseVideoPointerCapture());
   }
 
@@ -767,73 +753,6 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     disableVideoPointerEvents();
     await Future<void>.delayed(const Duration(milliseconds: 100));
     if (mounted) disableVideoPointerEvents();
-  }
-
-  void _startFigureGlowCycle() {
-    _figureGlowController?.dispose();
-    _figureGlowIndex = 0;
-    final controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: _kFigureGlowCycleMs),
-    );
-    controller.addListener(() {
-      if (mounted) setState(() {});
-    });
-    controller.addStatusListener((status) {
-      if (status != AnimationStatus.completed || !mounted) return;
-      setState(() {
-        _figureGlowIndex = (_figureGlowIndex + 1) % _kFigureTypes.length;
-      });
-      controller.forward(from: 0);
-    });
-    _figureGlowController = controller;
-    controller.forward();
-  }
-
-  double _figureGlowIntensity(int holderIndex) {
-    final controller = _figureGlowController;
-    if (_phase != _ChickenPhase.gameplay ||
-        controller == null ||
-        holderIndex != _figureGlowIndex) {
-      return 0;
-    }
-
-    final elapsedMs = controller.value * _kFigureGlowCycleMs;
-    if (elapsedMs < _kFigureGlowUpMs) {
-      return Curves.easeInOut.transform(elapsedMs / _kFigureGlowUpMs);
-    }
-    if (elapsedMs < _kFigureGlowUpMs + _kFigureGlowDownMs) {
-      final t = (elapsedMs - _kFigureGlowUpMs) / _kFigureGlowDownMs;
-      return 1.0 - Curves.easeInOut.transform(t);
-    }
-    return 0;
-  }
-
-  Widget _buildFigureGlowWrapper(int holderIndex, Widget child) {
-    final glow = _figureGlowIntensity(holderIndex);
-    if (glow <= 0) return child;
-
-    final scale = 1.0 + glow * 0.22;
-    return Transform.scale(
-      scale: scale,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: _kFigureGlowPink.withValues(alpha: glow * 0.95),
-              blurRadius: 10 + glow * 34,
-              spreadRadius: glow * 14,
-            ),
-            BoxShadow(
-              color: const Color(0xFFFFE4EC).withValues(alpha: glow * 0.75),
-              blurRadius: 4 + glow * 18,
-              spreadRadius: glow * 6,
-            ),
-          ],
-        ),
-        child: child,
-      ),
-    );
   }
 
   int? _slotAtPosition(Offset figureTopLeft, Size figureSize) {
@@ -948,7 +867,6 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   void dispose() {
     unawaited(_instructions.dispose());
     restoreAppPointerEvents();
-    _figureGlowController?.dispose();
     _introController?.removeListener(_onIntroTick);
     _introController?.dispose();
     _videoController?.removeListener(_onVideoTick);
@@ -1063,15 +981,12 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
         ? figure.position - home
         : Offset.zero;
 
-    return _buildFigureGlowWrapper(
-      index,
-      Transform.translate(
-        offset: dragOffset,
-        child: _buildFigureGesture(
-          figure,
-          homePosition: home,
-          displaySize: _kRoadSlotSize,
-        ),
+    return Transform.translate(
+      offset: dragOffset,
+      child: _buildFigureGesture(
+        figure,
+        homePosition: home,
+        displaySize: _kRoadSlotSize,
       ),
     );
   }
