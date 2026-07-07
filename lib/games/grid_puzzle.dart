@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:video_player/video_player.dart';
 
 import '../utils/cutscene_instruction_loop.dart';
@@ -167,9 +168,12 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
       _kFigureGlowUpMs + _kFigureGlowDownMs + _kFigureGlowPauseMs;
   static const Color _kFigureGlowPink = Color(0xFFFFB7C5);
 
+  static const double _kIntroFastPlaybackSpeed = 5.0;
+
   VideoPlayerController? _introController;
   bool _introReady = false;
   bool _introFinished = false;
+  bool _introPlaybackBoosted = false;
 
   VideoPlayerController? _endingController;
   bool _endingReady = false;
@@ -420,13 +424,51 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     if (!value.isInitialized || value.hasError) return;
     if (value.isCompleted && !_introFinished) {
       unawaited(v.pause());
-      setState(() => _introFinished = true);
-      if (!_instructions.isRunning) {
-        _startGameplayInstructions();
-      }
-      _startFigureGlowCycle();
-      unawaited(_releaseVideoPointerCapture());
+      v.removeListener(_onIntroTick);
+      _finishIntro();
     }
+  }
+
+  void _finishIntro() {
+    if (_introFinished) return;
+    setState(() => _introFinished = true);
+    if (!_instructions.isRunning) {
+      _startGameplayInstructions();
+    }
+    _startFigureGlowCycle();
+    unawaited(_releaseVideoPointerCapture());
+  }
+
+  Future<void> _speedUpIntro() async {
+    if (_introFinished || !_introReady || _introPlaybackBoosted) return;
+    final v = _introController;
+    if (v == null) return;
+
+    _introPlaybackBoosted = true;
+    await v.setPlaybackSpeed(_kIntroFastPlaybackSpeed);
+    if (!mounted || _introFinished) return;
+    if (!v.value.isPlaying) {
+      await v.play();
+    }
+    setState(() {});
+  }
+
+  Widget _buildIntroSkipButton() {
+    return Positioned(
+      left: 16,
+      top: 20,
+      child: PointerInterceptor(
+        child: Material(
+          color: const Color(0xFFFFC107),
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            onTap: () => unawaited(_speedUpIntro()),
+            borderRadius: BorderRadius.circular(8),
+            child: const SizedBox(width: 40, height: 40),
+          ),
+        ),
+      ),
+    );
   }
 
   void _startFigureGlowCycle() {
@@ -939,8 +981,10 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
                   if (_gameplayVisible &&
                       _introReady &&
                       _introController != null &&
-                      !_introFinished)
+                      !_introFinished) ...[
                     Positioned.fill(child: VideoPlayer(_introController!)),
+                    if (!_introPlaybackBoosted) _buildIntroSkipButton(),
+                  ],
                   if (_gameplayVisible &&
                       _introReady &&
                       _introController != null &&
