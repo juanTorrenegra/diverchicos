@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -143,6 +144,12 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
 
   /// Home row for the six road sprites, directly under the puzzle grid.
   static const double _kRoadFiguresY = 844;
+  static const double _kSlotCircleSize = 250;
+  static const int _kSlotCircleAnimateMs = 2000;
+  static const int _kSlotCirclePauseMs = 2000;
+  static const int _kSlotCircleCycleMs =
+      _kSlotCircleAnimateMs + _kSlotCirclePauseMs;
+  static const double _kSlotCircleMaxOpacity = 0.55;
 
   static const List<RoadFigureType> _kFigureTypes = RoadFigureType.values;
 
@@ -188,6 +195,8 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
 
   List<_FallingStar> _fallingStars = const [];
   bool _exitingToMenu = false;
+
+  AnimationController? _slotCirclePulseController;
 
   final CutsceneInstructionLoop _instructions = CutsceneInstructionLoop();
 
@@ -425,7 +434,64 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     if (!_instructions.isRunning) {
       _startGameplayInstructions();
     }
+    _startSlotCirclePulse();
     unawaited(_releaseVideoPointerCapture());
+  }
+
+  void _startSlotCirclePulse() {
+    _slotCirclePulseController?.dispose();
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _kSlotCircleCycleMs),
+    );
+    controller.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _slotCirclePulseController = controller;
+    controller.repeat();
+  }
+
+  double _slotCircleOpacity() {
+    final controller = _slotCirclePulseController;
+    if (!_introFinished || controller == null) return 0;
+
+    final elapsedMs = controller.value * _kSlotCircleCycleMs;
+    if (elapsedMs >= _kSlotCircleAnimateMs) return 0;
+
+    final t = elapsedMs / _kSlotCircleAnimateMs;
+    return math.sin(t * math.pi) * _kSlotCircleMaxOpacity;
+  }
+
+  Widget _buildRoadFigureSlotCircles() {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        for (var i = 0; i < _kFigureTypes.length; i++)
+          _buildSlotCircleHighlight(i),
+      ],
+    );
+  }
+
+  Widget _buildSlotCircleHighlight(int index) {
+    final home = _figureHomeForIndex(index);
+    final opacity = _slotCircleOpacity();
+    return Positioned(
+      left: home.dx + (_kSlotSize.width - _kSlotCircleSize) / 2,
+      top: home.dy + (_kSlotSize.height - _kSlotCircleSize) / 2,
+      width: _kSlotCircleSize,
+      height: _kSlotCircleSize,
+      child: IgnorePointer(
+        child: ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.red.withValues(alpha: opacity),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _speedUpIntro() async {
@@ -881,6 +947,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     restoreAppPointerEvents();
     _stopStarRainTicker();
     _whiteFade?.dispose();
+    _slotCirclePulseController?.dispose();
     _introController?.removeListener(_onIntroTick);
     _introController?.dispose();
     _endingController?.dispose();
@@ -925,6 +992,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
                           _buildGridArea(),
                           _buildPlane(),
                           _buildGirl(),
+                          _buildRoadFigureSlotCircles(),
                           _buildRoadFigureRow(),
                         ],
                       ),

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -149,6 +151,12 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
 
   static const Size _kRoadSlotSize = Size(188, 185);
   static const double _kRoadFiguresY = 844;
+  static const double _kSlotCircleSize = 250;
+  static const int _kSlotCircleAnimateMs = 2000;
+  static const int _kSlotCirclePauseMs = 2000;
+  static const int _kSlotCircleCycleMs =
+      _kSlotCircleAnimateMs + _kSlotCirclePauseMs;
+  static const double _kSlotCircleMaxOpacity = 0.55;
   static const Color _kGridBackground = Color(0xFF51A160);
 
   static const List<ChickenRoadFigureType> _kFigureTypes =
@@ -248,6 +256,8 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
 
   bool _exitingToMenu = false;
   bool _introToLevelStarted = false;
+
+  AnimationController? _slotCirclePulseController;
 
   final AlternatingInstructionLoop _instructions = AlternatingInstructionLoop();
 
@@ -746,7 +756,64 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     if (!_instructions.isRunning) {
       _startLevelInstructions();
     }
+    _startSlotCirclePulse();
     unawaited(_releaseVideoPointerCapture());
+  }
+
+  void _startSlotCirclePulse() {
+    _slotCirclePulseController?.dispose();
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _kSlotCircleCycleMs),
+    );
+    controller.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _slotCirclePulseController = controller;
+    controller.repeat();
+  }
+
+  double _slotCircleOpacity() {
+    final controller = _slotCirclePulseController;
+    if (_phase != _ChickenPhase.gameplay || controller == null) return 0;
+
+    final elapsedMs = controller.value * _kSlotCircleCycleMs;
+    if (elapsedMs >= _kSlotCircleAnimateMs) return 0;
+
+    final t = elapsedMs / _kSlotCircleAnimateMs;
+    return math.sin(t * math.pi) * _kSlotCircleMaxOpacity;
+  }
+
+  Widget _buildRoadFigureSlotCircles() {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        for (var i = 0; i < _kFigureTypes.length; i++)
+          _buildSlotCircleHighlight(i),
+      ],
+    );
+  }
+
+  Widget _buildSlotCircleHighlight(int index) {
+    final home = _figureHomeForIndex(index);
+    final opacity = _slotCircleOpacity();
+    return Positioned(
+      left: home.dx + (_kRoadSlotSize.width - _kSlotCircleSize) / 2,
+      top: home.dy + (_kRoadSlotSize.height - _kSlotCircleSize) / 2,
+      width: _kSlotCircleSize,
+      height: _kSlotCircleSize,
+      child: IgnorePointer(
+        child: ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.red.withValues(alpha: opacity),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _releaseVideoPointerCapture() async {
@@ -867,6 +934,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   void dispose() {
     unawaited(_instructions.dispose());
     restoreAppPointerEvents();
+    _slotCirclePulseController?.dispose();
     _introController?.removeListener(_onIntroTick);
     _introController?.dispose();
     _videoController?.removeListener(_onVideoTick);
@@ -1116,6 +1184,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
         else
           const ColoredBox(color: Colors.black),
         _buildGridArea(),
+        _buildRoadFigureSlotCircles(),
         _buildRoadFigureRow(),
       ],
     );
