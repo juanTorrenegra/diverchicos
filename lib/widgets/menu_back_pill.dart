@@ -84,7 +84,7 @@ class MenuExitButton extends StatelessWidget {
     final frame = layoutSize ?? mq;
     final divisor = kIsWeb ? 24.0 : 12.0;
     final diameter = frame.width / divisor;
-    final iconSize = (diameter * 0.48).clamp(18.0, 40.0);
+    final iconSize = (diameter * 0.62).clamp(28.0, 72.0);
 
     return SizedBox(
       width: diameter,

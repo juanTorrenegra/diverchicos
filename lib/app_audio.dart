@@ -32,6 +32,9 @@ class AppAudio {
   bool _instructionDucked = false;
   String? _currentBgmAsset;
 
+  bool _pausedForBackground = false;
+  bool _bgmWasPlayingBeforeBackground = false;
+
   String? get currentBgmAsset => _currentBgmAsset;
 
   double get _bgmVolume =>
@@ -234,6 +237,50 @@ class AppAudio {
       _currentBgmAsset = null;
       await _fxPlayer.stop();
       await _bgmPlayer.stop();
+    });
+  }
+
+  /// Pauses BGM when the app leaves the foreground (home button, app switcher).
+  Future<void> pauseForBackground() {
+    if (_pausedForBackground) return Future<void>.value();
+    _pausedForBackground = true;
+
+    if (kIsWeb) {
+      final current = _webCurrentBgm;
+      if (current == null) return Future<void>.value();
+      final player = _webBgmPlayers[current];
+      _bgmWasPlayingBeforeBackground =
+          player?.state == PlayerState.playing;
+      return player?.pause() ?? Future<void>.value();
+    }
+
+    return _enqueue(() async {
+      _bgmWasPlayingBeforeBackground =
+          _bgmPlayer.state == PlayerState.playing;
+      await _bgmPlayer.pause();
+    });
+  }
+
+  /// Resumes BGM after returning to the foreground if it was playing before.
+  Future<void> resumeFromBackground() {
+    if (!_pausedForBackground) return Future<void>.value();
+    _pausedForBackground = false;
+
+    if (!_bgmWasPlayingBeforeBackground || _currentBgmAsset == null) {
+      return Future<void>.value();
+    }
+
+    if (kIsWeb) {
+      final current = _webCurrentBgm ?? _currentBgmAsset;
+      if (current == null) return Future<void>.value();
+      final player = _webBgmPlayers[current];
+      return player?.resume() ?? Future<void>.value();
+    }
+
+    return _enqueue(() async {
+      if (_bgmPlayer.state != PlayerState.playing) {
+        await _bgmPlayer.resume();
+      }
     });
   }
 

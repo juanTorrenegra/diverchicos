@@ -33,18 +33,64 @@ class DiverchicosApp extends StatefulWidget {
   State<DiverchicosApp> createState() => _DiverchicosAppState();
 }
 
-class _DiverchicosAppState extends State<DiverchicosApp> {
+class _DiverchicosAppState extends State<DiverchicosApp>
+    with WidgetsBindingObserver {
+  static const Duration _kBackgroundExitDelay = Duration(minutes: 2);
+
   final bool _needsWebTapToStart = kIsWeb;
   bool _started = !kIsWeb;
   DiverchicosGame? _game;
+  Timer? _backgroundExitTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_setPortraitIntroOrientation());
     if (_started) {
       _game = _createGame();
     }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _backgroundExitTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+        _onAppBackgrounded();
+      case AppLifecycleState.resumed:
+        _onAppForegrounded();
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+        break;
+    }
+  }
+
+  void _onAppBackgrounded() {
+    unawaited(AppAudio.instance.pauseForBackground());
+    _backgroundExitTimer?.cancel();
+    _backgroundExitTimer = Timer(_kBackgroundExitDelay, _exitAfterBackgroundTimeout);
+  }
+
+  void _onAppForegrounded() {
+    _backgroundExitTimer?.cancel();
+    _backgroundExitTimer = null;
+    unawaited(AppAudio.instance.resumeFromBackground());
+  }
+
+  void _exitAfterBackgroundTimeout() {
+    _backgroundExitTimer = null;
+    unawaited(() async {
+      await AppAudio.instance.stopAll();
+      SystemNavigator.pop();
+    }());
   }
 
   bool get _isAndroidOnly =>
