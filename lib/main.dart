@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import 'app_audio.dart';
 import 'diverchicos_game.dart';
+import 'frog_intro.dart';
 import 'menu/main_menu_overlay.dart';
 
 void main() {
@@ -121,7 +122,15 @@ class _DiverchicosAppState extends State<DiverchicosApp> {
         backgroundBuilder: (context) =>
             const ColoredBox(color: Color.fromRGBO(28, 49, 132, 1)),
         overlayBuilderMap: {
-          'mainMenu': (BuildContext context, game) {
+          kFrogIntroOverlay: (BuildContext context, DiverchicosGame game) {
+            return Positioned.fill(
+              child: FrogIntroOverlay(
+                onIntroVoiceStart: game.handleFrogIntroVoiceStart,
+                onFinished: game.handleFrogIntroFinished,
+              ),
+            );
+          },
+          kMainMenuOverlay: (BuildContext context, game) {
             return Positioned.fill(child: MainMenuOverlay());
           },
         },

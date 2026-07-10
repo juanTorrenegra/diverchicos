@@ -6,6 +6,7 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:video_player/video_player.dart';
 
 import '../utils/cutscene_instruction_loop.dart';
+import '../widgets/diverchicos_loading_screen.dart';
 import '../widgets/menu_back_pill.dart';
 import 'pairs_instruction_audio.dart';
 
@@ -154,11 +155,6 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
         _kLogicalH / 2 - _cardHeight / 2,
       );
 
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_bootstrapBackground());
-  }
 
   List<_PairCardModel> _buildCardsForLevel(int levelIndex) {
     final level = _kLevels[levelIndex];
@@ -228,28 +224,41 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     ];
   }
 
-  Future<void> _bootstrapBackground() async {
+  Future<void> _bootstrapBackground(LoadProgressCallback reportProgress) async {
+    reportProgress(0.1);
     final c = VideoPlayerController.asset(
       kPairsBackgroundVideoAsset,
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
     );
+    reportProgress(0.25);
     try {
-      await c.initialize();
+      await c.initialize().timeout(const Duration(seconds: 20));
+      reportProgress(0.85);
       if (!mounted) {
         await c.dispose();
         return;
       }
       await c.setLooping(true);
-      await c.play();
+      if (!mounted) {
+        await c.dispose();
+        return;
+      }
       setState(() {
         _bgController = c;
         _bgReady = true;
       });
-      unawaited(_startLevel(skipInitialDelay: false));
+      reportProgress(1);
     } catch (_) {
       await c.dispose();
       if (mounted) _exitToMenu();
     }
+  }
+
+  void _startAfterReveal() {
+    final c = _bgController;
+    if (c == null) return;
+    unawaited(c.play());
+    unawaited(_startLevel(skipInitialDelay: false));
   }
 
   Future<void> _startLevel({required bool skipInitialDelay}) async {
@@ -544,6 +553,16 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    return DiverchicosLoadingScreen(
+      load: _bootstrapBackground,
+      useFrogVideo: false,
+      showLogo: false,
+      onRevealed: _startAfterReveal,
+      child: _buildViewport(),
+    );
+  }
+
+  Widget _buildViewport() {
     return ColoredBox(
       color: Colors.black,
       child: Center(

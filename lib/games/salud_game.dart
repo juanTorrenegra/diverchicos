@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../utils/cutscene_instruction_loop.dart';
+import '../widgets/diverchicos_loading_screen.dart';
 import '../widgets/menu_back_pill.dart';
 import 'salud_cat_game.dart';
 import 'salud_cow_game.dart';
@@ -66,34 +67,37 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
     widget.onClose();
   }
 
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_bootstrapIntro());
-  }
-
-  Future<void> _bootstrapIntro() async {
+  Future<void> _bootstrapIntro(LoadProgressCallback reportProgress) async {
+    reportProgress(0.1);
     final c = VideoPlayerController.asset(
       kSaludCowCatIntroAsset,
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
     );
+    reportProgress(0.25);
     try {
-      await c.initialize();
+      await c.initialize().timeout(const Duration(seconds: 20));
+      reportProgress(0.85);
       if (!mounted) {
         await c.dispose();
         return;
       }
       await c.setLooping(false);
       c.addListener(_onIntroTick);
-      await c.play();
       setState(() {
         _introController = c;
         _introReady = true;
       });
+      reportProgress(1);
     } catch (_) {
       await c.dispose();
       if (mounted) _exitToMenu();
     }
+  }
+
+  void _startIntroPlayback() {
+    final c = _introController;
+    if (c == null) return;
+    unawaited(c.play());
   }
 
   void _onIntroTick() {
@@ -340,6 +344,16 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
 
   @override
   Widget build(BuildContext context) {
+    return DiverchicosLoadingScreen(
+      load: _bootstrapIntro,
+      useFrogVideo: false,
+      showLogo: false,
+      onRevealed: _startIntroPlayback,
+      child: _buildViewport(),
+    );
+  }
+
+  Widget _buildViewport() {
     return ColoredBox(
       color: Colors.black,
       child: SafeArea(

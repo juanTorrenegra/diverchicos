@@ -8,6 +8,7 @@ import 'package:video_player/video_player.dart';
 
 import '../utils/disable_video_pointer.dart';
 import '../utils/alternating_instruction_loop.dart';
+import '../widgets/diverchicos_loading_screen.dart';
 import '../widgets/menu_back_pill.dart';
 import 'chicken_instruction_audio.dart';
 
@@ -286,7 +287,6 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   void initState() {
     super.initState();
     _resetFiguresForLevel();
-    unawaited(_bootstrapIntro());
   }
 
   String _newFigureId() => 'chicken_road_${_nextFigureId++}';
@@ -798,28 +798,42 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     unawaited(_finishActiveVideo());
   }
 
-  Future<void> _bootstrapIntro() async {
+  Future<void> _bootstrapIntro(LoadProgressCallback reportProgress) async {
+    reportProgress(0.1);
     final c = VideoPlayerController.asset(
       kChickenIntroAsset,
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
     );
+    reportProgress(0.25);
     try {
-      await c.initialize();
+      await c.initialize().timeout(const Duration(seconds: 20));
+      reportProgress(0.85);
       if (!mounted) {
         await c.dispose();
         return;
       }
       await c.setLooping(false);
       c.addListener(_onIntroTick);
-      await c.play();
       setState(() {
         _introController = c;
         _introReady = true;
       });
+      reportProgress(1);
     } catch (_) {
       await c.dispose();
       if (mounted) unawaited(_startFirstLevel());
     }
+  }
+
+  void _startIntroPlayback() {
+    final c = _introController;
+    if (c == null) {
+      if (mounted && _phase == _ChickenPhase.intro) {
+        unawaited(_startFirstLevel());
+      }
+      return;
+    }
+    unawaited(c.play());
   }
 
   void _onIntroTick() {
@@ -1344,6 +1358,16 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
 
   @override
   Widget build(BuildContext context) {
+    return DiverchicosLoadingScreen(
+      load: _bootstrapIntro,
+      useFrogVideo: false,
+      showLogo: false,
+      onRevealed: _startIntroPlayback,
+      child: _buildViewport(),
+    );
+  }
+
+  Widget _buildViewport() {
     return ColoredBox(
       color: Colors.black,
       child: Center(

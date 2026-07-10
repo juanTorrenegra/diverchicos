@@ -1,12 +1,21 @@
 import 'package:web/web.dart' as web;
 
+/// Elements whose `pointer-events` style was changed by [disableVideoPointerEvents].
+final List<web.HTMLElement> _pointerCaptureOverrides = <web.HTMLElement>[];
+
+void _setPointerEventsNone(web.HTMLElement element) {
+  if (element.style.pointerEvents == 'none') return;
+  _pointerCaptureOverrides.add(element);
+  element.style.pointerEvents = 'none';
+}
+
 /// Lets Flutter widgets receive drags/taps over a paused intro video on web.
 void disableVideoPointerEvents() {
   final videos = web.document.querySelectorAll('video');
   for (var i = 0; i < videos.length; i++) {
     final node = videos.item(i);
     if (node is web.HTMLVideoElement) {
-      node.style.pointerEvents = 'none';
+      _setPointerEventsNone(node);
       _disablePointerOnPlatformViewAncestors(node);
     }
   }
@@ -15,6 +24,11 @@ void disableVideoPointerEvents() {
 /// Clears pointer-event overrides applied by [disableVideoPointerEvents].
 /// Call when tearing down a game layer so the menu stays interactive.
 void restoreAppPointerEvents() {
+  for (final element in _pointerCaptureOverrides) {
+    element.style.pointerEvents = '';
+  }
+  _pointerCaptureOverrides.clear();
+
   final videos = web.document.querySelectorAll('video');
   for (var i = 0; i < videos.length; i++) {
     final node = videos.item(i);
@@ -39,7 +53,7 @@ void _disablePointerOnPlatformViewAncestors(web.HTMLVideoElement video) {
     final tag = parent.tagName;
     if (tag == 'FLUTTER-VIEW' || tag == 'BODY') break;
     if (parent is web.HTMLElement) {
-      parent.style.pointerEvents = 'none';
+      _setPointerEventsNone(parent);
     }
     parent = parent.parentElement;
     depth++;

@@ -9,6 +9,7 @@ import 'package:video_player/video_player.dart';
 
 import '../utils/cutscene_instruction_loop.dart';
 import '../utils/disable_video_pointer.dart';
+import '../widgets/diverchicos_loading_screen.dart';
 import '../widgets/menu_back_pill.dart';
 import 'chicken_instruction_audio.dart';
 
@@ -179,6 +180,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
   VideoPlayerController? _introController;
   bool _introReady = false;
   bool _introFinished = false;
+  bool _introPlaybackStarted = false;
   bool _introPlaybackBoosted = false;
 
   VideoPlayerController? _endingController;
@@ -233,7 +235,78 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
         )..position = _figureHomeForIndex(i),
     ];
     _girlPosition = _slotTopLeft(_kGirlSlot);
-    unawaited(_bootstrapIntro());
+  }
+
+  Future<void> _bootstrapIntroWithProgress(
+    LoadProgressCallback reportProgress,
+  ) async {
+    reportProgress(0.05);
+    final c = VideoPlayerController.asset(
+      kGridPuzzleIntroAsset,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    reportProgress(0.2);
+    try {
+      await c.initialize().timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => throw TimeoutException('grid intro init'),
+      );
+      reportProgress(0.85);
+      if (!mounted) {
+        await c.dispose();
+        return;
+      }
+      await c.setLooping(false);
+      reportProgress(0.95);
+      c.addListener(_onIntroTick);
+      if (!mounted) {
+        await c.dispose();
+        return;
+      }
+      setState(() {
+        _introController = c;
+        _introReady = true;
+      });
+      reportProgress(1);
+    } on TimeoutException {
+      await c.dispose();
+      if (mounted) _skipIntroOnLoadFailure();
+    } catch (_) {
+      await c.dispose();
+      if (mounted) _skipIntroOnLoadFailure();
+    }
+  }
+
+  void _skipIntroOnLoadFailure() {
+    setState(() {
+      _introReady = true;
+      _introFinished = true;
+    });
+    if (!_instructions.isRunning) {
+      _startGameplayInstructions();
+    }
+    _startSlotCirclePulse();
+  }
+
+  void _startIntroPlayback() {
+    final controller = _introController;
+    if (controller == null ||
+        _introPlaybackStarted ||
+        _introFinished ||
+        !_introReady) {
+      return;
+    }
+    _introPlaybackStarted = true;
+    unawaited(() async {
+      try {
+        await controller.play();
+      } catch (_) {
+        if (mounted) _skipIntroOnLoadFailure();
+        return;
+      }
+      if (!mounted) return;
+      unawaited(_releaseVideoPointerCapture());
+    }());
   }
 
   String _newFigureId() => 'road_${_nextFigureId++}';
@@ -398,30 +471,6 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
 
     visit(0, 0, const [_kGirlSlot], {'0,0'});
     return best.length > 1 ? best : null;
-  }
-
-  Future<void> _bootstrapIntro() async {
-    final c = VideoPlayerController.asset(
-      kGridPuzzleIntroAsset,
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-    );
-    try {
-      await c.initialize();
-      if (!mounted) {
-        await c.dispose();
-        return;
-      }
-      await c.setLooping(false);
-      c.addListener(_onIntroTick);
-      await c.play();
-      setState(() {
-        _introController = c;
-        _introReady = true;
-      });
-    } catch (_) {
-      await c.dispose();
-      if (mounted) _exitToMenu();
-    }
   }
 
   void _onIntroTick() {
@@ -1074,6 +1123,16 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
 
   @override
   Widget build(BuildContext context) {
+    return DiverchicosLoadingScreen(
+      load: _bootstrapIntroWithProgress,
+      useFrogVideo: false,
+      showLogo: false,
+      onRevealed: _startIntroPlayback,
+      child: _buildGameViewport(),
+    );
+  }
+
+  Widget _buildGameViewport() {
     return ColoredBox(
       color: Colors.black,
       child: Center(
@@ -1117,7 +1176,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
                       ),
                     )
                   else if (!_introReady && _gameplayVisible)
-                    const ColoredBox(color: Colors.black),
+                    const SizedBox.shrink(),
                   if (_endingReady && _endingController != null)
                     Positioned.fill(
                       child: IgnorePointer(

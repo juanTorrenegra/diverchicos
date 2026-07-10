@@ -65,6 +65,76 @@ class MenuBackPill extends StatelessWidget {
   }
 }
 
+/// Circular exit control: native uses screen/12; web uses screen/24.
+class MenuExitButton extends StatelessWidget {
+  const MenuExitButton({
+    super.key,
+    required this.onPressed,
+    this.layoutSize,
+  });
+
+  final VoidCallback onPressed;
+
+  /// When set, button size is derived from this frame instead of [MediaQuery].
+  final Size? layoutSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.sizeOf(context);
+    final frame = layoutSize ?? mq;
+    final divisor = kIsWeb ? 24.0 : 12.0;
+    final diameter = frame.width / divisor;
+    final iconSize = (diameter * 0.48).clamp(18.0, 40.0);
+
+    return SizedBox(
+      width: diameter,
+      height: diameter,
+      child: FilledButton(
+        style: FilledButton.styleFrom(
+          padding: EdgeInsets.zero,
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: const CircleBorder(),
+          backgroundColor: const Color(0xCC1A237E),
+          foregroundColor: Colors.white,
+        ),
+        onPressed: onPressed,
+        child: Icon(Icons.exit_to_app, size: iconSize),
+      ),
+    );
+  }
+}
+
+/// Exit button anchored to the top-right of the fixed **1980×1080** game frame.
+class GameLogicalExitButton extends StatelessWidget {
+  const GameLogicalExitButton({
+    super.key,
+    required this.onPressed,
+    this.top = 20,
+    this.right = 16,
+  });
+
+  static const Size kLogicalSize = Size(1980, 1080);
+
+  final VoidCallback onPressed;
+  final double top;
+  final double right;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: top,
+      right: right,
+      child: PointerInterceptor(
+        child: MenuExitButton(
+          onPressed: onPressed,
+          layoutSize: kLogicalSize,
+        ),
+      ),
+    );
+  }
+}
+
 /// Back pill anchored to the top-right of the fixed **1980×1080** game frame.
 class GameLogicalBackPill extends StatelessWidget {
   const GameLogicalBackPill({

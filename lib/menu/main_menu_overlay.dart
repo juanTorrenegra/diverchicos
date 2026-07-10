@@ -11,6 +11,7 @@ import '../games/grid_puzzle.dart';
 import '../games/pairs.dart';
 import '../games/pop_bunny.dart';
 import '../games/salud_game.dart';
+import '../widgets/menu_back_pill.dart';
 
 class MainMenuOverlay extends StatefulWidget {
   const MainMenuOverlay({super.key});
@@ -125,6 +126,19 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
 
   void _returnFromCreditosToMenu() {
     setState(() => _showCreditos = false);
+  }
+
+  bool get _miniGameOpen =>
+      _showSaludIntro ||
+      _showGridPuzzle ||
+      _showPopBunny ||
+      _showChickenPath ||
+      _showPairs ||
+      _showCreditos;
+
+  void _exitApp() {
+    unawaited(AppAudio.instance.stopBgm());
+    SystemNavigator.pop();
   }
 
   List<MenuGameCardData> _cards() {
@@ -259,6 +273,24 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
                   final t = _saludReturnWhiteFade!.value.clamp(0.0, 1.0);
                   return ColoredBox(color: Color.fromRGBO(255, 255, 255, t));
                 },
+              ),
+            ),
+          ),
+        if (!_miniGameOpen)
+          Positioned.fill(
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.fill,
+                child: SizedBox(
+                  width: GameLogicalExitButton.kLogicalSize.width,
+                  height: GameLogicalExitButton.kLogicalSize.height,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      GameLogicalExitButton(onPressed: _exitApp),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
