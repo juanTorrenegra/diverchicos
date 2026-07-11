@@ -8,7 +8,7 @@ const String kDiverchicosLogoAsset = 'assets/images/diverchicos.png';
 const String kFrogStillAsset = 'assets/images/frog.png';
 
 /// Shared Diverchicos blue used by the frog splash and loading screens.
-const Color kDiverchicosLoaderBlue = Color.fromRGBO(0, 158, 233, 1);
+const Color kDiverchicosLoaderBlue = Color.fromARGB(233, 0, 159, 233);
 
 /// Animated frog jump + logo (+ optional load percentage).
 ///

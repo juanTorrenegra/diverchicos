@@ -5,6 +5,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 
 import 'app_audio.dart';
+import 'widgets/frog_loader.dart';
 
 /// Overlay key for the frog splash shown before the main menu.
 const String kFrogIntroOverlay = 'frogIntro';
@@ -77,7 +78,7 @@ class DiverchicosGame extends FlameGame {
   }
 
   @override
-  ui.Color backgroundColor() => const ui.Color.fromRGBO(0, 158, 233, 1);
+  ui.Color backgroundColor() => ui.Color(kDiverchicosLoaderBlue.toARGB32());
 
   @override
   Future<void> onLoad() async {
