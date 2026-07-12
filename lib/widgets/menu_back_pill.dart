@@ -65,7 +65,7 @@ class MenuBackPill extends StatelessWidget {
   }
 }
 
-/// Circular exit control: native uses screen/12; web uses screen/24.
+/// Circular exit control: smaller than the back pill; yellow on all platforms.
 class MenuExitButton extends StatelessWidget {
   const MenuExitButton({
     super.key,
@@ -82,9 +82,9 @@ class MenuExitButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final mq = MediaQuery.sizeOf(context);
     final frame = layoutSize ?? mq;
-    final divisor = kIsWeb ? 24.0 : 12.0;
+    final divisor = kIsWeb ? 36.0 : 22.0;
     final diameter = frame.width / divisor;
-    final iconSize = (diameter * 0.62).clamp(28.0, 72.0);
+    final iconSize = (diameter * 0.55).clamp(16.0, 40.0);
 
     return SizedBox(
       width: diameter,
@@ -95,8 +95,8 @@ class MenuExitButton extends StatelessWidget {
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           shape: const CircleBorder(),
-          backgroundColor: const Color(0xCC1A237E),
-          foregroundColor: Colors.white,
+          backgroundColor: const Color(0xFFFFEB3B),
+          foregroundColor: const Color(0xFF1A237E),
         ),
         onPressed: onPressed,
         child: Icon(Icons.exit_to_app, size: iconSize),

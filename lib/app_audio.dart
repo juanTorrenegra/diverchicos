@@ -102,7 +102,7 @@ class AppAudio {
     _webWarmedUp = true;
   }
 
-  Future<void> _webPlayBgm(String asset) async {
+  Future<void> _webPlayBgm(String asset, {bool force = false}) async {
     // Best-effort: if not warmed up, still try to play.
     final p = _webBgmPlayers.putIfAbsent(asset, () => AudioPlayer());
     await p.setReleaseMode(ReleaseMode.loop);
@@ -110,6 +110,12 @@ class AppAudio {
       await p.setSource(AssetSource(asset));
     }
     await p.setVolume(_bgmVolume);
+
+    if (!force &&
+        _webCurrentBgm == asset &&
+        p.state == PlayerState.playing) {
+      return;
+    }
 
     final current = _webCurrentBgm;
     if (current != null && current != asset) {
@@ -156,12 +162,11 @@ class AppAudio {
 
   Future<void> _startBgmLoop(String asset, {bool force = false}) {
     if (kIsWeb) {
-      // Web: switch via preloaded players (pause/resume).
       _currentBgmAsset = asset;
-      return _webPlayBgm(asset);
+      return _webPlayBgm(asset, force: force);
     }
     return _enqueue(() async {
-      if (!kIsWeb && !force && _currentBgmAsset == asset) {
+      if (!force && _currentBgmAsset == asset) {
         await _applyBgmVolume();
         return;
       }
@@ -176,7 +181,8 @@ class AppAudio {
     });
   }
 
-  Future<void> playMenuLoop() => _startBgmLoop(menuBgm, force: kIsWeb);
+  /// Starts menu BGM if it is not already playing (safe for menu tap handlers).
+  Future<void> playMenuLoop() => _startBgmLoop(menuBgm);
 
   /// Stops any game BGM and always restarts main-menu music (used when leaving a mini-game).
   Future<void> returnToMenuMusic() => _startBgmLoop(menuBgm, force: true);

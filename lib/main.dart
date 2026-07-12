@@ -9,6 +9,7 @@ import 'app_audio.dart';
 import 'diverchicos_game.dart';
 import 'frog_intro.dart';
 import 'menu/main_menu_overlay.dart';
+import 'widgets/web_landscape_shell.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +40,8 @@ class _DiverchicosAppState extends State<DiverchicosApp>
 
   final bool _needsWebTapToStart = kIsWeb;
   bool _started = !kIsWeb;
+  /// After frog intro on web, rotate portrait phone browsers into landscape.
+  bool _introFinished = false;
   DiverchicosGame? _game;
   Timer? _backgroundExitTimer;
 
@@ -111,7 +114,10 @@ class _DiverchicosAppState extends State<DiverchicosApp>
 
   DiverchicosGame _createGame() {
     return DiverchicosGame(
-      onIntroCompleted: () => unawaited(_setLandscapeOrientation()),
+      onIntroCompleted: () {
+        if (mounted) setState(() => _introFinished = true);
+        unawaited(_setLandscapeOrientation());
+      },
       onIntroRequestedPortrait: () => unawaited(_setPortraitIntroOrientation()),
       onLandscapeRequested: () => unawaited(_setLandscapeOrientation()),
     );
@@ -163,23 +169,26 @@ class _DiverchicosAppState extends State<DiverchicosApp>
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5E35B1)),
       ),
-      home: GameWidget(
-        game: game,
-        backgroundBuilder: (context) =>
-            const ColoredBox(color: Color.fromRGBO(28, 49, 132, 1)),
-        overlayBuilderMap: {
-          kFrogIntroOverlay: (BuildContext context, DiverchicosGame game) {
-            return Positioned.fill(
-              child: FrogIntroOverlay(
-                onIntroVoiceStart: game.handleFrogIntroVoiceStart,
-                onFinished: game.handleFrogIntroFinished,
-              ),
-            );
+      home: WebLandscapeShell(
+        enabled: _introFinished,
+        child: GameWidget(
+          game: game,
+          backgroundBuilder: (context) =>
+              const ColoredBox(color: Color.fromRGBO(28, 49, 132, 1)),
+          overlayBuilderMap: {
+            kFrogIntroOverlay: (BuildContext context, DiverchicosGame game) {
+              return Positioned.fill(
+                child: FrogIntroOverlay(
+                  onIntroVoiceStart: game.handleFrogIntroVoiceStart,
+                  onFinished: game.handleFrogIntroFinished,
+                ),
+              );
+            },
+            kMainMenuOverlay: (BuildContext context, game) {
+              return Positioned.fill(child: MainMenuOverlay());
+            },
           },
-          kMainMenuOverlay: (BuildContext context, game) {
-            return Positioned.fill(child: MainMenuOverlay());
-          },
-        },
+        ),
       ),
     );
   }
