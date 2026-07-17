@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app_audio.dart';
 import '../games/chicken_path_game.dart';
@@ -12,6 +13,10 @@ import '../games/pairs.dart';
 import '../games/pop_bunny.dart';
 import '../games/salud_game.dart';
 import '../widgets/menu_back_pill.dart';
+
+const String kFichaTecnicaUrl = 'https://diverchicosfichatecnica.netlify.app/';
+/// Asset filename as shipped (note spelling: terriorios.png).
+const String kFichaTecnicaImageAsset = 'assets/images/terriorios.png';
 
 class MainMenuOverlay extends StatefulWidget {
   const MainMenuOverlay({super.key});
@@ -141,6 +146,11 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
     SystemNavigator.pop();
   }
 
+  Future<void> _openFichaTecnica() async {
+    final uri = Uri.parse(kFichaTecnicaUrl);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   List<MenuGameCardData> _cards() {
     return [
       MenuGameCardData(
@@ -235,6 +245,14 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
                           ],
                         ),
                       ),
+                      Positioned(
+                        right: w / 28,
+                        bottom: h / 28,
+                        width: w / 4.2,
+                        child: _FichaTecnicaButton(
+                          onTap: () => unawaited(_openFichaTecnica()),
+                        ),
+                      ),
                     ],
                   );
                 },
@@ -308,6 +326,75 @@ abstract final class MenuIcons {
   static const String saludGamePng = 'assets/images/vaky512x5012.png';
   static const String pairsGamePng = 'assets/images/pairs/canvaJaguar.png';
   static const String creditosPng = 'assets/images/creditos.png';
+  static const String fichaTecnicaPng = kFichaTecnicaImageAsset;
+}
+
+/// Bottom-right main-menu control that opens the ficha técnica web page.
+class _FichaTecnicaButton extends StatelessWidget {
+  const _FichaTecnicaButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'FICHA TECNICA',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFF1A237E),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                  letterSpacing: 1.1,
+                  shadows: [
+                    Shadow(
+                      color: Color(0x66000000),
+                      blurRadius: 3,
+                      offset: Offset(1, 1),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Image.asset(
+                kFichaTecnicaImageAsset,
+                fit: BoxFit.contain,
+                height: 110,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(
+                    Icons.description_outlined,
+                    size: 72,
+                    color: Color(0xFF1A237E),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'https://diverchicosfichatecnica.netlify.app',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                  decoration: TextDecoration.underline,
+                  decorationColor: Color(0xFF0D47A1),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Tweak carousel size, spacing, and animation from here.
