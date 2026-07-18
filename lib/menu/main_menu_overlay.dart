@@ -192,17 +192,11 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
           onTapDown: (_) {
             unawaited(AppAudio.instance.playMenuLoop());
           },
-          child: Container(
+          child: DecoratedBox(
             decoration: const BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment(0.15, -0.2),
-                radius: 1.25,
-                colors: [
-                  Color(0xFFFFF59D), // soft yellow (center)
-                  Color(0xFFC5E1A5), // yellow–green
-                  Color(0xFF388E3C), // green (outer)
-                ],
-                stops: [0.0, 0.45, 1.0],
+              image: DecorationImage(
+                image: AssetImage('assets/images/mainMenuBG.png'),
+                fit: BoxFit.cover,
               ),
             ),
             child: SafeArea(
