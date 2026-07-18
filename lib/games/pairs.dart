@@ -96,11 +96,11 @@ class PairsLayer extends StatefulWidget {
 }
 
 class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
-  static const Duration _kInitialDelay = Duration(seconds: 2);
-  static const Duration _kMoveDuration = Duration(milliseconds: 700);
-  static const Duration _kPulseDuration = Duration(milliseconds: 1500);
-  static const Duration _kPreFlipDelay = Duration(seconds: 2);
-  static const Duration _kFlipDuration = Duration(milliseconds: 600);
+  static const Duration _kInitialDelay = Duration(seconds: 1);
+  static const Duration _kMoveDuration = Duration(milliseconds: 350);
+  static const Duration _kPulseDuration = Duration(milliseconds: 750);
+  static const Duration _kPreFlipDelay = Duration(seconds: 1);
+  static const Duration _kFlipDuration = Duration(milliseconds: 300);
   static const Duration _kMismatchDelay = Duration(seconds: 1);
   static const Duration _kLevelFadeDuration = Duration(milliseconds: 1500);
 
