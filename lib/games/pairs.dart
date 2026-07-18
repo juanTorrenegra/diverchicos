@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 
 import '../utils/cutscene_instruction_loop.dart';
 import '../widgets/diverchicos_loading_screen.dart';
+import '../widgets/match_confetti.dart';
 import '../widgets/menu_back_pill.dart';
 import 'pairs_instruction_audio.dart';
 
@@ -85,6 +86,20 @@ class _PairCardModel {
   bool matched = false;
 }
 
+class _ActiveConfetti {
+  const _ActiveConfetti({
+    required this.id,
+    required this.origin,
+    this.cannon = false,
+    this.fromTop = false,
+  });
+
+  final int id;
+  final Offset origin;
+  final bool cannon;
+  final bool fromTop;
+}
+
 /// Memory-style pairs board with five levels and match-two gameplay.
 class PairsLayer extends StatefulWidget {
   const PairsLayer({super.key, required this.onClose});
@@ -102,7 +117,9 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
   static const Duration _kPreFlipDelay = Duration(seconds: 1);
   static const Duration _kFlipDuration = Duration(milliseconds: 300);
   static const Duration _kMismatchDelay = Duration(seconds: 1);
-  static const Duration _kLevelFadeDuration = Duration(milliseconds: 1500);
+  static const Duration _kLevelFadeDuration = Duration(milliseconds: 3200);
+  static const Duration _kLevelCannonDuration = Duration(seconds: 6);
+  static const Duration _kPostMatchConfettiPause = Duration(seconds: 1);
 
   final math.Random _rng = math.Random();
 
@@ -123,6 +140,9 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
 
   final Map<String, AnimationController> _flipControllers =
       <String, AnimationController>{};
+
+  int _nextConfettiId = 0;
+  final List<_ActiveConfetti> _confettiBursts = <_ActiveConfetti>[];
 
   final CutsceneInstructionLoop _instructions = CutsceneInstructionLoop();
 
@@ -481,6 +501,7 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
       card.matched = true;
       _matchedPairCount++;
       _isResolving = false;
+      _spawnMatchConfetti(first, card);
       setState(() {});
 
       if (_matchedPairCount >= _currentLevel.pairCount) {
@@ -501,11 +522,74 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     if (mounted) setState(() {});
   }
 
+  void _spawnMatchConfetti(_PairCardModel a, _PairCardModel b) {
+    final centerA = Offset(
+      a.position.dx + _cardWidth / 2,
+      a.position.dy + _cardHeight / 2,
+    );
+    final centerB = Offset(
+      b.position.dx + _cardWidth / 2,
+      b.position.dy + _cardHeight / 2,
+    );
+    _confettiBursts.add(
+      _ActiveConfetti(id: _nextConfettiId++, origin: centerA),
+    );
+    _confettiBursts.add(
+      _ActiveConfetti(id: _nextConfettiId++, origin: centerB),
+    );
+  }
+
+  void _removeConfetti(int id) {
+    if (!mounted) return;
+    final before = _confettiBursts.length;
+    _confettiBursts.removeWhere((b) => b.id == id);
+    if (_confettiBursts.length != before) setState(() {});
+  }
+
+  void _spawnLevelCannonConfetti() {
+    // Four star cannons: two from the bottom, two from mid-screen (all upward).
+    final bottomLeft = Offset(_kLogicalW * 0.28, _kLogicalH + 10);
+    final bottomRight = Offset(_kLogicalW * 0.72, _kLogicalH + 10);
+    final midLeft = Offset(_kLogicalW * 0.28, _kLogicalH * 0.5);
+    final midRight = Offset(_kLogicalW * 0.72, _kLogicalH * 0.5);
+    _confettiBursts.addAll([
+      _ActiveConfetti(id: _nextConfettiId++, origin: bottomLeft, cannon: true),
+      _ActiveConfetti(id: _nextConfettiId++, origin: bottomRight, cannon: true),
+      _ActiveConfetti(
+        id: _nextConfettiId++,
+        origin: midLeft,
+        cannon: true,
+        fromTop: true,
+      ),
+      _ActiveConfetti(
+        id: _nextConfettiId++,
+        origin: midRight,
+        cannon: true,
+        fromTop: true,
+      ),
+    ]);
+  }
+
   Future<void> _onLevelComplete() async {
     if (!mounted || _phase != _PairsPhase.playing) return;
 
     unawaited(_stopGameplayInstructions());
     setState(() => _phase = _PairsPhase.levelTransition);
+
+    // Let the last pair-match confetti finish, then wait 1s more.
+    await Future<void>.delayed(
+      MatchConfettiBurst.kMatchBurstDuration + _kPostMatchConfettiPause,
+    );
+    if (!mounted) return;
+
+    _confettiBursts.removeWhere((b) => !b.cannon);
+    _spawnLevelCannonConfetti();
+    setState(() {});
+    await Future<void>.delayed(_kLevelCannonDuration);
+    if (!mounted) return;
+
+    _confettiBursts.clear();
+    setState(() {});
 
     final isLastLevel = _levelIndex >= _kLevels.length - 1;
 
@@ -513,6 +597,7 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
       vsync: this,
       duration: _kLevelFadeDuration,
     );
+    _whiteFade!.duration = _kLevelFadeDuration;
     _whiteFade!.value = 0;
     await _whiteFade!.forward();
     if (!mounted) return;
@@ -583,6 +668,26 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
                 else
                   const ColoredBox(color: Color(0xFF2E7D32)),
                 for (final card in _cards) _buildCard(card),
+                for (final burst in _confettiBursts)
+                  Positioned.fill(
+                    key: ValueKey('confetti_${burst.id}'),
+                    child: burst.cannon
+                        ? (burst.fromTop
+                            ? MatchConfettiBurst.cannonTop(
+                                origin: burst.origin,
+                                duration: _kLevelCannonDuration,
+                                onComplete: () => _removeConfetti(burst.id),
+                              )
+                            : MatchConfettiBurst.cannonBottom(
+                                origin: burst.origin,
+                                duration: _kLevelCannonDuration,
+                                onComplete: () => _removeConfetti(burst.id),
+                              ))
+                        : MatchConfettiBurst(
+                            origin: burst.origin,
+                            onComplete: () => _removeConfetti(burst.id),
+                          ),
+                  ),
                 if (_whiteFade != null)
                   Positioned.fill(
                     child: IgnorePointer(
