@@ -29,37 +29,37 @@ class MatchConfettiBurst extends StatefulWidget {
   const MatchConfettiBurst.cannonBottom({
     super.key,
     required this.origin,
-    this.particleCount = 90,
-    this.duration = const Duration(seconds: 6),
-    this.speedMin = 180,
-    this.speedMax = 360,
-    this.upwardBoost = 60,
-    this.gravity = 220,
+    this.particleCount = 135,
+    this.duration = const Duration(seconds: 9),
+    this.speedMin = 280,
+    this.speedMax = 560,
+    this.upwardBoost = 120,
+    this.gravity = 160,
     this.onComplete,
   })  : colors = _kYellowPalette,
-        angleMin = -math.pi * 0.82,
-        angleMax = -math.pi * 0.18,
+        angleMin = -math.pi * 0.88,
+        angleMax = -math.pi * 0.12,
         useStars = true,
-        starSizeMin = 18,
-        starSizeMax = 36;
+        starSizeMin = 36,
+        starSizeMax = 72;
 
   /// Mid-screen cannon: yellow stars shooting upward (same cone as bottom).
   const MatchConfettiBurst.cannonTop({
     super.key,
     required this.origin,
-    this.particleCount = 90,
-    this.duration = const Duration(seconds: 6),
-    this.speedMin = 180,
-    this.speedMax = 360,
-    this.upwardBoost = 60,
-    this.gravity = 220,
+    this.particleCount = 135,
+    this.duration = const Duration(seconds: 9),
+    this.speedMin = 280,
+    this.speedMax = 560,
+    this.upwardBoost = 120,
+    this.gravity = 160,
     this.onComplete,
   })  : colors = _kYellowPalette,
-        angleMin = -math.pi * 0.82,
-        angleMax = -math.pi * 0.18,
+        angleMin = -math.pi * 0.88,
+        angleMax = -math.pi * 0.12,
         useStars = true,
-        starSizeMin = 18,
-        starSizeMax = 36;
+        starSizeMin = 36,
+        starSizeMax = 72;
 
   /// Duration of the normal pair-match confetti burst.
   static const Duration kMatchBurstDuration = Duration(milliseconds: 2200);

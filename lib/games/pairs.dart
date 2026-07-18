@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:video_player/video_player.dart';
 
+import '../app_audio.dart';
 import '../utils/cutscene_instruction_loop.dart';
 import '../widgets/diverchicos_loading_screen.dart';
 import '../widgets/match_confetti.dart';
@@ -91,13 +92,11 @@ class _ActiveConfetti {
     required this.id,
     required this.origin,
     this.cannon = false,
-    this.fromTop = false,
   });
 
   final int id;
   final Offset origin;
   final bool cannon;
-  final bool fromTop;
 }
 
 /// Memory-style pairs board with five levels and match-two gameplay.
@@ -117,9 +116,8 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
   static const Duration _kPreFlipDelay = Duration(seconds: 1);
   static const Duration _kFlipDuration = Duration(milliseconds: 300);
   static const Duration _kMismatchDelay = Duration(seconds: 1);
-  static const Duration _kLevelFadeDuration = Duration(milliseconds: 3200);
-  static const Duration _kLevelCannonDuration = Duration(seconds: 6);
-  static const Duration _kPostMatchConfettiPause = Duration(seconds: 1);
+  static const Duration _kLevelFadeDuration = Duration(milliseconds: 1600);
+  static const Duration _kLevelCannonDuration = Duration(seconds: 9);
 
   final math.Random _rng = math.Random();
 
@@ -501,6 +499,7 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
       card.matched = true;
       _matchedPairCount++;
       _isResolving = false;
+      unawaited(AppAudio.instance.playPairsMatch());
       _spawnMatchConfetti(first, card);
       setState(() {});
 
@@ -547,26 +546,14 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
   }
 
   void _spawnLevelCannonConfetti() {
-    // Four star cannons: two from the bottom, two from mid-screen (all upward).
-    final bottomLeft = Offset(_kLogicalW * 0.28, _kLogicalH + 10);
-    final bottomRight = Offset(_kLogicalW * 0.72, _kLogicalH + 10);
-    final midLeft = Offset(_kLogicalW * 0.28, _kLogicalH * 0.5);
-    final midRight = Offset(_kLogicalW * 0.72, _kLogicalH * 0.5);
+    // Three yellow star cannons along the bottom, shooting upward.
+    final left = Offset(_kLogicalW * 0.2, _kLogicalH + 10);
+    final center = Offset(_kLogicalW * 0.5, _kLogicalH + 10);
+    final right = Offset(_kLogicalW * 0.8, _kLogicalH + 10);
     _confettiBursts.addAll([
-      _ActiveConfetti(id: _nextConfettiId++, origin: bottomLeft, cannon: true),
-      _ActiveConfetti(id: _nextConfettiId++, origin: bottomRight, cannon: true),
-      _ActiveConfetti(
-        id: _nextConfettiId++,
-        origin: midLeft,
-        cannon: true,
-        fromTop: true,
-      ),
-      _ActiveConfetti(
-        id: _nextConfettiId++,
-        origin: midRight,
-        cannon: true,
-        fromTop: true,
-      ),
+      _ActiveConfetti(id: _nextConfettiId++, origin: left, cannon: true),
+      _ActiveConfetti(id: _nextConfettiId++, origin: center, cannon: true),
+      _ActiveConfetti(id: _nextConfettiId++, origin: right, cannon: true),
     ]);
   }
 
@@ -576,13 +563,9 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     unawaited(_stopGameplayInstructions());
     setState(() => _phase = _PairsPhase.levelTransition);
 
-    // Let the last pair-match confetti finish, then wait 1s more.
-    await Future<void>.delayed(
-      MatchConfettiBurst.kMatchBurstDuration + _kPostMatchConfettiPause,
-    );
-    if (!mounted) return;
+    unawaited(AppAudio.instance.pauseBgm());
+    unawaited(AppAudio.instance.playPairsLevelComplete());
 
-    _confettiBursts.removeWhere((b) => !b.cannon);
     _spawnLevelCannonConfetti();
     setState(() {});
     await Future<void>.delayed(_kLevelCannonDuration);
@@ -602,6 +585,8 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     await _whiteFade!.forward();
     if (!mounted) return;
 
+    unawaited(AppAudio.instance.stopPairsLevelComplete());
+
     _disposeFlipControllers();
     _firstSelection = null;
     _isResolving = false;
@@ -609,6 +594,8 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     if (isLastLevel) {
       setState(() => _phase = _PairsPhase.complete);
       await _whiteFade!.reverse();
+      if (!mounted) return;
+      unawaited(AppAudio.instance.resumeBgm());
       return;
     }
 
@@ -618,18 +605,24 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     await _whiteFade!.reverse();
     if (!mounted) return;
 
+    unawaited(AppAudio.instance.resumeBgm());
     unawaited(_startLevel(skipInitialDelay: true));
   }
 
   void _exitToMenu() {
     if (_exitingToMenu) return;
     _exitingToMenu = true;
+    unawaited(AppAudio.instance.stopPairsLevelComplete());
+    unawaited(AppAudio.instance.stopPairsMatch());
+    unawaited(AppAudio.instance.resumeBgm());
     widget.onClose();
   }
 
   @override
   void dispose() {
     unawaited(_instructions.dispose());
+    unawaited(AppAudio.instance.stopPairsLevelComplete());
+    unawaited(AppAudio.instance.stopPairsMatch());
     _disposeFlipControllers();
     _whiteFade?.dispose();
     _bgController?.dispose();
@@ -672,17 +665,11 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
                   Positioned.fill(
                     key: ValueKey('confetti_${burst.id}'),
                     child: burst.cannon
-                        ? (burst.fromTop
-                            ? MatchConfettiBurst.cannonTop(
-                                origin: burst.origin,
-                                duration: _kLevelCannonDuration,
-                                onComplete: () => _removeConfetti(burst.id),
-                              )
-                            : MatchConfettiBurst.cannonBottom(
-                                origin: burst.origin,
-                                duration: _kLevelCannonDuration,
-                                onComplete: () => _removeConfetti(burst.id),
-                              ))
+                        ? MatchConfettiBurst.cannonBottom(
+                            origin: burst.origin,
+                            duration: _kLevelCannonDuration,
+                            onComplete: () => _removeConfetti(burst.id),
+                          )
                         : MatchConfettiBurst(
                             origin: burst.origin,
                             onComplete: () => _removeConfetti(burst.id),

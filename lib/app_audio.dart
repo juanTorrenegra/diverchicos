@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 
+import 'utils/instruction_audio_context.dart';
+
 class AppAudio {
   AppAudio._();
   static final AppAudio instance = AppAudio._();
@@ -25,6 +27,8 @@ class AppAudio {
   static const String gridPuzzleBgm = 'audio/mrJelly.mp3';
   static const String chickenPathBgm = 'audio/daft_cat.mp3';
   static const String pairsBgm = 'audio/forestBirds.mp3';
+  static const String pairsLevelCompleteClip = 'audio/pairLevelCompleted.mp3';
+  static const String pairsMatchClip = 'audio/pairMatch.mp3';
 
   static const double instructionBgmVolume = 0.1;
 
@@ -34,6 +38,9 @@ class AppAudio {
 
   bool _pausedForBackground = false;
   bool _bgmWasPlayingBeforeBackground = false;
+
+  AudioPlayer? _levelFxPlayer;
+  AudioPlayer? _matchFxPlayer;
 
   String? get currentBgmAsset => _currentBgmAsset;
 
@@ -197,6 +204,94 @@ class AppAudio {
 
   Future<void> playPairsLoop() => _startBgmLoop(pairsBgm);
 
+  /// Pauses current BGM without clearing the track (level celebrations, etc.).
+  Future<void> pauseBgm() {
+    if (kIsWeb) {
+      final current = _webCurrentBgm;
+      if (current == null) return Future<void>.value();
+      return _webBgmPlayers[current]?.pause() ?? Future<void>.value();
+    }
+    return _enqueue(() async {
+      if (_bgmPlayer.state == PlayerState.playing) {
+        await _bgmPlayer.pause();
+      }
+    });
+  }
+
+  /// Resumes the current BGM after [pauseBgm].
+  Future<void> resumeBgm() {
+    if (_currentBgmAsset == null) return Future<void>.value();
+
+    if (kIsWeb) {
+      final current = _webCurrentBgm ?? _currentBgmAsset;
+      if (current == null) return Future<void>.value();
+      final player = _webBgmPlayers[current];
+      return player?.resume() ?? Future<void>.value();
+    }
+
+    return _enqueue(() async {
+      if (_bgmPlayer.state != PlayerState.playing) {
+        await _bgmPlayer.resume();
+      }
+    });
+  }
+
+  Future<AudioPlayer> _ensureLevelFxPlayer() async {
+    final existing = _levelFxPlayer;
+    if (existing != null) return existing;
+    final player = AudioPlayer();
+    await InstructionAudioContext.applyTo(player);
+    await player.setReleaseMode(ReleaseMode.stop);
+    _levelFxPlayer = player;
+    return player;
+  }
+
+  Future<AudioPlayer> _ensureMatchFxPlayer() async {
+    final existing = _matchFxPlayer;
+    if (existing != null) return existing;
+    final player = AudioPlayer();
+    await InstructionAudioContext.applyTo(player);
+    await player.setReleaseMode(ReleaseMode.stop);
+    _matchFxPlayer = player;
+    return player;
+  }
+
+  /// Stops any in-progress playback, then plays the pairs level-complete sting.
+  Future<void> playPairsLevelComplete() {
+    return _enqueue(() async {
+      final player = await _ensureLevelFxPlayer();
+      await player.stop();
+      await player.play(AssetSource(pairsLevelCompleteClip));
+    });
+  }
+
+  Future<void> stopPairsLevelComplete() {
+    return _enqueue(() async {
+      final player = _levelFxPlayer;
+      if (player != null) {
+        await player.stop();
+      }
+    });
+  }
+
+  /// Short sting for each successful pair match.
+  Future<void> playPairsMatch() {
+    return _enqueue(() async {
+      final player = await _ensureMatchFxPlayer();
+      await player.stop();
+      await player.play(AssetSource(pairsMatchClip));
+    });
+  }
+
+  Future<void> stopPairsMatch() {
+    return _enqueue(() async {
+      final player = _matchFxPlayer;
+      if (player != null) {
+        await player.stop();
+      }
+    });
+  }
+
   Future<void> stopBgm() {
     if (kIsWeb) {
       _currentBgmAsset = null;
@@ -237,11 +332,15 @@ class AppAudio {
         if (fx != null) {
           await fx.pause();
         }
+        await _levelFxPlayer?.stop();
+        await _matchFxPlayer?.stop();
       });
     }
     return _enqueue(() async {
       _currentBgmAsset = null;
       await _fxPlayer.stop();
+      await _levelFxPlayer?.stop();
+      await _matchFxPlayer?.stop();
       await _bgmPlayer.stop();
     });
   }
@@ -297,6 +396,10 @@ class AppAudio {
     }
     _webBgmPlayers.clear();
     await _webIntroFx?.dispose();
+    await _levelFxPlayer?.dispose();
+    _levelFxPlayer = null;
+    await _matchFxPlayer?.dispose();
+    _matchFxPlayer = null;
     await _fxPlayer.dispose();
     await _bgmPlayer.dispose();
   }
