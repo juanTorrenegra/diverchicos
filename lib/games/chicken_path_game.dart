@@ -8,6 +8,7 @@ import 'package:video_player/video_player.dart';
 
 import '../utils/disable_video_pointer.dart';
 import '../utils/alternating_instruction_loop.dart';
+import '../utils/game_debug.dart';
 import '../widgets/diverchicos_loading_screen.dart';
 import '../widgets/menu_back_pill.dart';
 import 'chicken_instruction_audio.dart';
@@ -286,6 +287,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   @override
   void initState() {
     super.initState();
+    GameDebug.log('ChickenPath', 'initState — layer mounted');
     _resetFiguresForLevel();
   }
 
@@ -743,7 +745,11 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
     );
     try {
-      await c.initialize();
+      GameDebug.log('ChickenPath', 'bootstrapVideo initialize: $asset');
+      await c.initialize().timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => throw TimeoutException('chicken video init: $asset'),
+      );
       if (!mounted) {
         await c.dispose();
         _videoBootstrapInFlight = false;
@@ -760,11 +766,13 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
       if (phase == _ChickenPhase.levelVideo) {
         _startLevelInstructions();
       }
+      GameDebug.log('ChickenPath', 'bootstrapVideo ok: $asset');
       return true;
-    } catch (_) {
+    } catch (e, st) {
       await c.dispose();
       _videoOnComplete = null;
       _videoBootstrapInFlight = false;
+      GameDebug.log('ChickenPath', 'bootstrapVideo FAILED: $asset', e, st);
       return false;
     }
   }
@@ -799,6 +807,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
   }
 
   Future<void> _bootstrapIntro(LoadProgressCallback reportProgress) async {
+    GameDebug.log('ChickenPath', 'bootstrap intro start');
     reportProgress(0.1);
     final c = VideoPlayerController.asset(
       kChickenIntroAsset,
@@ -806,7 +815,10 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     );
     reportProgress(0.25);
     try {
-      await c.initialize().timeout(const Duration(seconds: 20));
+      await c.initialize().timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => throw TimeoutException('chicken intro init'),
+      );
       reportProgress(0.85);
       if (!mounted) {
         await c.dispose();
@@ -819,21 +831,35 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
         _introReady = true;
       });
       reportProgress(1);
-    } catch (_) {
+      GameDebug.log('ChickenPath', 'intro video ready');
+    } catch (e, st) {
       await c.dispose();
+      GameDebug.log('ChickenPath', 'intro FAILED — skipping to level', e, st);
       if (mounted) unawaited(_startFirstLevel());
     }
   }
 
   void _startIntroPlayback() {
     final c = _introController;
+    GameDebug.log(
+      'ChickenPath',
+      'startIntroPlayback controller=${c != null} phase=$_phase',
+    );
     if (c == null) {
       if (mounted && _phase == _ChickenPhase.intro) {
         unawaited(_startFirstLevel());
       }
       return;
     }
-    unawaited(c.play());
+    unawaited(() async {
+      try {
+        await c.play();
+        GameDebug.log('ChickenPath', 'intro play() ok');
+      } catch (e, st) {
+        GameDebug.log('ChickenPath', 'intro play() failed', e, st);
+        if (mounted) unawaited(_startFirstLevel());
+      }
+    }());
   }
 
   void _onIntroTick() {
@@ -885,6 +911,10 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
 
   void _beginGameplay() {
     if (!mounted || _phase == _ChickenPhase.gameplay) return;
+    GameDebug.log(
+      'ChickenPath',
+      'beginGameplay videoReady=$_videoReady controller=${_videoController != null}',
+    );
     setState(() => _phase = _ChickenPhase.gameplay);
     if (!_instructions.isRunning) {
       _startLevelInstructions();
@@ -1328,7 +1358,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
             child: IgnorePointer(child: VideoPlayer(_videoController!)),
           )
         else
-          const ColoredBox(color: Colors.black),
+          const ColoredBox(color: kGameVideoFallbackSky),
         _buildGridArea(),
         _buildPlayButton(),
         _buildRoadFigureSlotCircles(),
@@ -1353,7 +1383,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     if (_phase == _ChickenPhase.gameplay) {
       return _buildGameplay();
     }
-    return const ColoredBox(color: Colors.black);
+    return const ColoredBox(color: kGameVideoFallbackSky);
   }
 
   @override
@@ -1362,6 +1392,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
       load: _bootstrapIntro,
       useFrogVideo: false,
       showLogo: false,
+      debugArea: 'ChickenPathLoad',
       onRevealed: _startIntroPlayback,
       child: _buildViewport(),
     );

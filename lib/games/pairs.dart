@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 
 import '../app_audio.dart';
 import '../utils/cutscene_instruction_loop.dart';
+import '../utils/game_debug.dart';
 import '../widgets/diverchicos_loading_screen.dart';
 import '../widgets/match_confetti.dart';
 import '../widgets/menu_back_pill.dart';
@@ -101,9 +102,14 @@ class _ActiveConfetti {
 
 /// Memory-style pairs board with five levels and match-two gameplay.
 class PairsLayer extends StatefulWidget {
-  const PairsLayer({super.key, required this.onClose});
+  const PairsLayer({
+    super.key,
+    required this.onClose,
+    this.onLoadError,
+  });
 
   final VoidCallback onClose;
+  final void Function(String message)? onLoadError;
 
   @override
   State<PairsLayer> createState() => _PairsLayerState();
@@ -143,6 +149,12 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
   final List<_ActiveConfetti> _confettiBursts = <_ActiveConfetti>[];
 
   final CutsceneInstructionLoop _instructions = CutsceneInstructionLoop();
+
+  @override
+  void initState() {
+    super.initState();
+    GameDebug.log('Pairs', 'initState — layer mounted');
+  }
 
   void _startGameplayInstructions() {
     unawaited(
@@ -243,6 +255,7 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
   }
 
   Future<void> _bootstrapBackground(LoadProgressCallback reportProgress) async {
+    GameDebug.log('Pairs', 'bootstrap background video start');
     reportProgress(0.1);
     final c = VideoPlayerController.asset(
       kPairsBackgroundVideoAsset,
@@ -250,7 +263,10 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     );
     reportProgress(0.25);
     try {
-      await c.initialize().timeout(const Duration(seconds: 20));
+      await c.initialize().timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => throw TimeoutException('pairs bg init timeout'),
+      );
       reportProgress(0.85);
       if (!mounted) {
         await c.dispose();
@@ -266,16 +282,44 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
         _bgReady = true;
       });
       reportProgress(1);
-    } catch (_) {
+      GameDebug.log('Pairs', 'background video ready');
+    } catch (e, st) {
       await c.dispose();
-      if (mounted) _exitToMenu();
+      GameDebug.log(
+        'Pairs',
+        'background video FAILED — using solid fallback (game continues)',
+        e,
+        st,
+      );
+      widget.onLoadError?.call(
+        'Video de fondo no disponible en este dispositivo. Continuando…',
+      );
+      if (mounted) {
+        setState(() {
+          _bgController = null;
+          _bgReady = false;
+        });
+      }
+      reportProgress(1);
     }
   }
 
   void _startAfterReveal() {
+    GameDebug.log(
+      'Pairs',
+      'onRevealed — bgReady=$_bgReady controller=${_bgController != null}',
+    );
     final c = _bgController;
-    if (c == null) return;
-    unawaited(c.play());
+    if (c != null) {
+      unawaited(() async {
+        try {
+          await c.play();
+          GameDebug.log('Pairs', 'background video play() ok');
+        } catch (e, st) {
+          GameDebug.log('Pairs', 'background play() failed', e, st);
+        }
+      }());
+    }
     unawaited(_startLevel(skipInitialDelay: false));
   }
 
@@ -635,6 +679,7 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
       load: _bootstrapBackground,
       useFrogVideo: false,
       showLogo: false,
+      debugArea: 'PairsLoad',
       onRevealed: _startAfterReveal,
       child: _buildViewport(),
     );
@@ -659,7 +704,7 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
                     ),
                   )
                 else
-                  const ColoredBox(color: Color(0xFF2E7D32)),
+                  const ColoredBox(color: kGameVideoFallbackGreen),
                 for (final card in _cards) _buildCard(card),
                 for (final burst in _confettiBursts)
                   Positioned.fill(

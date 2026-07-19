@@ -9,10 +9,24 @@ import 'app_audio.dart';
 import 'diverchicos_game.dart';
 import 'frog_intro.dart';
 import 'menu/main_menu_overlay.dart';
+import 'utils/game_debug.dart';
 import 'widgets/web_landscape_shell.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  FlutterError.onError = (details) {
+    GameDebug.log(
+      'FlutterError',
+      details.exceptionAsString(),
+      details.exception,
+      details.stack,
+    );
+    FlutterError.presentError(details);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    GameDebug.log('PlatformError', '$error', error, stack);
+    return true;
+  };
   _hideAndroidStatusBarForGame();
   runApp(const DiverchicosApp());
 }
@@ -169,25 +183,27 @@ class _DiverchicosAppState extends State<DiverchicosApp>
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5E35B1)),
       ),
-      home: WebLandscapeShell(
-        enabled: _introFinished,
-        child: GameWidget(
-          game: game,
-          backgroundBuilder: (context) =>
-              const ColoredBox(color: Color.fromRGBO(28, 49, 132, 1)),
-          overlayBuilderMap: {
-            kFrogIntroOverlay: (BuildContext context, DiverchicosGame game) {
-              return Positioned.fill(
-                child: FrogIntroOverlay(
-                  onIntroVoiceStart: game.handleFrogIntroVoiceStart,
-                  onFinished: game.handleFrogIntroFinished,
-                ),
-              );
+      home: Scaffold(
+        body: WebLandscapeShell(
+          enabled: _introFinished,
+          child: GameWidget(
+            game: game,
+            backgroundBuilder: (context) =>
+                const ColoredBox(color: Color.fromRGBO(28, 49, 132, 1)),
+            overlayBuilderMap: {
+              kFrogIntroOverlay: (BuildContext context, DiverchicosGame game) {
+                return Positioned.fill(
+                  child: FrogIntroOverlay(
+                    onIntroVoiceStart: game.handleFrogIntroVoiceStart,
+                    onFinished: game.handleFrogIntroFinished,
+                  ),
+                );
+              },
+              kMainMenuOverlay: (BuildContext context, game) {
+                return Positioned.fill(child: MainMenuOverlay());
+              },
             },
-            kMainMenuOverlay: (BuildContext context, game) {
-              return Positioned.fill(child: MainMenuOverlay());
-            },
-          },
+          ),
         ),
       ),
     );

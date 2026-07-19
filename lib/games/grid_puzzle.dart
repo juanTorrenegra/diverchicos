@@ -9,6 +9,7 @@ import 'package:video_player/video_player.dart';
 
 import '../utils/cutscene_instruction_loop.dart';
 import '../utils/disable_video_pointer.dart';
+import '../utils/game_debug.dart';
 import '../widgets/diverchicos_loading_screen.dart';
 import '../widgets/menu_back_pill.dart';
 import 'chicken_instruction_audio.dart';
@@ -226,6 +227,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
   @override
   void initState() {
     super.initState();
+    GameDebug.log('GridPuzzle', 'initState — layer mounted');
     _figures = [
       for (var i = 0; i < _kFigureTypes.length; i++)
         _RoadFigureInstance(
@@ -240,6 +242,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
   Future<void> _bootstrapIntroWithProgress(
     LoadProgressCallback reportProgress,
   ) async {
+    GameDebug.log('GridPuzzle', 'bootstrap intro video start');
     reportProgress(0.05);
     final c = VideoPlayerController.asset(
       kGridPuzzleIntroAsset,
@@ -268,17 +271,25 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
         _introReady = true;
       });
       reportProgress(1);
-    } on TimeoutException {
+      GameDebug.log('GridPuzzle', 'intro video ready');
+    } on TimeoutException catch (e, st) {
       await c.dispose();
+      GameDebug.log('GridPuzzle', 'intro init TIMEOUT', e, st);
       if (mounted) _skipIntroOnLoadFailure();
-    } catch (_) {
+    } catch (e, st) {
       await c.dispose();
+      GameDebug.log('GridPuzzle', 'intro init FAILED', e, st);
       if (mounted) _skipIntroOnLoadFailure();
     }
   }
 
   void _skipIntroOnLoadFailure() {
+    GameDebug.log(
+      'GridPuzzle',
+      'skipping intro — gameplay with fallback background',
+    );
     setState(() {
+      _introController = null;
       _introReady = true;
       _introFinished = true;
     });
@@ -290,17 +301,27 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
 
   void _startIntroPlayback() {
     final controller = _introController;
+    GameDebug.log(
+      'GridPuzzle',
+      'startIntroPlayback controller=${controller != null} '
+      'finished=$_introFinished ready=$_introReady',
+    );
     if (controller == null ||
         _introPlaybackStarted ||
         _introFinished ||
         !_introReady) {
+      if (controller == null && _introFinished) {
+        GameDebug.log('GridPuzzle', 'no intro controller — already in gameplay');
+      }
       return;
     }
     _introPlaybackStarted = true;
     unawaited(() async {
       try {
         await controller.play();
-      } catch (_) {
+        GameDebug.log('GridPuzzle', 'intro play() ok');
+      } catch (e, st) {
+        GameDebug.log('GridPuzzle', 'intro play() failed', e, st);
         if (mounted) _skipIntroOnLoadFailure();
         return;
       }
@@ -1127,6 +1148,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
       load: _bootstrapIntroWithProgress,
       useFrogVideo: false,
       showLogo: false,
+      debugArea: 'GridPuzzleLoad',
       onRevealed: _startIntroPlayback,
       child: _buildGameViewport(),
     );
@@ -1134,7 +1156,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
 
   Widget _buildGameViewport() {
     return ColoredBox(
-      color: Colors.black,
+      color: kGameVideoFallbackSky,
       child: Center(
         child: FittedBox(
           fit: BoxFit.fill,
@@ -1145,6 +1167,10 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
               child: Stack(
                 clipBehavior: Clip.hardEdge,
                 children: [
+                  // Fallback sky when video cannot decode on this device.
+                  const Positioned.fill(
+                    child: ColoredBox(color: kGameVideoFallbackSky),
+                  ),
                   if (_gameplayVisible &&
                       _introReady &&
                       _introController != null &&

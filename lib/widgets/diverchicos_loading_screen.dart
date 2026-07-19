@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../utils/game_debug.dart';
 import 'frog_loader.dart';
 
 /// Reports load progress as a value from `0.0` to `1.0`.
@@ -20,6 +21,7 @@ class DiverchicosLoadingScreen extends StatefulWidget {
     this.useFrogVideo = false,
     this.showLogo = false,
     this.onRevealed,
+    this.debugArea = 'LoadingScreen',
   });
 
   /// Receives [LoadProgressCallback] to update the on-screen percentage.
@@ -41,6 +43,8 @@ class DiverchicosLoadingScreen extends StatefulWidget {
   /// Called once the loader fade-out finishes and [child] is fully visible.
   final VoidCallback? onRevealed;
 
+  final String debugArea;
+
   @override
   State<DiverchicosLoadingScreen> createState() =>
       _DiverchicosLoadingScreenState();
@@ -57,14 +61,20 @@ class _DiverchicosLoadingScreenState extends State<DiverchicosLoadingScreen>
   @override
   void initState() {
     super.initState();
+    GameDebug.log(widget.debugArea, 'loading screen initState');
     _fadeController = AnimationController(
       vsync: this,
       duration: widget.fadeOutDuration,
       value: 1,
     )..addStatusListener((status) {
         if (status == AnimationStatus.dismissed && mounted) {
+          GameDebug.log(widget.debugArea, 'loader revealed → onRevealed');
           setState(() => _revealed = true);
-          widget.onRevealed?.call();
+          try {
+            widget.onRevealed?.call();
+          } catch (e, st) {
+            GameDebug.log(widget.debugArea, 'onRevealed threw', e, st);
+          }
         }
       });
     unawaited(_runLoad());
@@ -73,9 +83,17 @@ class _DiverchicosLoadingScreenState extends State<DiverchicosLoadingScreen>
   Future<void> _runLoad() async {
     final minTimer = Future<void>.delayed(widget.minDisplayTime);
     try {
+      GameDebug.log(widget.debugArea, 'load() started');
       await widget.load(_reportProgress);
       _reportProgress(1);
-    } catch (_) {
+      GameDebug.log(widget.debugArea, 'load() finished ok');
+    } catch (e, st) {
+      GameDebug.log(
+        widget.debugArea,
+        'load() failed — continuing reveal',
+        e,
+        st,
+      );
       _reportProgress(1);
     }
     _loadFinished = true;
@@ -97,6 +115,7 @@ class _DiverchicosLoadingScreenState extends State<DiverchicosLoadingScreen>
 
   @override
   void dispose() {
+    GameDebug.log(widget.debugArea, 'loading screen dispose');
     _fadeController.dispose();
     super.dispose();
   }

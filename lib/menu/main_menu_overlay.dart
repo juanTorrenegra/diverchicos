@@ -12,6 +12,7 @@ import '../games/grid_puzzle.dart';
 import '../games/pairs.dart';
 import '../games/pop_bunny.dart';
 import '../games/salud_game.dart';
+import '../utils/game_debug.dart';
 import '../widgets/menu_back_pill.dart';
 
 const String kFichaTecnicaUrl = 'https://diverchicosfichatecnica.netlify.app/';
@@ -86,31 +87,71 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
       _beginExitMiniGameToMenu(hideActiveGame: () => _showSaludIntro = false);
 
   void _openSaludGame() {
-    _exitingToMenu = false;
-    _saludReturnWhiteFade?.dispose();
-    _saludReturnWhiteFade = null;
-    unawaited(AppAudio.instance.playPreschoolerLoop());
-    setState(() => _showSaludIntro = true);
+    GameDebug.log('Menu', 'open SALUD');
+    try {
+      _exitingToMenu = false;
+      _saludReturnWhiteFade?.dispose();
+      _saludReturnWhiteFade = null;
+      unawaited(AppAudio.instance.playPreschoolerLoop());
+      setState(() => _showSaludIntro = true);
+    } catch (e, st) {
+      GameDebug.logAndSnack(context, 'Menu', 'No se pudo abrir El Baño', e, st);
+    }
   }
 
   void _openGridPuzzle() {
-    unawaited(AppAudio.instance.playGridPuzzleLoop());
-    setState(() => _showGridPuzzle = true);
+    GameDebug.log('Menu', 'open AVIONES (grid puzzle)');
+    try {
+      unawaited(AppAudio.instance.playGridPuzzleLoop());
+      setState(() => _showGridPuzzle = true);
+    } catch (e, st) {
+      GameDebug.logAndSnack(context, 'Menu', 'No se pudo abrir Aviones', e, st);
+    }
   }
 
   void _openPopBunny() {
-    unawaited(AppAudio.instance.stopBgm());
-    setState(() => _showPopBunny = true);
+    GameDebug.log('Menu', 'open POP BUNNY');
+    try {
+      unawaited(AppAudio.instance.stopBgm());
+      setState(() => _showPopBunny = true);
+    } catch (e, st) {
+      GameDebug.log('Menu', 'open pop bunny failed', e, st);
+    }
   }
 
   void _openChickenPath() {
-    unawaited(AppAudio.instance.playChickenPathLoop());
-    setState(() => _showChickenPath = true);
+    GameDebug.log('Menu', 'open POLLO LOCO (chicken path)');
+    try {
+      unawaited(AppAudio.instance.playChickenPathLoop());
+      setState(() => _showChickenPath = true);
+    } catch (e, st) {
+      GameDebug.logAndSnack(
+        context,
+        'Menu',
+        'No se pudo abrir Pollo Loco',
+        e,
+        st,
+      );
+    }
   }
 
   void _openPairs() {
-    unawaited(AppAudio.instance.playPairsLoop());
-    setState(() => _showPairs = true);
+    GameDebug.log('Menu', 'open PARES ANIMALES tapped');
+    try {
+      unawaited(AppAudio.instance.playPairsLoop());
+      setState(() {
+        _showPairs = true;
+        GameDebug.log('Menu', 'setState _showPairs=true');
+      });
+    } catch (e, st) {
+      GameDebug.logAndSnack(
+        context,
+        'Menu',
+        'No se pudo abrir Pares Animales',
+        e,
+        st,
+      );
+    }
   }
 
   void _returnFromGridPuzzleToMenu() =>
@@ -271,7 +312,14 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
             child: ChickenPathLayer(onClose: _returnFromChickenPathToMenu),
           ),
         if (_showPairs)
-          Positioned.fill(child: PairsLayer(onClose: _returnFromPairsToMenu)),
+          Positioned.fill(
+            child: PairsLayer(
+              onClose: _returnFromPairsToMenu,
+              onLoadError: (message) {
+                GameDebug.logAndSnack(context, 'Pairs', message);
+              },
+            ),
+          ),
         if (_showCreditos)
           Positioned.fill(
             child: CreditosLayer(onClose: _returnFromCreditosToMenu),
