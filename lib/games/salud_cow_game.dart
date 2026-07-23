@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
+import '../app_audio.dart';
 import '../utils/cutscene_instruction_loop.dart';
 import '../widgets/menu_back_pill.dart';
 import 'salud_cow_game2.dart';
@@ -577,6 +578,7 @@ class _SaludCowGameLayerState extends State<SaludCowGameLayer>
     if (_cepilloCremaLockedAfterTask) return;
     if (_cepilloCremaSettlingPostCelebration) return;
 
+    unawaited(AppAudio.instance.playPairsMatch());
     unawaited(_stopBrushInstructions());
 
     _cancelCepilloCremaIdleTimer();

@@ -377,13 +377,20 @@ class _FichaTecnicaButton extends StatelessWidget {
 
   final VoidCallback onTap;
 
+  static const List<Shadow> _kRedGlow = [
+    Shadow(color: Color(0xFFFF1744), blurRadius: 6),
+    Shadow(color: Color(0xE6FF1744), blurRadius: 12),
+    Shadow(color: Color(0xB3F44336), blurRadius: 20),
+    Shadow(color: Color(0x80E53935), blurRadius: 28),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        customBorder: const CircleBorder(),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           child: Column(
@@ -393,42 +400,45 @@ class _FichaTecnicaButton extends StatelessWidget {
                 'FICHA TECNICA',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Color(0xFF1A237E),
+                  color: Colors.white,
                   fontWeight: FontWeight.w900,
                   fontSize: 18,
                   letterSpacing: 1.1,
-                  shadows: [
-                    Shadow(
-                      color: Color(0x66000000),
-                      blurRadius: 3,
-                      offset: Offset(1, 1),
-                    ),
-                  ],
+                  shadows: _kRedGlow,
                 ),
               ),
               const SizedBox(height: 8),
-              Image.asset(
-                kFichaTecnicaImageAsset,
-                fit: BoxFit.contain,
-                height: 110,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(
-                    Icons.description_outlined,
-                    size: 72,
-                    color: Color(0xFF1A237E),
-                  );
-                },
+              ClipOval(
+                child: SizedBox(
+                  width: 110,
+                  height: 110,
+                  child: Image.asset(
+                    kFichaTecnicaImageAsset,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const ColoredBox(
+                        color: Color(0x33FFFFFF),
+                        child: Icon(
+                          Icons.description_outlined,
+                          size: 56,
+                          color: Colors.white,
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
               const SizedBox(height: 8),
               const Text(
                 'https://diverchicosfichatecnica.netlify.app',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Color(0xFF0D47A1),
+                  color: Colors.white,
                   fontWeight: FontWeight.w600,
                   fontSize: 11,
                   decoration: TextDecoration.underline,
-                  decorationColor: Color(0xFF0D47A1),
+                  decorationColor: Colors.white,
+                  shadows: _kRedGlow,
                 ),
               ),
             ],

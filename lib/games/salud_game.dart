@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../app_audio.dart';
 import '../utils/cutscene_instruction_loop.dart';
 import '../widgets/diverchicos_loading_screen.dart';
 import '../widgets/menu_back_pill.dart';
@@ -265,6 +266,7 @@ class _SaludCowCatIntroLayerState extends State<SaludCowCatIntroLayer> {
     if (_pickBusy) return;
     _pickBusy = true;
     _lastPickWasCow = assetPath == kSaludCowPickAsset;
+    unawaited(AppAudio.instance.playPick());
     _cancelIdleBlinkTimer();
     await _instructions.stop();
     await _disposeBlink();

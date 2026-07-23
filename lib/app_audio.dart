@@ -47,6 +47,7 @@ class AppAudio {
   AudioPlayer? _magiaFxPlayer;
   AudioPlayer? _grabFxPlayer;
   AudioPlayer? _releaseFxPlayer;
+  AudioPlayer? _pickFxPlayer;
 
   String? get currentBgmAsset => _currentBgmAsset;
 
@@ -347,6 +348,19 @@ class AppAudio {
     });
   }
 
+  /// Cat/cow pick sting on the salud character select screen.
+  Future<void> playPick() {
+    return _enqueue(() async {
+      final player = await _ensureOneShotFxPlayer(
+        existing: _pickFxPlayer,
+        store: (p) => _pickFxPlayer = p,
+      );
+      await player.stop();
+      await player.setVolume(0.5);
+      await player.play(AssetSource(pairsMatchClip));
+    });
+  }
+
   Future<void> stopBgm() {
     if (kIsWeb) {
       _currentBgmAsset = null;
@@ -392,6 +406,7 @@ class AppAudio {
         await _magiaFxPlayer?.stop();
         await _grabFxPlayer?.stop();
         await _releaseFxPlayer?.stop();
+        await _pickFxPlayer?.stop();
       });
     }
     return _enqueue(() async {
@@ -402,6 +417,7 @@ class AppAudio {
       await _magiaFxPlayer?.stop();
       await _grabFxPlayer?.stop();
       await _releaseFxPlayer?.stop();
+      await _pickFxPlayer?.stop();
       await _bgmPlayer.stop();
     });
   }
@@ -467,6 +483,8 @@ class AppAudio {
     _grabFxPlayer = null;
     await _releaseFxPlayer?.dispose();
     _releaseFxPlayer = null;
+    await _pickFxPlayer?.dispose();
+    _pickFxPlayer = null;
     await _fxPlayer.dispose();
     await _bgmPlayer.dispose();
   }
