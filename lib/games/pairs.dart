@@ -636,10 +636,8 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     _isResolving = false;
 
     if (isLastLevel) {
-      setState(() => _phase = _PairsPhase.complete);
-      await _whiteFade!.reverse();
-      if (!mounted) return;
       unawaited(AppAudio.instance.resumeBgm());
+      _exitToMenu();
       return;
     }
 

@@ -477,11 +477,19 @@ class MenuCarousel extends StatefulWidget {
 }
 
 class _MenuCarouselState extends State<MenuCarousel> {
+  static const Duration _kAutoAdvanceInterval = Duration(seconds: 4);
+  static const Duration _kIdleResumeDelay = Duration(seconds: 5);
+  static const Duration _kAutoAdvanceAnim = Duration(milliseconds: 780);
+
   late final PageController _controller = PageController(
     viewportFraction: MenuCarouselTuning.pageViewportFraction,
     initialPage: 10000,
   );
   double _page = 10000;
+
+  Timer? _autoAdvanceTimer;
+  Timer? _idleResumeTimer;
+  bool _programmaticScroll = false;
 
   @override
   void initState() {
@@ -492,12 +500,48 @@ class _MenuCarouselState extends State<MenuCarousel> {
         setState(() => _page = p);
       }
     });
+    _startAutoAdvance();
   }
 
   @override
   void dispose() {
+    _autoAdvanceTimer?.cancel();
+    _idleResumeTimer?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _startAutoAdvance() {
+    _autoAdvanceTimer?.cancel();
+    _idleResumeTimer?.cancel();
+    _autoAdvanceTimer = Timer.periodic(_kAutoAdvanceInterval, (_) {
+      unawaited(_goToNextPage());
+    });
+  }
+
+  /// Pause auto-rotate while the user browses; resume after [_kIdleResumeDelay].
+  void _onUserBrowsing() {
+    if (_programmaticScroll) return;
+    _autoAdvanceTimer?.cancel();
+    _autoAdvanceTimer = null;
+    _idleResumeTimer?.cancel();
+    _idleResumeTimer = Timer(_kIdleResumeDelay, _startAutoAdvance);
+  }
+
+  Future<void> _goToNextPage() async {
+    if (!mounted || !_controller.hasClients) return;
+    final current = _controller.page ?? _page;
+    final next = current.round() + 1;
+    _programmaticScroll = true;
+    try {
+      await _controller.animateToPage(
+        next,
+        duration: _kAutoAdvanceAnim,
+        curve: Curves.easeInOutCubic,
+      );
+    } finally {
+      _programmaticScroll = false;
+    }
   }
 
   @override
@@ -536,53 +580,70 @@ class _MenuCarouselState extends State<MenuCarousel> {
                   PointerDeviceKind.stylus,
                 },
               ),
-              child: PageView.builder(
-                controller: _controller,
-                scrollDirection: Axis.vertical,
-                padEnds: true,
-                clipBehavior: Clip.none,
-                itemBuilder: (context, index) {
-                  final card = widget.cards[index % widget.cards.length];
-                  final delta = index - _page;
-                  final distance = delta.abs().clamp(0.0, 1.0);
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (_programmaticScroll) return false;
+                  if (notification is ScrollStartNotification ||
+                      notification is UserScrollNotification ||
+                      notification is OverscrollNotification) {
+                    _onUserBrowsing();
+                  }
+                  return false;
+                },
+                child: PageView.builder(
+                  controller: _controller,
+                  scrollDirection: Axis.vertical,
+                  padEnds: true,
+                  clipBehavior: Clip.none,
+                  onPageChanged: (_) {
+                    if (!_programmaticScroll) {
+                      _onUserBrowsing();
+                    }
+                  },
+                  itemBuilder: (context, index) {
+                    final card = widget.cards[index % widget.cards.length];
+                    final delta = index - _page;
+                    final distance = delta.abs().clamp(0.0, 1.0);
 
-                  final scale =
-                      1 - (1 - MenuCarouselTuning.sideCardScale) * distance;
-                  final opacity =
-                      1 - (1 - MenuCarouselTuning.sideCardOpacity) * distance;
+                    final scale =
+                        1 - (1 - MenuCarouselTuning.sideCardScale) * distance;
+                    final opacity =
+                        1 - (1 - MenuCarouselTuning.sideCardOpacity) * distance;
 
-                  final dx = -leftShift * distance;
-                  final dy = delta.sign * curveOffsetY * distance;
-                  final tilt =
-                      delta.sign * MenuCarouselTuning.maxTiltRadians * distance;
+                    final dx = -leftShift * distance;
+                    final dy = delta.sign * curveOffsetY * distance;
+                    final tilt = delta.sign *
+                        MenuCarouselTuning.maxTiltRadians *
+                        distance;
 
-                  return Align(
-                    alignment: Alignment.centerRight,
-                    child: Transform.translate(
-                      offset: Offset(dx, dy),
-                      child: Transform.rotate(
-                        angle: tilt,
-                        child: Transform.scale(
-                          scale: scale,
-                          child: Opacity(
-                            opacity: opacity,
-                            child: SizedBox(
-                              width: mainCardW,
-                              height: mainCardH,
-                              child: MenuGameCard(
-                                data: card,
-                                borderRadius:
-                                    MenuCarouselTuning.cardBorderRadius(
-                                      laneSize,
-                                    ),
+                    return Align(
+                      alignment: Alignment.centerRight,
+                      child: Transform.translate(
+                        offset: Offset(dx, dy),
+                        child: Transform.rotate(
+                          angle: tilt,
+                          child: Transform.scale(
+                            scale: scale,
+                            child: Opacity(
+                              opacity: opacity,
+                              child: SizedBox(
+                                width: mainCardW,
+                                height: mainCardH,
+                                child: MenuGameCard(
+                                  data: card,
+                                  borderRadius:
+                                      MenuCarouselTuning.cardBorderRadius(
+                                    laneSize,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
           ),
