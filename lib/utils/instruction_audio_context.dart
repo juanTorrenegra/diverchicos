@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart';
 /// Web uses separate HTML audio elements and already mixes correctly, so no
 /// context is applied there.
 abstract final class InstructionAudioContext {
+  /// Half of full player volume for all instruction clips.
+  static const double volume = 0.5;
+
   static AudioContext? get mixing => kIsWeb
       ? null
       : AudioContext(
@@ -18,6 +21,7 @@ abstract final class InstructionAudioContext {
         );
 
   static Future<void> applyTo(AudioPlayer player) async {
+    await player.setVolume(volume);
     final ctx = mixing;
     if (ctx != null) {
       await player.setAudioContext(ctx);

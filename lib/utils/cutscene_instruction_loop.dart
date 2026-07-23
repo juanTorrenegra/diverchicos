@@ -12,7 +12,7 @@ import 'instruction_audio_context.dart';
 class CutsceneInstructionLoop {
   factory CutsceneInstructionLoop() => shared;
 
-  CutsceneInstructionLoop._({this.interval = const Duration(seconds: 3)});
+  CutsceneInstructionLoop._({this.interval = const Duration(seconds: 9)});
 
   static final CutsceneInstructionLoop shared =
       CutsceneInstructionLoop._();
@@ -25,7 +25,7 @@ class CutsceneInstructionLoop {
   AudioPlayer? _player;
   StreamSubscription<void>? _completeSub;
   String? _asset;
-  Duration _replayInterval = const Duration(seconds: 3);
+  Duration _replayInterval = const Duration(seconds: 9);
   bool _running = false;
   bool _paused = false;
 

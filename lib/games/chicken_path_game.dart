@@ -275,7 +275,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     unawaited(
       _instructions.start(
         ChickenInstructionAudio.levelAlternating,
-        interval: const Duration(seconds: 8),
+        interval: const Duration(seconds: 24),
       ),
     );
   }

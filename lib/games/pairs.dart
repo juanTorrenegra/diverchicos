@@ -160,7 +160,7 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     unawaited(
       _instructions.start(
         PairsInstructionAudio.volteaCartas,
-        interval: const Duration(seconds: 15),
+        interval: const Duration(seconds: 45),
       ),
     );
   }

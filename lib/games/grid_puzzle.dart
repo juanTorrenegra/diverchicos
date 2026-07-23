@@ -215,7 +215,7 @@ class _GridPuzzleLayerState extends State<GridPuzzleLayer>
     unawaited(
       _instructions.start(
         ChickenInstructionAudio.fichasParaCamino,
-        interval: const Duration(seconds: 6),
+        interval: const Duration(seconds: 18),
       ),
     );
   }

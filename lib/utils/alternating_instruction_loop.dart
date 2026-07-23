@@ -22,7 +22,7 @@ class AlternatingInstructionLoop {
   StreamSubscription<void>? _completeSub;
   List<String> _assets = const [];
   int _index = 0;
-  Duration _interval = const Duration(seconds: 8);
+  Duration _interval = const Duration(seconds: 24);
   AudioPlayer? _player;
   String? _asset;
   bool _running = false;
@@ -34,7 +34,7 @@ class AlternatingInstructionLoop {
   /// Plays [assets[0]], then switches every [interval] until [stop].
   Future<void> start(
     List<String> assets, {
-    Duration interval = const Duration(seconds: 8),
+    Duration interval = const Duration(seconds: 24),
   }) async {
     if (assets.isEmpty) return;
     if (_running &&
