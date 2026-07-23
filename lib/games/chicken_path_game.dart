@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:video_player/video_player.dart';
 
+import '../app_audio.dart';
 import '../utils/disable_video_pointer.dart';
 import '../utils/alternating_instruction_loop.dart';
 import '../utils/game_debug.dart';
@@ -498,6 +499,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     });
     _playButtonAppearController = controller;
     controller.forward(from: 0);
+    unawaited(AppAudio.instance.playMagia());
   }
 
   void _disposePlayButtonAppearAnimation() {
@@ -563,7 +565,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
         scale: _playButtonScale(),
         child: PointerInterceptor(
           child: Material(
-            color: const Color.fromARGB(255, 232, 6, 6),
+            color: const Color(0xFF1E88E5),
             elevation: 8,
             shape: const CircleBorder(),
             child: InkWell(
@@ -1046,10 +1048,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     final wasOnGrid = figure.slotIndex != null;
     final previousSlot = figure.slotIndex;
 
-    if (targetSlot == null ||
-        _isReservedSlot(targetSlot) ||
-        (_slotOccupants.containsKey(targetSlot) &&
-            _slotOccupants[targetSlot] != id)) {
+    if (targetSlot == null || _isReservedSlot(targetSlot)) {
       if (wasOnGrid && previousSlot != null) {
         _slotOccupants.remove(previousSlot);
         figure.slotIndex = null;
@@ -1063,6 +1062,13 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
       return;
     }
 
+    // Dropping onto an occupied slot replaces the previous piece.
+    final existingId = _slotOccupants[targetSlot];
+    if (existingId != null && existingId != id) {
+      _figures.removeWhere((f) => f.id == existingId);
+      _slotOccupants.remove(targetSlot);
+    }
+
     if (wasOnGrid && previousSlot != null && previousSlot != targetSlot) {
       _slotOccupants.remove(previousSlot);
     }
@@ -1070,6 +1076,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
     figure.slotIndex = targetSlot;
     _slotOccupants[targetSlot] = id;
     setState(() => _draggingFigureId = null);
+    unawaited(AppAudio.instance.playRelease());
     await _animateFigureTo(figure, _slotTopLeft(targetSlot));
     if (!mounted) return;
 
@@ -1194,6 +1201,7 @@ class _ChickenPathLayerState extends State<ChickenPathLayer>
             _slotOccupants.remove(slot);
           }
         }
+        unawaited(AppAudio.instance.playGrab());
         setState(() {
           _draggingFigureId = figure.id;
           if (figure.slotIndex != null) {

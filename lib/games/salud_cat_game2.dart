@@ -12,6 +12,7 @@ import 'salud_instruction_audio.dart';
 const String kSaludCatMouthRinseAsset = 'assets/video/salud/catMouthRinse.mp4';
 
 const String kSaludBathSoapPng = 'assets/images/bathGame/soap.png';
+const String kSaludBathDuchaPng = 'assets/images/bathGame/ducha.png';
 
 class _SoapBubble {
   _SoapBubble({
@@ -115,6 +116,9 @@ class _SaludCatGame2LayerState extends State<SaludCatGame2Layer>
   ];
 
   static const double _kLayoutTriangleSize = 150;
+  /// Visual shower overlay on top of the triangle (native 318×362).
+  static const double _kLayoutDuchaW = 150;
+  static const double _kLayoutDuchaH = 150 * 362 / 318;
   static const Offset _kLayoutTriangleStart = Offset(841.9, -44.2);
   static const Duration _kTriangleIdleDelay = Duration(seconds: 3);
   static const Duration _kTriangleIdleAnimDuration = Duration(milliseconds: 650);
@@ -864,7 +868,8 @@ class _SaludCatGame2LayerState extends State<SaludCatGame2Layer>
     _beginSoapShrink();
 
     const scale = 1.0;
-    final exitTop = -_kLayoutTriangleSize * scale - 8;
+    final exitTop =
+        -math.max(_kLayoutTriangleSize, _kLayoutDuchaH) * scale - 8;
     final distance = _triangleY.value - exitTop;
     const speedPxPerSec = 55.0;
     final durationMs =
@@ -1087,6 +1092,8 @@ class _SaludCatGame2LayerState extends State<SaludCatGame2Layer>
   }
 
   Widget _draggableLayoutTriangle() {
+    final stackW = math.max(_kLayoutTriangleSize, _kLayoutDuchaW);
+    final stackH = math.max(_kLayoutTriangleSize, _kLayoutDuchaH);
     return AnimatedBuilder(
       animation: Listenable.merge([
         _triangleX,
@@ -1100,7 +1107,7 @@ class _SaludCatGame2LayerState extends State<SaludCatGame2Layer>
           top: _triangleY.value,
           child: Transform.scale(
             scale: _triangleDisplayScale(),
-            alignment: Alignment.center,
+            alignment: Alignment.topLeft,
             child: child!,
           ),
         );
@@ -1124,13 +1131,37 @@ class _SaludCatGame2LayerState extends State<SaludCatGame2Layer>
           _logLayoutTrianglePosition();
         },
         child: SizedBox(
-          width: _kLayoutTriangleSize,
-          height: _kLayoutTriangleSize,
-          child: ClipPath(
-            clipper: _UpTriangleClipper(),
-            child: const ColoredBox(
-              color: _kTriangleFillColor,
-            ),
+          width: stackW,
+          height: stackH,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Triangle stays at (0,0) so water spawn math is unchanged.
+              Positioned(
+                left: 0,
+                top: 0,
+                width: _kLayoutTriangleSize,
+                height: _kLayoutTriangleSize,
+                child: ClipPath(
+                  clipper: _UpTriangleClipper(),
+                  child: const ColoredBox(
+                    color: _kTriangleFillColor,
+                  ),
+                ),
+              ),
+              // Ducha sits on top and moves with the same drag.
+              Positioned(
+                left: (_kLayoutTriangleSize - _kLayoutDuchaW) / 2,
+                top: (_kLayoutTriangleSize - _kLayoutDuchaH) / 2,
+                width: _kLayoutDuchaW,
+                height: _kLayoutDuchaH,
+                child: Image.asset(
+                  kSaludBathDuchaPng,
+                  fit: BoxFit.fill,
+                  filterQuality: FilterQuality.medium,
+                ),
+              ),
+            ],
           ),
         ),
       ),

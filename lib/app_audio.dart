@@ -29,6 +29,9 @@ class AppAudio {
   static const String pairsBgm = 'audio/forestBirds.mp3';
   static const String pairsLevelCompleteClip = 'audio/pairLevelCompleted.mp3';
   static const String pairsMatchClip = 'audio/pairMatch.mp3';
+  static const String magiaClip = 'audio/magia.mp3';
+  static const String grabClip = 'audio/grab.mp3';
+  static const String releaseClip = 'audio/release.mp3';
 
   static const double instructionBgmVolume = 0.1;
 
@@ -41,6 +44,9 @@ class AppAudio {
 
   AudioPlayer? _levelFxPlayer;
   AudioPlayer? _matchFxPlayer;
+  AudioPlayer? _magiaFxPlayer;
+  AudioPlayer? _grabFxPlayer;
+  AudioPlayer? _releaseFxPlayer;
 
   String? get currentBgmAsset => _currentBgmAsset;
 
@@ -292,6 +298,55 @@ class AppAudio {
     });
   }
 
+  Future<AudioPlayer> _ensureOneShotFxPlayer({
+    required AudioPlayer? existing,
+    required void Function(AudioPlayer player) store,
+  }) async {
+    if (existing != null) return existing;
+    final player = AudioPlayer();
+    await InstructionAudioContext.applyTo(player);
+    await player.setVolume(1);
+    await player.setReleaseMode(ReleaseMode.stop);
+    store(player);
+    return player;
+  }
+
+  /// Path-connected play-button appear sting (chicken + grid puzzle).
+  Future<void> playMagia() {
+    return _enqueue(() async {
+      final player = await _ensureOneShotFxPlayer(
+        existing: _magiaFxPlayer,
+        store: (p) => _magiaFxPlayer = p,
+      );
+      await player.stop();
+      await player.play(AssetSource(magiaClip));
+    });
+  }
+
+  /// Road-piece pick-up (chicken + grid puzzle).
+  Future<void> playGrab() {
+    return _enqueue(() async {
+      final player = await _ensureOneShotFxPlayer(
+        existing: _grabFxPlayer,
+        store: (p) => _grabFxPlayer = p,
+      );
+      await player.stop();
+      await player.play(AssetSource(grabClip));
+    });
+  }
+
+  /// Road-piece successfully placed on a grid slot (chicken + grid puzzle).
+  Future<void> playRelease() {
+    return _enqueue(() async {
+      final player = await _ensureOneShotFxPlayer(
+        existing: _releaseFxPlayer,
+        store: (p) => _releaseFxPlayer = p,
+      );
+      await player.stop();
+      await player.play(AssetSource(releaseClip));
+    });
+  }
+
   Future<void> stopBgm() {
     if (kIsWeb) {
       _currentBgmAsset = null;
@@ -334,6 +389,9 @@ class AppAudio {
         }
         await _levelFxPlayer?.stop();
         await _matchFxPlayer?.stop();
+        await _magiaFxPlayer?.stop();
+        await _grabFxPlayer?.stop();
+        await _releaseFxPlayer?.stop();
       });
     }
     return _enqueue(() async {
@@ -341,6 +399,9 @@ class AppAudio {
       await _fxPlayer.stop();
       await _levelFxPlayer?.stop();
       await _matchFxPlayer?.stop();
+      await _magiaFxPlayer?.stop();
+      await _grabFxPlayer?.stop();
+      await _releaseFxPlayer?.stop();
       await _bgmPlayer.stop();
     });
   }
@@ -400,6 +461,12 @@ class AppAudio {
     _levelFxPlayer = null;
     await _matchFxPlayer?.dispose();
     _matchFxPlayer = null;
+    await _magiaFxPlayer?.dispose();
+    _magiaFxPlayer = null;
+    await _grabFxPlayer?.dispose();
+    _grabFxPlayer = null;
+    await _releaseFxPlayer?.dispose();
+    _releaseFxPlayer = null;
     await _fxPlayer.dispose();
     await _bgmPlayer.dispose();
   }
