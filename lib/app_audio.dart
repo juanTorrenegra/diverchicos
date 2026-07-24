@@ -27,6 +27,7 @@ class AppAudio {
   static const String gridPuzzleBgm = 'audio/mrJelly.mp3';
   static const String chickenPathBgm = 'audio/daft_cat.mp3';
   static const String pairsBgm = 'audio/forestBirds.mp3';
+  static const String jigsawBgm = 'audio/jigsawGame.mp3';
   static const String pairsLevelCompleteClip = 'audio/pairLevelCompleted.mp3';
   static const String pairsMatchClip = 'audio/pairMatch.mp3';
   static const String magiaClip = 'audio/magia.mp3';
@@ -93,6 +94,7 @@ class AppAudio {
       gridPuzzleBgm,
       chickenPathBgm,
       pairsBgm,
+      jigsawBgm,
     ]) {
       final p = await ensureLoopingBgm(asset);
       await p.setReleaseMode(ReleaseMode.loop);
@@ -210,6 +212,8 @@ class AppAudio {
   Future<void> playChickenPathLoop() => _startBgmLoop(chickenPathBgm);
 
   Future<void> playPairsLoop() => _startBgmLoop(pairsBgm);
+
+  Future<void> playJigsawLoop() => _startBgmLoop(jigsawBgm);
 
   /// Pauses current BGM without clearing the track (level celebrations, etc.).
   Future<void> pauseBgm() {

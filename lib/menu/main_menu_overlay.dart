@@ -9,6 +9,7 @@ import '../app_audio.dart';
 import '../games/chicken_path_game.dart';
 import '../games/creditos.dart';
 import '../games/grid_puzzle.dart';
+import '../games/jigsaw_game.dart';
 import '../games/pairs.dart';
 import '../games/pop_bunny.dart';
 import '../games/salud_game.dart';
@@ -33,6 +34,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
   bool _showPopBunny = false;
   bool _showChickenPath = false;
   bool _showPairs = false;
+  bool _showJigsaw = false;
   bool _showCreditos = false;
   bool _exitingToMenu = false;
   AnimationController? _saludReturnWhiteFade;
@@ -166,6 +168,19 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
   void _returnFromPairsToMenu() =>
       _beginExitMiniGameToMenu(hideActiveGame: () => _showPairs = false);
 
+  void _openJigsaw() {
+    GameDebug.log('Menu', 'open WAYUU (jigsaw)');
+    try {
+      unawaited(AppAudio.instance.playJigsawLoop());
+      setState(() => _showJigsaw = true);
+    } catch (e, st) {
+      GameDebug.logAndSnack(context, 'Menu', 'No se pudo abrir Wayuu', e, st);
+    }
+  }
+
+  void _returnFromJigsawToMenu() =>
+      _beginExitMiniGameToMenu(hideActiveGame: () => _showJigsaw = false);
+
   void _openCreditos() {
     setState(() => _showCreditos = true);
   }
@@ -180,6 +195,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
       _showPopBunny ||
       _showChickenPath ||
       _showPairs ||
+      _showJigsaw ||
       _showCreditos;
 
   void _exitApp() {
@@ -219,6 +235,11 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
         onTap: _openPairs,
         imageAsset: MenuIcons.pairsGamePng,
       ),
+      MenuGameCardData(
+        title: 'WAYUU',
+        onTap: _openJigsaw,
+        imageAsset: MenuIcons.jigsawPng,
+      ),
     ];
   }
 
@@ -250,34 +271,71 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
                       Positioned.fill(
                         child: Center(child: MenuCarousel(cards: cards)),
                       ),
+                      // Top: color friends in the middle-left (closer to left edge)
                       Positioned(
-                        left: w / 9,
-                        top: h / 7.5,
-                        width: w / 5,
-                        child: Image.asset(
-                          'assets/images/colorFriendsDiverchicos.png',
-                          fit: BoxFit.contain,
+                        left: 0,
+                        top: 0,
+                        height: h * 0.12,
+                        width: w * 0.32,
+                        child: Padding(
+                          padding: EdgeInsets.only(top: h * 0.018),
+                          child: Align(
+                            alignment: Alignment.center,
+                            child: Image.asset(
+                              'assets/images/colorFriendsDiverchicos.png',
+                              fit: BoxFit.contain,
+                              height: h * 0.095 * 1.4,
+                            ),
+                          ),
                         ),
                       ),
+                      // Middle: circles centered in the left half of the screen
                       Positioned(
-                        left: w / 20,
-                        top: h / 3,
-                        width: w / 3,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            MenuCircleGrid(gridWidth: w / 3, items: cards),
-                            SizedBox(height: h / 14),
-                            GestureDetector(
-                              onTap: _openCreditos,
-                              child: Image.asset(
-                                MenuIcons.creditosPng,
+                        left: 0,
+                        top: h * 0.12,
+                        width: w * 0.5,
+                        height: h * 0.68,
+                        child: LayoutBuilder(
+                          builder: (context, box) {
+                            final gridW = box.maxWidth.clamp(
+                              80.0,
+                              w / 2.15,
+                            );
+                            return Center(
+                              child: FittedBox(
                                 fit: BoxFit.contain,
-                                width: w / 5,
+                                child: SizedBox(
+                                  width: gridW,
+                                  child: MenuCircleGrid(
+                                    gridWidth: gridW,
+                                    items: cards,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
+                            );
+                          },
+                        ),
+                      ),
+                      // Bottom: créditos centered in the left half
+                      Positioned(
+                        left: 0,
+                        top: h * 0.80,
+                        width: w * 0.5,
+                        height: h * 0.20,
+                        child: LayoutBuilder(
+                          builder: (context, box) {
+                            return Center(
+                              child: GestureDetector(
+                                onTap: _openCreditos,
+                                child: Image.asset(
+                                  MenuIcons.creditosPng,
+                                  fit: BoxFit.contain,
+                                  width: box.maxWidth * 0.28,
+                                  height: box.maxHeight * 0.45,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                       Positioned(
@@ -319,6 +377,10 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
                 GameDebug.logAndSnack(context, 'Pairs', message);
               },
             ),
+          ),
+        if (_showJigsaw)
+          Positioned.fill(
+            child: JigsawPuzzleLayer(onClose: _returnFromJigsawToMenu),
           ),
         if (_showCreditos)
           Positioned.fill(
@@ -367,6 +429,7 @@ abstract final class MenuIcons {
   static const String chickenPng = 'assets/images/chicken/chicken.png';
   static const String saludGamePng = 'assets/images/vaky512x5012.png';
   static const String pairsGamePng = 'assets/images/pairs/canvaJaguar.png';
+  static const String jigsawPng = 'assets/images/logoDC.png';
   static const String creditosPng = 'assets/images/creditos.png';
   static const String fichaTecnicaPng = kFichaTecnicaImageAsset;
 }
@@ -455,11 +518,12 @@ class MenuCarouselTuning {
   static double mainCardHeightFactor = 0.5;
   static double sideCardScale = 0.70;
   static double pageViewportFraction = 0.50;
-  static double sideCardLeftShiftFactor = 0.09;
+  static double sideCardLeftShiftFactor = 0.12;
   static double sideCardOpacity = 0.82;
   static double maxTiltRadians = 0.10;
   static double curveVerticalOffsetFactor = 0.02;
-  static double laneLeftSpacerFactor = 0.16;
+  /// Pulls the carousel lane left so cards nearly meet the circle grid.
+  static double laneLeftSpacerFactor = 0.02;
   static double laneRightPaddingFactor = 0.02;
 
   static const double carouselImageScale = 2.0;
@@ -882,6 +946,27 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
       if (next != null && next != _selectedIndex) {
         setState(() => _selectedIndex = next!);
       }
+      return;
+    }
+
+    if (_count == 6) {
+      // Triangle: 1 / 2 / 3  — neighbors [up, right, down, left]
+      const neighbors = <List<int?>>[
+        [null, null, 1, null], // 0
+        [0, 2, 3, null], // 1
+        [0, null, 5, 1], // 2
+        [1, 4, null, null], // 3
+        [1, 5, null, 3], // 4
+        [2, null, null, 4], // 5
+      ];
+      int? next;
+      if (deltaCol > 0) next = neighbors[_selectedIndex][1];
+      if (deltaCol < 0) next = neighbors[_selectedIndex][3];
+      if (deltaRow > 0) next = neighbors[_selectedIndex][2];
+      if (deltaRow < 0) next = neighbors[_selectedIndex][0];
+      if (next != null && next != _selectedIndex) {
+        setState(() => _selectedIndex = next!);
+      }
     }
   }
 
@@ -910,10 +995,9 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
   @override
   Widget build(BuildContext context) {
     final maxPerRow = _count >= 5 ? 3 : (_count >= 2 ? 2 : 1);
-    final circleSize =
-        _kCircleSizeScale *
+    final circleSize = _kCircleSizeScale *
         widget.gridWidth /
-        (maxPerRow + 0.22 * (maxPerRow - 1));
+        (maxPerRow + 0.10 * (maxPerRow - 1));
     final gap = maxPerRow > 1
         ? (widget.gridWidth - maxPerRow * circleSize) / (maxPerRow - 1)
         : 0.0;
@@ -1010,7 +1094,18 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
 
     Widget grid = SizedBox(
       width: widget.gridWidth,
-      child: _count == 5
+      child: _count == 6
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                centeredRow(const [0]),
+                SizedBox(height: gap),
+                centeredRow(const [1, 2]),
+                SizedBox(height: gap),
+                centeredRow(const [3, 4, 5]),
+              ],
+            )
+          : _count == 5
           ? Column(
               mainAxisSize: MainAxisSize.min,
               children: [
