@@ -4,8 +4,13 @@ import 'package:flutter/material.dart';
 
 import '../widgets/menu_back_pill.dart';
 
-const String kJigsawBgAsset = 'assets/images/wayuuBg.png';
 const String kJigsawLogoAsset = 'assets/images/logoDC.png';
+
+/// Stroke width for empty-slot board outlines (inner seams + outer edges).
+const double kJigsawBoardLineThickness = 15;
+
+/// Opacity of the faint logo preview inside empty receiver slots.
+const double kJigsawSlotGhostOpacity = 0.08;
 
 /// Edge connector: flat, outward tab, or inward socket.
 enum _JigsawEdge { flat, tab, blank }
@@ -236,11 +241,7 @@ class _JigsawPieceClipper extends CustomClipper<Path> {
 
   @override
   Path getClip(Size size) {
-    return _buildJigsawPiecePath(
-      spec: spec,
-      boardW: boardW,
-      boardH: boardH,
-    );
+    return _buildJigsawPiecePath(spec: spec, boardW: boardW, boardH: boardH);
   }
 
   @override
@@ -350,9 +351,10 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
     _cancelBounce(id);
     final controller = AnimationController(vsync: this, duration: _kBounceBack);
-    final anim = Tween<Offset>(begin: from, end: home).animate(
-      CurvedAnimation(parent: controller, curve: Curves.elasticOut),
-    );
+    final anim = Tween<Offset>(
+      begin: from,
+      end: home,
+    ).animate(CurvedAnimation(parent: controller, curve: Curves.elasticOut));
     controller.addListener(() {
       if (!mounted) return;
       setState(() => _piecePos[id] = anim.value);
@@ -417,34 +419,30 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
             width: _kLogicalW,
             height: _kLogicalH,
             child: Stack(
-              clipBehavior: Clip.hardEdge,
+              clipBehavior: Clip.none,
               children: [
-                Positioned.fill(
-                  child: Image.asset(
-                    kJigsawBgAsset,
-                    fit: BoxFit.cover,
-                    filterQuality: FilterQuality.medium,
-                  ),
-                ),
-                // Soft panel behind the board so empty slots read clearly.
-                Positioned(
-                  left: _kBoardOrigin.dx - 28,
-                  top: _kBoardOrigin.dy - 28,
-                  width: _kBoardW + 56,
-                  height: _kBoardH + 56,
+                const Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.45),
-                        width: 3,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF1B5E20),
+                          Color(0xFF66BB6A),
+                          Color(0xFFFFF176),
+                        ],
+                        stops: [0.0, 0.45, 1.0],
                       ),
                     ),
                   ),
                 ),
+
+                // Soft panel behind the board (fill only — outlines draw the border).
                 ..._kPieces.map(_buildEmptySlot),
-                ..._kPieces.where((s) => _placed.contains(s.id)).map(_buildPlacedPiece),
+                ..._kPieces
+                    .where((s) => _placed.contains(s.id))
+                    .map(_buildPlacedPiece),
                 ..._kPieces
                     .where((s) => !_placed.contains(s.id))
                     .map(_buildDraggablePiece),
@@ -459,31 +457,51 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
   Widget _buildEmptySlot(_PieceSpec spec) {
     if (_placed.contains(spec.id)) return const SizedBox.shrink();
+    // Pad the layer so thick strokes are not clipped on the outer board edges.
+    final pad = kJigsawBoardLineThickness;
     return Positioned(
-      left: _kBoardOrigin.dx,
-      top: _kBoardOrigin.dy,
-      width: _kBoardW,
-      height: _kBoardH,
+      left: _kBoardOrigin.dx - pad,
+      top: _kBoardOrigin.dy - pad,
+      width: _kBoardW + pad * 2,
+      height: _kBoardH + pad * 2,
       child: IgnorePointer(
-        child: ClipPath(
-          clipper: _JigsawPieceClipper(
-            spec: spec,
-            boardW: _kBoardW,
-            boardH: _kBoardH,
-          ),
-          child: Stack(
-            children: [
-              ColoredBox(color: Colors.black.withValues(alpha: 0.28)),
-              Opacity(
-                opacity: 0.22,
-                child: Image.asset(
-                  kJigsawLogoAsset,
-                  width: _kBoardW,
-                  height: _kBoardH,
-                  fit: BoxFit.fill,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: pad,
+              top: pad,
+              width: _kBoardW,
+              height: _kBoardH,
+              child: ClipPath(
+                clipper: _JigsawPieceClipper(
+                  spec: spec,
+                  boardW: _kBoardW,
+                  boardH: _kBoardH,
+                ),
+                child: Stack(
+                  children: [
+                    ColoredBox(color: Colors.black.withValues(alpha: 0.10)),
+                    Opacity(
+                      opacity: kJigsawSlotGhostOpacity,
+                      child: Image.asset(
+                        kJigsawLogoAsset,
+                        width: _kBoardW,
+                        height: _kBoardH,
+                        fit: BoxFit.fill,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              CustomPaint(
+            ),
+            // Outline painted outside ClipPath so outer edges keep full thickness.
+            Positioned(
+              left: pad,
+              top: pad,
+              width: _kBoardW,
+              height: _kBoardH,
+              child: CustomPaint(
                 size: const Size(_kBoardW, _kBoardH),
                 painter: _JigsawOutlinePainter(
                   spec: spec,
@@ -491,8 +509,8 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
                   boardH: _kBoardH,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -589,8 +607,8 @@ class _JigsawOutlinePainter extends CustomPainter {
     );
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5
-      ..color = Colors.white.withValues(alpha: 0.75);
+      ..strokeWidth = kJigsawBoardLineThickness
+      ..color = Colors.white.withValues(alpha: 0.9);
     canvas.drawPath(path, paint);
   }
 
