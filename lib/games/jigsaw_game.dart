@@ -326,25 +326,34 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   static const double _kSnapDistance = 72;
   static const Duration _kDropDelay = Duration(seconds: 1);
 
-  /// Pendulum + stretchy rope (bouncy / swingy).
-  static const double _kGravity = 2800.0;
-  static const double _kStretch = 95.0;
-  static const double _kDamping = 2.8;
+  /// Variable-length pendulum: swings (θ) + bouncy stretch (L).
+  static const double _kGravity = 2400.0;
+  static const double _kStretch = 140.0;
+  static const double _kLenDamp = 3.2;
+  static const double _kAngDamp = 0.45;
   static const double _kAttachBias = 48.0;
 
-  /// Left: 1/6 lower, 2/6 less low · Right: 4/6 hang low, 5/6 hanging lower.
-  static const Map<int, _RopeSpec> _kRopeByPiece = {
-    0: _RopeSpec(anchorXFraction: 1 / 6, hangYFraction: 0.62),
-    2: _RopeSpec(anchorXFraction: 2 / 6, hangYFraction: 0.40),
-    1: _RopeSpec(anchorXFraction: 4 / 6, hangYFraction: 0.48),
-    3: _RopeSpec(anchorXFraction: 5 / 6, hangYFraction: 0.66),
-  };
+  /// Fixed hook slots: left 1/8 & 2/8, right 6/8 & 7/8 (pieces are shuffled onto these).
+  static const List<_RopeSpec> _kRopeSlots = [
+    _RopeSpec(anchorXFraction: 1 / 8, hangYFraction: 0.62), // left, lower
+    _RopeSpec(anchorXFraction: 2 / 8, hangYFraction: 0.40), // left, less low
+    _RopeSpec(anchorXFraction: 6 / 8, hangYFraction: 0.48), // right, hang low
+    _RopeSpec(anchorXFraction: 7 / 8, hangYFraction: 0.66), // right, hanging lower
+  ];
 
   final Map<int, Offset> _piecePos = {};
   final Map<int, double> _restLength = {};
   final Map<int, Offset> _anchors = {};
+  /// Cartesian velocity while free-falling / dragging.
   final Map<int, Offset> _velocity = {};
+  /// Pendulum state once the rope has caught the piece.
+  final Map<int, double> _theta = {}; // 0 = straight down
+  final Map<int, double> _omega = {};
+  final Map<int, double> _length = {};
+  final Map<int, double> _lenVel = {};
+  final Map<int, bool> _onRope = {};
   final Map<int, double> _tilt = {};
+  final Map<int, _RopeSpec> _ropeByPiece = {};
   final Set<int> _placed = {};
   int? _draggingId;
 
@@ -353,6 +362,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   Timer? _dropTimer;
   bool _piecesReleased = false;
   bool _exitingToMenu = false;
+  final math.Random _rng = math.Random();
 
   double get _cellW => _kBoardW / 2;
   double get _cellH => _kBoardH / 2;
@@ -366,7 +376,9 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
   double _attachLocalX(_PieceSpec spec) {
     // Off-center hitch so hanging pieces rest with a little tilt.
-    final bias = spec.col == 0 ? -_kAttachBias : _kAttachBias;
+    final rope = _ropeByPiece[spec.id];
+    final onLeft = (rope?.anchorXFraction ?? 0.5) < 0.5;
+    final bias = onLeft ? -_kAttachBias : _kAttachBias;
     return _cellW / 2 + bias;
   }
 
@@ -378,19 +390,67 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     return Offset(attach.dx - _attachLocalX(spec), attach.dy);
   }
 
+  /// Hitch world position from pendulum polar coords (θ from downward vertical).
+  Offset _attachFromPolar(Offset anchor, double length, double theta) {
+    return Offset(
+      anchor.dx + length * math.sin(theta),
+      anchor.dy + length * math.cos(theta),
+    );
+  }
+
+  void _catchOntoRope(
+    int id,
+    Offset anchor,
+    Offset attach,
+    Offset vel,
+    double restLen,
+  ) {
+    final delta = attach - anchor;
+    final dist = math.max(delta.distance, 1.0);
+    final dir = Offset(delta.dx / dist, delta.dy / dist); // outward
+    final tangent = Offset(dir.dy, -dir.dx); // leftward when hanging down
+    final vRad = vel.dx * dir.dx + vel.dy * dir.dy;
+    final vTan = vel.dx * tangent.dx + vel.dy * tangent.dy;
+
+    _length[id] = dist;
+    _lenVel[id] = vRad;
+    _theta[id] = math.atan2(delta.dx, math.max(delta.dy, 1.0));
+    _omega[id] = vTan / dist;
+    _onRope[id] = true;
+    // Nudge a little angular energy if almost purely vertical (organic swing).
+    if (_omega[id]!.abs() < 0.4) {
+      _omega[id] = (_omega[id] ?? 0) + (_rng.nextBool() ? 1.2 : -1.2);
+    }
+  }
+
   void _layoutRopes() {
-    for (final spec in _kPieces) {
-      final rope = _kRopeByPiece[spec.id]!;
+    final slots = List<_RopeSpec>.from(_kRopeSlots)..shuffle(_rng);
+    final pieces = List<_PieceSpec>.from(_kPieces)..shuffle(_rng);
+
+    for (var i = 0; i < pieces.length; i++) {
+      final spec = pieces[i];
+      final rope = slots[i];
+      _ropeByPiece[spec.id] = rope;
+
       final anchor = Offset(rope.anchorXFraction * _kLogicalW, 0);
       final hangY = rope.hangYFraction * _kLogicalH;
       final attachRest = Offset(anchor.dx, hangY);
       final rest = _pieceFromAttach(spec, attachRest);
       _anchors[spec.id] = anchor;
-      _restLength[spec.id] = hangY; // vertical rest length from ceiling hook
+      _restLength[spec.id] = hangY;
       _tilt[spec.id] = 0;
-      // Start just above the screen, under each hook, so they fall into the rope.
-      _piecePos[spec.id] = Offset(rest.dx, -120);
-      _velocity[spec.id] = const Offset(0, 400);
+      _onRope[spec.id] = false;
+      _theta[spec.id] = 0;
+      _omega[spec.id] = 0;
+      _length[spec.id] = hangY;
+      _lenVel[spec.id] = 0;
+      // Start above the screen with a sideways kick so the catch swings.
+      final kick = (_rng.nextDouble() * 2 - 1) * 520;
+      _piecePos[spec.id] = Offset(
+        rest.dx + (_rng.nextDouble() * 2 - 1) * 80,
+        -140 - _rng.nextDouble() * 60,
+      );
+      _velocity[spec.id] = Offset(kick, 350 + _rng.nextDouble() * 200);
     }
   }
 
@@ -402,14 +462,10 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     _physicsTicker = createTicker(_onPhysicsTick)..start();
   }
 
-  double _naturalTilt(_PieceSpec spec, Offset pieceTopLeft) {
-    final anchor = _anchors[spec.id]!;
-    final attach = _ropeAttach(spec, pieceTopLeft);
-    final rope = attach - anchor;
-    // Follow the rope, with a bit of extra lean from the off-center hitch.
-    final ropeAngle = math.atan2(rope.dx, math.max(rope.dy, 1));
-    final bias = spec.col == 0 ? -0.14 : 0.14;
-    return (ropeAngle + bias).clamp(-0.85, 0.85);
+  double _naturalTilt(_PieceSpec spec, double theta) {
+    final onLeft = (_ropeByPiece[spec.id]?.anchorXFraction ?? 0.5) < 0.5;
+    final bias = onLeft ? -0.12 : 0.12;
+    return (theta + bias).clamp(-0.95, 0.95);
   }
 
   void _onPhysicsTick(Duration elapsed) {
@@ -418,114 +474,131 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
         ? 16.0
         : (elapsed - _lastTick).inMicroseconds / 1000.0;
     _lastTick = elapsed;
-    final dt = (dtMs / 1000.0).clamp(0.0, 1 / 30);
-
+    // Sub-step for stable pendulum integration.
+    var remaining = (dtMs / 1000.0).clamp(0.0, 1 / 20);
+    const subDt = 1 / 120;
     var needsFrame = false;
-    final nextPos = <int, Offset>{};
-    final nextVel = <int, Offset>{};
-    final nextTilt = <int, double>{};
+
+    while (remaining > 0) {
+      final dt = math.min(subDt, remaining);
+      remaining -= dt;
+      if (_stepPhysics(dt)) needsFrame = true;
+    }
+
+    if (!needsFrame) return;
+    setState(() {});
+  }
+
+  /// One integration step. Returns true if anything moved.
+  bool _stepPhysics(double dt) {
+    var moved = false;
 
     for (final spec in _kPieces) {
       final id = spec.id;
       if (_placed.contains(id)) continue;
 
-      // While dragging: untilt toward upright, no rope physics.
       if (_draggingId == id) {
         final t = _tilt[id] ?? 0;
-        final newT = t * math.pow(0.001, dt).toDouble(); // fast ease to 0
+        final newT = t * math.pow(0.0004, dt).toDouble();
         if (newT.abs() > 0.002) {
-          nextTilt[id] = newT;
-          needsFrame = true;
+          _tilt[id] = newT;
+          moved = true;
         } else if (t.abs() > 0.001) {
-          nextTilt[id] = 0;
-          needsFrame = true;
+          _tilt[id] = 0;
+          moved = true;
         }
         continue;
       }
 
-      final pos = _piecePos[id]!;
-      final vel = _velocity[id] ?? Offset.zero;
       final anchor = _anchors[id]!;
       final restLen = _restLength[id]!;
-      final attach = _ropeAttach(spec, pos);
 
-      late final Offset accel;
-      if (attach.dy <= anchor.dy + 8) {
-        // Still above the hook — free-fall into the rope (no upward spring).
-        accel = Offset(
-          -_kDamping * vel.dx,
-          _kGravity - _kDamping * vel.dy,
+      if (_onRope[id] != true) {
+        // Free-fall until the rope snaps taut.
+        final pos = _piecePos[id]!;
+        final vel = _velocity[id] ?? Offset.zero;
+        final accel = Offset(
+          -_kLenDamp * 0.15 * vel.dx,
+          _kGravity - _kLenDamp * 0.15 * vel.dy,
         );
-      } else {
-        final toAttach = attach - anchor;
-        final dist = math.max(toAttach.distance, 1.0);
-        final dir = Offset(toAttach.dx / dist, toAttach.dy / dist);
-        final stretch = dist - restLen;
-        final spring = -_kStretch * stretch;
-        accel = Offset(
-          dir.dx * spring - _kDamping * vel.dx,
-          _kGravity + dir.dy * spring - _kDamping * vel.dy,
-        );
-      }
+        final newVel = vel + accel * dt;
+        final newPos = pos + newVel * dt;
+        final attach = _ropeAttach(spec, newPos);
+        final dist = (attach - anchor).distance;
 
-      var newVel = vel + accel * dt;
-      var newAttach = attach + newVel * dt;
+        _piecePos[id] = newPos;
+        _velocity[id] = newVel;
+        _tilt[id] = _naturalTilt(spec, math.atan2(
+          attach.dx - anchor.dx,
+          math.max(attach.dy, 1),
+        ));
+        moved = true;
 
-      // Keep the hitch below the ceiling hook once it has fallen past it.
-      if (newAttach.dy < anchor.dy) {
-        newAttach = Offset(newAttach.dx, anchor.dy);
-        if (newVel.dy < 0) newVel = Offset(newVel.dx, 0);
-      }
-
-      // Soft length clamp so the rope can't go wildly taut in one frame.
-      final newDelta = newAttach - anchor;
-      final newDist = newDelta.distance;
-      if (newDist > restLen * 2.4) {
-        final n = Offset(newDelta.dx / newDist, newDelta.dy / newDist);
-        newAttach = anchor + n * (restLen * 2.4);
-        final radial = newVel.dx * n.dx + newVel.dy * n.dy;
-        if (radial > 0) {
-          newVel = Offset(newVel.dx - n.dx * radial, newVel.dy - n.dy * radial);
+        if (attach.dy > anchor.dy + 20 && dist >= restLen) {
+          _catchOntoRope(id, anchor, attach, newVel, restLen);
         }
+        continue;
       }
 
-      final newPos = _pieceFromAttach(spec, newAttach);
-      final targetTilt = _naturalTilt(spec, newPos);
+      // --- Variable-length pendulum ---
+      var theta = _theta[id] ?? 0.0;
+      var omega = _omega[id] ?? 0.0;
+      var length = (_length[id] ?? restLen).clamp(40.0, restLen * 2.5);
+      var lenVel = _lenVel[id] ?? 0.0;
+
+      // θ'' = -(g/L) sinθ - 2 (L'/L) ω - damp ω
+      final angAcc = -( _kGravity / length) * math.sin(theta) -
+          2 * (lenVel / length) * omega -
+          _kAngDamp * omega;
+      // L'' = L ω² - k (L - rest) + g cosθ - damp L'
+      final lenAcc = length * omega * omega -
+          _kStretch * (length - restLen) +
+          _kGravity * math.cos(theta) -
+          _kLenDamp * lenVel;
+
+      omega += angAcc * dt;
+      theta += omega * dt;
+      lenVel += lenAcc * dt;
+      length = (length + lenVel * dt).clamp(40.0, restLen * 2.5);
+
+      // Soft settle when nearly still at the bottom.
+      if (theta.abs() < 0.012 &&
+          omega.abs() < 0.08 &&
+          (length - restLen).abs() < 4 &&
+          lenVel.abs() < 20) {
+        if (theta.abs() > 0.0001 ||
+            omega.abs() > 0.0001 ||
+            (length - restLen).abs() > 0.1 ||
+            lenVel.abs() > 0.1) {
+          moved = true;
+        }
+        theta = 0;
+        omega = 0;
+        length = restLen;
+        lenVel = 0;
+      } else {
+        moved = true;
+      }
+
+      _theta[id] = theta;
+      _omega[id] = omega;
+      _length[id] = length;
+      _lenVel[id] = lenVel;
+
+      final attach = _attachFromPolar(anchor, length, theta);
+      _piecePos[id] = _pieceFromAttach(spec, attach);
+      // Sync cartesian vel for a clean hand-off if the user grabs mid-swing.
+      final dir = Offset(math.sin(theta), math.cos(theta));
+      final tan = Offset(dir.dy, -dir.dx);
+      _velocity[id] = dir * lenVel + tan * (omega * length);
+
+      final targetTilt = _naturalTilt(spec, theta);
       final curTilt = _tilt[id] ?? targetTilt;
-      final newTilt = curTilt + (targetTilt - curTilt) * (1 - math.pow(0.02, dt));
-
-      // Settled when nearly hanging at rest length under the hook.
-      final restAttach = Offset(anchor.dx, anchor.dy + restLen);
-      final settled = (newAttach - restAttach).distance < 3 &&
-          newVel.distance < 25 &&
-          (attach - restAttach).distance < 4 &&
-          vel.distance < 25;
-      if (settled) {
-        final restPos = _pieceFromAttach(spec, restAttach);
-        final restTilt = _naturalTilt(spec, restPos);
-        if ((pos - restPos).distance < 0.5 &&
-            vel.distance < 1 &&
-            (curTilt - restTilt).abs() < 0.01) {
-          continue;
-        }
-        nextPos[id] = restPos;
-        nextVel[id] = Offset.zero;
-        nextTilt[id] = restTilt;
-      } else {
-        nextPos[id] = newPos;
-        nextVel[id] = newVel;
-        nextTilt[id] = newTilt;
-      }
-      needsFrame = true;
+      _tilt[id] = curTilt + (targetTilt - curTilt) * (1 - math.pow(0.01, dt));
+      if ((targetTilt - curTilt).abs() > 0.002) moved = true;
     }
 
-    if (!needsFrame) return;
-
-    setState(() {
-      _piecePos.addAll(nextPos);
-      _velocity.addAll(nextVel);
-      _tilt.addAll(nextTilt);
-    });
+    return moved;
   }
 
   Offset _slotOrigin(_PieceSpec spec) {
@@ -553,13 +626,13 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     if (!_piecesReleased || _placed.contains(id)) return;
     setState(() {
       _draggingId = id;
+      _onRope[id] = false;
       _velocity[id] = Offset.zero;
     });
   }
 
   void _onPanUpdate(int id, DragUpdateDetails details) {
     if (_draggingId != id) return;
-    // Keep release fling so the rope can swing hard when let go.
     final fling = details.delta * 62;
     setState(() {
       _piecePos[id] = (_piecePos[id]!) + details.delta;
@@ -578,10 +651,23 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
         _piecePos[id] = target;
         _velocity[id] = Offset.zero;
         _tilt[id] = 0;
+        _onRope[id] = false;
         _placed.add(id);
       });
     } else {
-      setState(() => _draggingId = null);
+      // Re-catch on the rope from the release point / fling.
+      final anchor = _anchors[id]!;
+      final attach = _ropeAttach(spec, current);
+      final vel = _velocity[id] ?? Offset.zero;
+      final restLen = _restLength[id]!;
+      setState(() {
+        _draggingId = null;
+        if (attach.dy > anchor.dy + 10) {
+          _catchOntoRope(id, anchor, attach, vel, restLen);
+        } else {
+          _onRope[id] = false;
+        }
+      });
     }
   }
 
