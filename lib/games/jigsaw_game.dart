@@ -4,9 +4,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../app_audio.dart';
+import '../widgets/match_confetti.dart';
 import '../widgets/menu_back_pill.dart';
 
-const String kJigsawLogoAsset = 'assets/images/logoDC.png';
+const String kJigsawLevel1Asset = 'assets/images/logoDC.png';
+const String kJigsawLevel2Asset = 'assets/images/landscapeBaby.jpg';
 
 /// Stroke width for empty-slot board outlines (inner seams + outer edges).
 const double kJigsawBoardLineThickness = 10;
@@ -325,6 +328,9 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
   static const double _kSnapDistance = 72;
   static const Duration _kDropDelay = Duration(seconds: 1);
+  static const Duration _kLevelFadeDuration = Duration(milliseconds: 1600);
+  static const Duration _kCannonDuration = Duration(seconds: 4);
+  static const int _kLevelCount = 2;
 
   /// Variable-length pendulum: swings (θ) + bouncy stretch (L).
   static const double _kGravity = 2400.0;
@@ -362,10 +368,34 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   Timer? _dropTimer;
   bool _piecesReleased = false;
   bool _exitingToMenu = false;
+  bool _levelCompleting = false;
+  int _levelIndex = 0;
+
+  AnimationController? _whiteFade;
+  int _nextConfettiId = 0;
+  final List<_JigsawConfetti> _confettiBursts = <_JigsawConfetti>[];
+
   final math.Random _rng = math.Random();
 
   double get _cellW => _kBoardW / 2;
   double get _cellH => _kBoardH / 2;
+
+  String get _puzzleImage =>
+      _levelIndex == 0 ? kJigsawLevel1Asset : kJigsawLevel2Asset;
+
+  List<Color> get _bgColors => _levelIndex == 0
+      ? const [
+          Color(0xFFFF9EC8),
+          Color(0xFFE048A0),
+          Color(0xFF6A1B9A),
+          Color(0xFF2A0A4A),
+        ]
+      : const [
+          Color(0xFFFFFFFF),
+          Color(0xFFFFE0B2),
+          Color(0xFFFF9800),
+          Color(0xFFE65100),
+        ];
 
   @override
   void initState() {
@@ -619,11 +649,17 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   void _exitToMenu() {
     if (_exitingToMenu) return;
     _exitingToMenu = true;
+    unawaited(AppAudio.instance.stopPairsLevelComplete());
+    unawaited(AppAudio.instance.resumeBgm());
     widget.onClose();
   }
 
   void _onPanStart(int id, DragStartDetails details) {
-    if (!_piecesReleased || _placed.contains(id)) return;
+    if (!_piecesReleased ||
+        _levelCompleting ||
+        _placed.contains(id)) {
+      return;
+    }
     setState(() {
       _draggingId = id;
       _onRope[id] = false;
@@ -632,7 +668,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   }
 
   void _onPanUpdate(int id, DragUpdateDetails details) {
-    if (_draggingId != id) return;
+    if (_draggingId != id || _levelCompleting) return;
     final fling = details.delta * 62;
     setState(() {
       _piecePos[id] = (_piecePos[id]!) + details.delta;
@@ -654,6 +690,9 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
         _onRope[id] = false;
         _placed.add(id);
       });
+      if (_placed.length >= _kPieces.length) {
+        unawaited(_onLevelComplete());
+      }
     } else {
       // Re-catch on the rope from the release point / fling.
       final anchor = _anchors[id]!;
@@ -671,10 +710,110 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     }
   }
 
+  void _removeConfetti(int id) {
+    if (!mounted) return;
+    final before = _confettiBursts.length;
+    _confettiBursts.removeWhere((b) => b.id == id);
+    if (_confettiBursts.length != before) setState(() {});
+  }
+
+  void _spawnFourCannonConfetti() {
+    // Four even fans from the middle-bottom of the screen.
+    final origin = Offset(_kLogicalW * 0.5, _kLogicalH + 8);
+    const fans = <(double, double)>[
+      (-math.pi * 0.95, -math.pi * 0.72),
+      (-math.pi * 0.72, -math.pi * 0.50),
+      (-math.pi * 0.50, -math.pi * 0.28),
+      (-math.pi * 0.28, -math.pi * 0.05),
+    ];
+    _confettiBursts
+      ..clear()
+      ..addAll([
+        for (final fan in fans)
+          _JigsawConfetti(
+            id: _nextConfettiId++,
+            origin: origin,
+            angleMin: fan.$1,
+            angleMax: fan.$2,
+          ),
+      ]);
+  }
+
+  Future<void> _onLevelComplete() async {
+    if (!mounted || _levelCompleting || _exitingToMenu) return;
+    _levelCompleting = true;
+    _draggingId = null;
+    _dropTimer?.cancel();
+    _physicsTicker?.dispose();
+    _physicsTicker = null;
+
+    unawaited(AppAudio.instance.pauseBgm());
+    unawaited(AppAudio.instance.playPairsLevelComplete());
+
+    _spawnFourCannonConfetti();
+    setState(() {});
+    await Future<void>.delayed(_kCannonDuration);
+    if (!mounted || _exitingToMenu) return;
+
+    _confettiBursts.clear();
+    setState(() {});
+
+    _whiteFade?.dispose();
+    _whiteFade = AnimationController(
+      vsync: this,
+      duration: _kLevelFadeDuration,
+    );
+    setState(() {});
+    await _whiteFade!.forward();
+    if (!mounted || _exitingToMenu) return;
+
+    unawaited(AppAudio.instance.stopPairsLevelComplete());
+
+    final isLastLevel = _levelIndex >= _kLevelCount - 1;
+    if (isLastLevel) {
+      unawaited(AppAudio.instance.resumeBgm());
+      _exitToMenu();
+      return;
+    }
+
+    _levelIndex++;
+    _resetBoardForNewLevel();
+    setState(() {});
+
+    await _whiteFade!.reverse();
+    if (!mounted || _exitingToMenu) return;
+
+    unawaited(AppAudio.instance.resumeBgm());
+    _levelCompleting = false;
+    _dropTimer?.cancel();
+    _dropTimer = Timer(_kDropDelay, _startDrop);
+  }
+
+  void _resetBoardForNewLevel() {
+    _placed.clear();
+    _draggingId = null;
+    _piecesReleased = false;
+    _piecePos.clear();
+    _velocity.clear();
+    _anchors.clear();
+    _restLength.clear();
+    _theta.clear();
+    _omega.clear();
+    _length.clear();
+    _lenVel.clear();
+    _onRope.clear();
+    _tilt.clear();
+    _ropeByPiece.clear();
+    _confettiBursts.clear();
+    _layoutRopes();
+  }
+
   @override
   void dispose() {
     _dropTimer?.cancel();
     _physicsTicker?.dispose();
+    _whiteFade?.dispose();
+    unawaited(AppAudio.instance.stopPairsLevelComplete());
     super.dispose();
   }
 
@@ -702,19 +841,14 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                const Positioned.fill(
+                Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: RadialGradient(
                         center: Alignment.center,
                         radius: 1.15,
-                        colors: [
-                          Color(0xFFFF9EC8),
-                          Color(0xFFE048A0),
-                          Color(0xFF6A1B9A),
-                          Color(0xFF2A0A4A),
-                        ],
-                        stops: [0.0, 0.32, 0.68, 1.0],
+                        colors: _bgColors,
+                        stops: const [0.0, 0.32, 0.68, 1.0],
                       ),
                     ),
                   ),
@@ -752,6 +886,50 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
                   ..._kPieces
                       .where((s) => !_placed.contains(s.id))
                       .map(_buildDraggablePiece),
+
+                for (final burst in _confettiBursts)
+                  Positioned.fill(
+                    key: ValueKey('jigsaw_confetti_${burst.id}'),
+                    child: MatchConfettiBurst(
+                      origin: burst.origin,
+                      particleCount: 120,
+                      duration: _kCannonDuration,
+                      colors: const [
+                        Color(0xFFFFEB3B),
+                        Color(0xFFFFF176),
+                        Color(0xFFFFD54F),
+                        Color(0xFFFFC107),
+                        Color(0xFFFFB300),
+                        Color(0xFFFFEE58),
+                      ],
+                      angleMin: burst.angleMin,
+                      angleMax: burst.angleMax,
+                      speedMin: 280,
+                      speedMax: 560,
+                      upwardBoost: 120,
+                      gravity: 160,
+                      useStars: true,
+                      starSizeMin: 32,
+                      starSizeMax: 68,
+                      onComplete: () => _removeConfetti(burst.id),
+                    ),
+                  ),
+
+                if (_whiteFade != null)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: AnimatedBuilder(
+                        animation: _whiteFade!,
+                        builder: (context, child) {
+                          final t = _whiteFade!.value.clamp(0.0, 1.0);
+                          return ColoredBox(
+                            color: Color.fromRGBO(255, 255, 255, t),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+
                 GameLogicalBackPill(onPressed: _exitToMenu),
               ],
             ),
@@ -791,7 +969,8 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
                     Opacity(
                       opacity: kJigsawSlotGhostOpacity,
                       child: Image.asset(
-                        kJigsawLogoAsset,
+                        _puzzleImage,
+
                         width: _kBoardW,
                         height: _kBoardH,
                         fit: BoxFit.fill,
@@ -836,7 +1015,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
             boardH: _kBoardH,
           ),
           child: Image.asset(
-            kJigsawLogoAsset,
+            _puzzleImage,
             width: _kBoardW,
             height: _kBoardH,
             fit: BoxFit.fill,
@@ -890,7 +1069,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
                 ],
               ),
               child: Image.asset(
-                kJigsawLogoAsset,
+                _puzzleImage,
                 width: _kBoardW,
                 height: _kBoardH,
                 fit: BoxFit.fill,
@@ -902,6 +1081,20 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
       ),
     );
   }
+}
+
+class _JigsawConfetti {
+  const _JigsawConfetti({
+    required this.id,
+    required this.origin,
+    required this.angleMin,
+    required this.angleMax,
+  });
+
+  final int id;
+  final Offset origin;
+  final double angleMin;
+  final double angleMax;
 }
 
 class _RopePainter extends CustomPainter {
