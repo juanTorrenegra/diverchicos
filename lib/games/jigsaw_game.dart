@@ -660,6 +660,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
         _placed.contains(id)) {
       return;
     }
+    unawaited(AppAudio.instance.playGrab());
     setState(() {
       _draggingId = id;
       _onRope[id] = false;
@@ -682,6 +683,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     final current = _piecePos[id]!;
     final target = _slotOrigin(spec);
     if ((current - target).distance <= _kSnapDistance) {
+      unawaited(AppAudio.instance.playJigsawOnBoard());
       setState(() {
         _draggingId = null;
         _piecePos[id] = target;

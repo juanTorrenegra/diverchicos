@@ -524,6 +524,7 @@ class _PairsLayerState extends State<PairsLayer> with TickerProviderStateMixin {
     if (_phase != _PairsPhase.playing || _isResolving) return;
     if (card.matched || card.faceUp) return;
 
+    unawaited(AppAudio.instance.playGrab());
     await _flipCardTo(card, faceUp: true);
     if (!mounted || _phase != _PairsPhase.playing) return;
 

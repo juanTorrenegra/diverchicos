@@ -33,6 +33,7 @@ class AppAudio {
   static const String magiaClip = 'audio/magia.mp3';
   static const String grabClip = 'audio/grab.mp3';
   static const String releaseClip = 'audio/release.mp3';
+  static const String jigsawOnBoardClip = 'audio/jigsawOnBoard.mp3';
 
   static const double instructionBgmVolume = 0.1;
 
@@ -49,6 +50,7 @@ class AppAudio {
   AudioPlayer? _grabFxPlayer;
   AudioPlayer? _releaseFxPlayer;
   AudioPlayer? _pickFxPlayer;
+  AudioPlayer? _jigsawOnBoardFxPlayer;
 
   String? get currentBgmAsset => _currentBgmAsset;
 
@@ -352,6 +354,18 @@ class AppAudio {
     });
   }
 
+  /// Jigsaw piece snapped onto its correct board slot.
+  Future<void> playJigsawOnBoard() {
+    return _enqueue(() async {
+      final player = await _ensureOneShotFxPlayer(
+        existing: _jigsawOnBoardFxPlayer,
+        store: (p) => _jigsawOnBoardFxPlayer = p,
+      );
+      await player.stop();
+      await player.play(AssetSource(jigsawOnBoardClip));
+    });
+  }
+
   /// Cat/cow pick sting on the salud character select screen.
   Future<void> playPick() {
     return _enqueue(() async {
@@ -411,6 +425,7 @@ class AppAudio {
         await _grabFxPlayer?.stop();
         await _releaseFxPlayer?.stop();
         await _pickFxPlayer?.stop();
+        await _jigsawOnBoardFxPlayer?.stop();
       });
     }
     return _enqueue(() async {
@@ -422,6 +437,7 @@ class AppAudio {
       await _grabFxPlayer?.stop();
       await _releaseFxPlayer?.stop();
       await _pickFxPlayer?.stop();
+      await _jigsawOnBoardFxPlayer?.stop();
       await _bgmPlayer.stop();
     });
   }
@@ -489,6 +505,8 @@ class AppAudio {
     _releaseFxPlayer = null;
     await _pickFxPlayer?.dispose();
     _pickFxPlayer = null;
+    await _jigsawOnBoardFxPlayer?.dispose();
+    _jigsawOnBoardFxPlayer = null;
     await _fxPlayer.dispose();
     await _bgmPlayer.dispose();
   }
