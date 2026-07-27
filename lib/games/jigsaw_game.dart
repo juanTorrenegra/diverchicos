@@ -17,11 +17,23 @@ class _JigsawLevel {
   const _JigsawLevel({
     required this.imageAsset,
     required this.bgColors,
+    required this.cols,
+    required this.rows,
+    required this.outerShape,
+    required this.boardW,
+    required this.boardH,
   });
 
   final String imageAsset;
   final List<Color> bgColors;
+  final int cols;
+  final int rows;
+  final _OuterShape outerShape;
+  final double boardW;
+  final double boardH;
 }
+
+enum _OuterShape { heart, wavyRect }
 
 const List<_JigsawLevel> _kJigsawLevels = [
   _JigsawLevel(
@@ -32,6 +44,11 @@ const List<_JigsawLevel> _kJigsawLevels = [
       Color(0xFF6A1B9A),
       Color(0xFF2A0A4A),
     ],
+    cols: 2,
+    rows: 2,
+    outerShape: _OuterShape.heart,
+    boardW: 700,
+    boardH: 640,
   ),
   _JigsawLevel(
     imageAsset: kJigsawLevel2Asset,
@@ -41,26 +58,39 @@ const List<_JigsawLevel> _kJigsawLevels = [
       Color(0xFFFF9800),
       Color(0xFFE65100),
     ],
+    cols: 2,
+    rows: 2,
+    outerShape: _OuterShape.heart,
+    boardW: 700,
+    boardH: 640,
   ),
   _JigsawLevel(
     imageAsset: kJigsawLevel3Asset,
-    // Bosque — soft mint → deep forest radial.
     bgColors: [
       Color(0xFFE8F5E9),
       Color(0xFF81C784),
       Color(0xFF2E7D32),
       Color(0xFF1B3A1F),
     ],
+    cols: 3,
+    rows: 2,
+    outerShape: _OuterShape.wavyRect,
+    boardW: 1080,
+    boardH: 720,
   ),
   _JigsawLevel(
     imageAsset: kJigsawLevel4Asset,
-    // Playground — sunny cream → sky → warm coral.
     bgColors: [
       Color(0xFFFFF8E1),
       Color(0xFF4FC3F7),
       Color(0xFF29B6F6),
       Color(0xFFFF7043),
     ],
+    cols: 3,
+    rows: 2,
+    outerShape: _OuterShape.wavyRect,
+    boardW: 1080,
+    boardH: 720,
   ),
 ];
 
@@ -73,9 +103,6 @@ const double kJigsawSlotGhostOpacity = 0.4;
 /// Edge connector: flat, outward tab, or inward socket.
 enum _JigsawEdge { flat, tab, blank }
 
-/// Classic 2×2 layout:
-/// NW right-tab / bottom-blank · NE left-blank / bottom-tab
-/// SW top-tab / right-tab · SE top-blank / left-blank
 class _PieceSpec {
   const _PieceSpec({
     required this.id,
@@ -96,7 +123,8 @@ class _PieceSpec {
   final _JigsawEdge left;
 }
 
-const List<_PieceSpec> _kPieces = [
+/// Classic 2×2 heart levels.
+const List<_PieceSpec> _kPieces2x2 = [
   _PieceSpec(
     id: 0,
     row: 0,
@@ -135,7 +163,65 @@ const List<_PieceSpec> _kPieces = [
   ),
 ];
 
-/// Overall knob scale relative to a half-board cell.
+/// 2×3 wavy-rect levels (3 columns × 2 rows).
+const List<_PieceSpec> _kPieces2x3 = [
+  _PieceSpec(
+    id: 0,
+    row: 0,
+    col: 0,
+    top: _JigsawEdge.flat,
+    right: _JigsawEdge.tab,
+    bottom: _JigsawEdge.tab,
+    left: _JigsawEdge.flat,
+  ),
+  _PieceSpec(
+    id: 1,
+    row: 0,
+    col: 1,
+    top: _JigsawEdge.flat,
+    right: _JigsawEdge.blank,
+    bottom: _JigsawEdge.blank,
+    left: _JigsawEdge.blank,
+  ),
+  _PieceSpec(
+    id: 2,
+    row: 0,
+    col: 2,
+    top: _JigsawEdge.flat,
+    right: _JigsawEdge.flat,
+    bottom: _JigsawEdge.tab,
+    left: _JigsawEdge.tab,
+  ),
+  _PieceSpec(
+    id: 3,
+    row: 1,
+    col: 0,
+    top: _JigsawEdge.blank,
+    right: _JigsawEdge.blank,
+    bottom: _JigsawEdge.flat,
+    left: _JigsawEdge.flat,
+  ),
+  _PieceSpec(
+    id: 4,
+    row: 1,
+    col: 1,
+    top: _JigsawEdge.tab,
+    right: _JigsawEdge.tab,
+    bottom: _JigsawEdge.flat,
+    left: _JigsawEdge.tab,
+  ),
+  _PieceSpec(
+    id: 5,
+    row: 1,
+    col: 2,
+    top: _JigsawEdge.blank,
+    right: _JigsawEdge.flat,
+    bottom: _JigsawEdge.flat,
+    left: _JigsawEdge.blank,
+  ),
+];
+
+/// Overall knob scale relative to a cell.
 const double kJigsawKnobScale = 0.24;
 
 /// Half-width of the narrow neck where the knob meets the edge (smaller = skinnier stem).
@@ -155,13 +241,10 @@ Path _buildHeartPath(double width, double height) {
   final path = Path();
   // Apple-heart: shallow top cleft, rounded bottom (no pointed tip).
   path.moveTo(0.50 * w, 0.07 * h);
-  // Left top lobe (cleft sits close to the top).
   path.cubicTo(0.50 * w, 0.01 * h, 0.32 * w, 0.00 * h, 0.18 * w, 0.03 * h);
   path.cubicTo(0.05 * w, 0.06 * h, 0.00 * w, 0.18 * h, 0.00 * w, 0.32 * h);
-  // Left side into a full rounded apple bottom.
   path.cubicTo(0.00 * w, 0.55 * h, 0.10 * w, 0.78 * h, 0.32 * w, 0.90 * h);
   path.cubicTo(0.42 * w, 0.96 * h, 0.58 * w, 0.96 * h, 0.68 * w, 0.90 * h);
-  // Right side back up.
   path.cubicTo(0.90 * w, 0.78 * h, 1.00 * w, 0.55 * h, 1.00 * w, 0.32 * h);
   path.cubicTo(1.00 * w, 0.18 * h, 0.95 * w, 0.06 * h, 0.82 * w, 0.03 * h);
   path.cubicTo(0.68 * w, 0.00 * h, 0.50 * w, 0.01 * h, 0.50 * w, 0.07 * h);
@@ -169,14 +252,41 @@ Path _buildHeartPath(double width, double height) {
   return path;
 }
 
-/// Builds a classic jigsaw path for [spec] inside a heart-shaped board.
+/// Soft rectangle with long outward curves hugging each side (levels 3–4).
+Path _buildWavyRectPath(double width, double height) {
+  final w = width;
+  final h = height;
+  final path = Path();
+  // Long bulges sit near each rectangle edge (kept inside the board rect).
+  path.moveTo(0.04 * w, 0.07 * h);
+  path.cubicTo(0.30 * w, 0.005 * h, 0.70 * w, 0.005 * h, 0.96 * w, 0.07 * h);
+  path.cubicTo(0.995 * w, 0.30 * h, 0.995 * w, 0.70 * h, 0.96 * w, 0.93 * h);
+  path.cubicTo(0.70 * w, 0.995 * h, 0.30 * w, 0.995 * h, 0.04 * w, 0.93 * h);
+  path.cubicTo(0.005 * w, 0.70 * h, 0.005 * w, 0.30 * h, 0.04 * w, 0.07 * h);
+  path.close();
+  return path;
+}
+
+Path _buildOuterPath(_OuterShape shape, double width, double height) {
+  switch (shape) {
+    case _OuterShape.heart:
+      return _buildHeartPath(width, height);
+    case _OuterShape.wavyRect:
+      return _buildWavyRectPath(width, height);
+  }
+}
+
+/// Builds a classic jigsaw path for [spec] clipped to the level outer shape.
 Path _buildJigsawPiecePath({
   required _PieceSpec spec,
   required double boardW,
   required double boardH,
+  required int cols,
+  required int rows,
+  required _OuterShape outerShape,
 }) {
-  final cellW = boardW / 2;
-  final cellH = boardH / 2;
+  final cellW = boardW / cols;
+  final cellH = boardH / rows;
   final left = spec.col * cellW;
   final top = spec.row * cellH;
   final right = left + cellW;
@@ -186,7 +296,6 @@ Path _buildJigsawPiecePath({
   final rectPiece = Path();
   rectPiece.moveTo(left, top);
 
-  // Same knob shape on every side: built in a local frame, then mapped.
   _addEdge(
     rectPiece,
     from: Offset(left, top),
@@ -221,11 +330,10 @@ Path _buildJigsawPiecePath({
   );
   rectPiece.close();
 
-  // Clip the rectangular cell to the heart so outer borders follow the heart.
   return Path.combine(
     PathOperation.intersect,
     rectPiece,
-    _buildHeartPath(boardW, boardH),
+    _buildOuterPath(outerShape, boardW, boardH),
   );
 }
 
@@ -324,22 +432,38 @@ class _JigsawPieceClipper extends CustomClipper<Path> {
     required this.spec,
     required this.boardW,
     required this.boardH,
+    required this.cols,
+    required this.rows,
+    required this.outerShape,
   });
 
   final _PieceSpec spec;
   final double boardW;
   final double boardH;
+  final int cols;
+  final int rows;
+  final _OuterShape outerShape;
 
   @override
   Path getClip(Size size) {
-    return _buildJigsawPiecePath(spec: spec, boardW: boardW, boardH: boardH);
+    return _buildJigsawPiecePath(
+      spec: spec,
+      boardW: boardW,
+      boardH: boardH,
+      cols: cols,
+      rows: rows,
+      outerShape: outerShape,
+    );
   }
 
   @override
   bool shouldReclip(covariant _JigsawPieceClipper oldClipper) {
     return oldClipper.spec.id != spec.id ||
         oldClipper.boardW != boardW ||
-        oldClipper.boardH != boardH;
+        oldClipper.boardH != boardH ||
+        oldClipper.cols != cols ||
+        oldClipper.rows != rows ||
+        oldClipper.outerShape != outerShape;
   }
 }
 
@@ -371,13 +495,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   static const double _kLogicalW = 1980;
   static const double _kLogicalH = 1080;
 
-  /// Puzzle board size — near-square so the heart silhouette reads clearly.
-  static const double _kBoardW = 700;
-  static const double _kBoardH = 640;
-  static const Offset _kBoardOrigin = Offset(
-    (_kLogicalW - _kBoardW) / 2,
-    (_kLogicalH - _kBoardH) / 2,
-  );
+  // Board size / layout come from the active [_JigsawLevel].
 
   static const double _kSnapDistance = 72;
   static const Duration _kDropDelay = Duration(seconds: 1);
@@ -392,12 +510,22 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   static const double _kAngDamp = 0.45;
   static const double _kAttachBias = 48.0;
 
-  /// Fixed hook slots: left 1/8 & 2/8, right 6/8 & 7/8 (pieces are shuffled onto these).
-  static const List<_RopeSpec> _kRopeSlots = [
-    _RopeSpec(anchorXFraction: 1 / 8, hangYFraction: 0.62), // left, lower
-    _RopeSpec(anchorXFraction: 2 / 8, hangYFraction: 0.40), // left, less low
-    _RopeSpec(anchorXFraction: 6 / 8, hangYFraction: 0.48), // right, hang low
-    _RopeSpec(anchorXFraction: 7 / 8, hangYFraction: 0.66), // right, hanging lower
+  /// Fixed hook slots for 4-piece levels.
+  static const List<_RopeSpec> _kRopeSlots4 = [
+    _RopeSpec(anchorXFraction: 1 / 8, hangYFraction: 0.62),
+    _RopeSpec(anchorXFraction: 2 / 8, hangYFraction: 0.40),
+    _RopeSpec(anchorXFraction: 6 / 8, hangYFraction: 0.48),
+    _RopeSpec(anchorXFraction: 7 / 8, hangYFraction: 0.66),
+  ];
+
+  /// Fixed hook slots for 6-piece levels (far left / far right of the board).
+  static const List<_RopeSpec> _kRopeSlots6 = [
+    _RopeSpec(anchorXFraction: 1 / 18, hangYFraction: 0.58),
+    _RopeSpec(anchorXFraction: 2 / 18, hangYFraction: 0.38),
+    _RopeSpec(anchorXFraction: 3 / 18, hangYFraction: 0.50),
+    _RopeSpec(anchorXFraction: 15 / 18, hangYFraction: 0.46),
+    _RopeSpec(anchorXFraction: 16 / 18, hangYFraction: 0.36),
+    _RopeSpec(anchorXFraction: 17 / 18, hangYFraction: 0.60),
   ];
 
   final Map<int, Offset> _piecePos = {};
@@ -432,12 +560,30 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
   final math.Random _rng = math.Random();
 
-  double get _cellW => _kBoardW / 2;
-  double get _cellH => _kBoardH / 2;
+  _JigsawLevel get _level => _kJigsawLevels[_levelIndex];
 
-  String get _puzzleImage => _kJigsawLevels[_levelIndex].imageAsset;
+  double get _boardW => _level.boardW;
+  double get _boardH => _level.boardH;
+  int get _cols => _level.cols;
+  int get _rows => _level.rows;
+  _OuterShape get _outerShape => _level.outerShape;
+  Offset get _boardOrigin => Offset(
+        (_kLogicalW - _boardW) / 2,
+        (_kLogicalH - _boardH) / 2,
+      );
 
-  List<Color> get _bgColors => _kJigsawLevels[_levelIndex].bgColors;
+  double get _cellW => _boardW / _cols;
+  double get _cellH => _boardH / _rows;
+
+  List<_PieceSpec> get _pieces =>
+      _cols == 3 ? _kPieces2x3 : _kPieces2x2;
+
+  List<_RopeSpec> get _ropeSlots =>
+      _cols == 3 ? _kRopeSlots6 : _kRopeSlots4;
+
+  String get _puzzleImage => _level.imageAsset;
+
+  List<Color> get _bgColors => _level.bgColors;
 
   @override
   void initState() {
@@ -496,8 +642,8 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   }
 
   void _layoutRopes() {
-    final slots = List<_RopeSpec>.from(_kRopeSlots)..shuffle(_rng);
-    final pieces = List<_PieceSpec>.from(_kPieces)..shuffle(_rng);
+    final slots = List<_RopeSpec>.from(_ropeSlots)..shuffle(_rng);
+    final pieces = List<_PieceSpec>.from(_pieces)..shuffle(_rng);
 
     for (var i = 0; i < pieces.length; i++) {
       final spec = pieces[i];
@@ -565,7 +711,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   bool _stepPhysics(double dt) {
     var moved = false;
 
-    for (final spec in _kPieces) {
+    for (final spec in _pieces) {
       final id = spec.id;
       if (_placed.contains(id)) continue;
 
@@ -675,8 +821,8 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
   Offset _slotOrigin(_PieceSpec spec) {
     return Offset(
-      _kBoardOrigin.dx + spec.col * _cellW,
-      _kBoardOrigin.dy + spec.row * _cellH,
+      _boardOrigin.dx + spec.col * _cellW,
+      _boardOrigin.dy + spec.row * _cellH,
     );
   }
 
@@ -721,7 +867,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
   void _onPanEnd(int id) {
     if (_draggingId != id) return;
-    final spec = _kPieces[id];
+    final spec = _pieces[id];
     final current = _piecePos[id]!;
     final target = _slotOrigin(spec);
     if ((current - target).distance <= _kSnapDistance) {
@@ -737,7 +883,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
           _PlaceBurstSpec(id: _nextPlaceBurstId++, pieceId: id),
         );
       });
-      if (_placed.length >= _kPieces.length) {
+      if (_placed.length >= _pieces.length) {
         unawaited(_onLevelComplete());
       }
     } else {
@@ -876,7 +1022,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   Widget build(BuildContext context) {
     final ropeSegments = <(Offset, Offset)>[];
     if (_piecesReleased) {
-      for (final spec in _kPieces) {
+      for (final spec in _pieces) {
         if (_placed.contains(spec.id)) continue;
         final pos = _piecePos[spec.id];
         final anchor = _anchors[spec.id];
@@ -911,27 +1057,27 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
                 // Soft heart board behind the slots.
                 Positioned(
-                  left: _kBoardOrigin.dx,
-                  top: _kBoardOrigin.dy,
-                  width: _kBoardW,
-                  height: _kBoardH,
+                  left: _boardOrigin.dx,
+                  top: _boardOrigin.dy,
+                  width: _boardW,
+                  height: _boardH,
                   child: IgnorePointer(
                     child: CustomPaint(
-                      size: const Size(_kBoardW, _kBoardH),
-                      painter: _HeartBoardFillPainter(),
+                      size: Size(_boardW, _boardH),
+                      painter: _OuterBoardFillPainter(shape: _outerShape),
                     ),
                   ),
                 ),
-                ..._kPieces.map(_buildEmptySlot),
+                ..._pieces.map(_buildEmptySlot),
 
                 // Place-confirm sparks sit under the pieces so they read as
                 // border emission from behind the placed tile.
                 if (_placeBursts.isNotEmpty)
                   Positioned(
-                    left: _kBoardOrigin.dx,
-                    top: _kBoardOrigin.dy,
-                    width: _kBoardW,
-                    height: _kBoardH,
+                    left: _boardOrigin.dx,
+                    top: _boardOrigin.dy,
+                    width: _boardW,
+                    height: _boardH,
                     child: IgnorePointer(
                       child: Stack(
                         clipBehavior: Clip.none,
@@ -941,9 +1087,12 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
                               key: ValueKey('place_burst_${burst.id}'),
                               child: _JigsawPlaceBurst(
                                 piecePath: _buildJigsawPiecePath(
-                                  spec: _kPieces[burst.pieceId],
-                                  boardW: _kBoardW,
-                                  boardH: _kBoardH,
+                                  spec: _pieces[burst.pieceId],
+                                  boardW: _boardW,
+                                  boardH: _boardH,
+                                  cols: _cols,
+                                  rows: _rows,
+                                  outerShape: _outerShape,
                                 ),
                                 onComplete: () => _removePlaceBurst(burst.id),
                               ),
@@ -953,7 +1102,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
                     ),
                   ),
 
-                ..._kPieces
+                ..._pieces
                     .where((s) => _placed.contains(s.id))
                     .map(_buildPlacedPiece),
 
@@ -968,7 +1117,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
                   ),
 
                 if (_piecesReleased)
-                  ..._kPieces
+                  ..._pieces
                       .where((s) => !_placed.contains(s.id))
                       .map(_buildDraggablePiece),
 
@@ -1029,10 +1178,10 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     // Pad the layer so thick strokes are not clipped on the outer board edges.
     final pad = kJigsawBoardLineThickness;
     return Positioned(
-      left: _kBoardOrigin.dx - pad,
-      top: _kBoardOrigin.dy - pad,
-      width: _kBoardW + pad * 2,
-      height: _kBoardH + pad * 2,
+      left: _boardOrigin.dx - pad,
+      top: _boardOrigin.dy - pad,
+      width: _boardW + pad * 2,
+      height: _boardH + pad * 2,
       child: IgnorePointer(
         child: Stack(
           clipBehavior: Clip.none,
@@ -1040,13 +1189,16 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
             Positioned(
               left: pad,
               top: pad,
-              width: _kBoardW,
-              height: _kBoardH,
+              width: _boardW,
+              height: _boardH,
               child: ClipPath(
                 clipper: _JigsawPieceClipper(
                   spec: spec,
-                  boardW: _kBoardW,
-                  boardH: _kBoardH,
+                  boardW: _boardW,
+                  boardH: _boardH,
+                  cols: _cols,
+                  rows: _rows,
+                  outerShape: _outerShape,
                 ),
                 child: Stack(
                   children: [
@@ -1056,8 +1208,8 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
                       child: Image.asset(
                         _puzzleImage,
 
-                        width: _kBoardW,
-                        height: _kBoardH,
+                        width: _boardW,
+                        height: _boardH,
                         fit: BoxFit.fill,
                       ),
                     ),
@@ -1069,14 +1221,17 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
             Positioned(
               left: pad,
               top: pad,
-              width: _kBoardW,
-              height: _kBoardH,
+              width: _boardW,
+              height: _boardH,
               child: CustomPaint(
-                size: const Size(_kBoardW, _kBoardH),
+                size: Size(_boardW, _boardH),
                 painter: _JigsawOutlinePainter(
                   spec: spec,
-                  boardW: _kBoardW,
-                  boardH: _kBoardH,
+                  boardW: _boardW,
+                  boardH: _boardH,
+                  cols: _cols,
+                  rows: _rows,
+                  outerShape: _outerShape,
                 ),
               ),
             ),
@@ -1088,21 +1243,24 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
   Widget _buildPlacedPiece(_PieceSpec spec) {
     return Positioned(
-      left: _kBoardOrigin.dx,
-      top: _kBoardOrigin.dy,
-      width: _kBoardW,
-      height: _kBoardH,
+      left: _boardOrigin.dx,
+      top: _boardOrigin.dy,
+      width: _boardW,
+      height: _boardH,
       child: IgnorePointer(
         child: ClipPath(
           clipper: _JigsawPieceClipper(
             spec: spec,
-            boardW: _kBoardW,
-            boardH: _kBoardH,
+            boardW: _boardW,
+            boardH: _boardH,
+            cols: _cols,
+            rows: _rows,
+            outerShape: _outerShape,
           ),
           child: Image.asset(
             _puzzleImage,
-            width: _kBoardW,
-            height: _kBoardH,
+            width: _boardW,
+            height: _boardH,
             fit: BoxFit.fill,
             filterQuality: FilterQuality.medium,
           ),
@@ -1120,22 +1278,25 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
       spec.col * _cellW + _attachLocalX(spec),
       spec.row * _cellH,
     );
-    final alignX = (attachInWidget.dx / _kBoardW) * 2 - 1;
-    final alignY = (attachInWidget.dy / _kBoardH) * 2 - 1;
+    final alignX = (attachInWidget.dx / _boardW) * 2 - 1;
+    final alignY = (attachInWidget.dy / _boardH) * 2 - 1;
 
     return Positioned(
       left: imageOrigin.dx,
       top: imageOrigin.dy,
-      width: _kBoardW,
-      height: _kBoardH,
+      width: _boardW,
+      height: _boardH,
       child: Transform.rotate(
         angle: tilt,
         alignment: Alignment(alignX, alignY),
         child: ClipPath(
           clipper: _JigsawPieceClipper(
             spec: spec,
-            boardW: _kBoardW,
-            boardH: _kBoardH,
+            boardW: _boardW,
+            boardH: _boardH,
+            cols: _cols,
+            rows: _rows,
+            outerShape: _outerShape,
           ),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -1155,8 +1316,8 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
               ),
               child: Image.asset(
                 _puzzleImage,
-                width: _kBoardW,
-                height: _kBoardH,
+                width: _boardW,
+                height: _boardH,
                 fit: BoxFit.fill,
                 filterQuality: FilterQuality.medium,
               ),
@@ -1379,16 +1540,20 @@ class _RopePainter extends CustomPainter {
   bool shouldRepaint(covariant _RopePainter oldDelegate) => true;
 }
 
-class _HeartBoardFillPainter extends CustomPainter {
+class _OuterBoardFillPainter extends CustomPainter {
+  _OuterBoardFillPainter({required this.shape});
+
+  final _OuterShape shape;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final heart = _buildHeartPath(size.width, size.height);
+    final outline = _buildOuterPath(shape, size.width, size.height);
     canvas.drawPath(
-      heart,
+      outline,
       Paint()..color = Colors.black.withValues(alpha: 0.12),
     );
     canvas.drawPath(
-      heart,
+      outline,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = kJigsawBoardLineThickness
@@ -1397,7 +1562,8 @@ class _HeartBoardFillPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _HeartBoardFillPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _OuterBoardFillPainter oldDelegate) =>
+      oldDelegate.shape != shape;
 }
 
 class _JigsawOutlinePainter extends CustomPainter {
@@ -1405,11 +1571,17 @@ class _JigsawOutlinePainter extends CustomPainter {
     required this.spec,
     required this.boardW,
     required this.boardH,
+    required this.cols,
+    required this.rows,
+    required this.outerShape,
   });
 
   final _PieceSpec spec;
   final double boardW;
   final double boardH;
+  final int cols;
+  final int rows;
+  final _OuterShape outerShape;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1417,6 +1589,9 @@ class _JigsawOutlinePainter extends CustomPainter {
       spec: spec,
       boardW: boardW,
       boardH: boardH,
+      cols: cols,
+      rows: rows,
+      outerShape: outerShape,
     );
     final paint = Paint()
       ..style = PaintingStyle.stroke
@@ -1427,5 +1602,8 @@ class _JigsawOutlinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _JigsawOutlinePainter oldDelegate) =>
-      oldDelegate.spec.id != spec.id;
+      oldDelegate.spec.id != spec.id ||
+      oldDelegate.cols != cols ||
+      oldDelegate.rows != rows ||
+      oldDelegate.outerShape != outerShape;
 }
