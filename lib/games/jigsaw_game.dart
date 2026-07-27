@@ -10,6 +10,59 @@ import '../widgets/menu_back_pill.dart';
 
 const String kJigsawLevel1Asset = 'assets/images/logoDC.png';
 const String kJigsawLevel2Asset = 'assets/images/landscapeBaby.jpg';
+const String kJigsawLevel3Asset = 'assets/images/bosque.jpg';
+const String kJigsawLevel4Asset = 'assets/images/playground.jpg';
+
+class _JigsawLevel {
+  const _JigsawLevel({
+    required this.imageAsset,
+    required this.bgColors,
+  });
+
+  final String imageAsset;
+  final List<Color> bgColors;
+}
+
+const List<_JigsawLevel> _kJigsawLevels = [
+  _JigsawLevel(
+    imageAsset: kJigsawLevel1Asset,
+    bgColors: [
+      Color(0xFFFF9EC8),
+      Color(0xFFE048A0),
+      Color(0xFF6A1B9A),
+      Color(0xFF2A0A4A),
+    ],
+  ),
+  _JigsawLevel(
+    imageAsset: kJigsawLevel2Asset,
+    bgColors: [
+      Color(0xFFFFFFFF),
+      Color(0xFFFFE0B2),
+      Color(0xFFFF9800),
+      Color(0xFFE65100),
+    ],
+  ),
+  _JigsawLevel(
+    imageAsset: kJigsawLevel3Asset,
+    // Bosque — soft mint → deep forest radial.
+    bgColors: [
+      Color(0xFFE8F5E9),
+      Color(0xFF81C784),
+      Color(0xFF2E7D32),
+      Color(0xFF1B3A1F),
+    ],
+  ),
+  _JigsawLevel(
+    imageAsset: kJigsawLevel4Asset,
+    // Playground — sunny cream → sky → warm coral.
+    bgColors: [
+      Color(0xFFFFF8E1),
+      Color(0xFF4FC3F7),
+      Color(0xFF29B6F6),
+      Color(0xFFFF7043),
+    ],
+  ),
+];
 
 /// Stroke width for empty-slot board outlines (inner seams + outer edges).
 const double kJigsawBoardLineThickness = 10;
@@ -330,7 +383,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   static const Duration _kDropDelay = Duration(seconds: 1);
   static const Duration _kLevelFadeDuration = Duration(milliseconds: 1600);
   static const Duration _kCannonDuration = Duration(seconds: 4);
-  static const int _kLevelCount = 2;
+  static const int _kLevelCount = 4;
 
   /// Variable-length pendulum: swings (θ) + bouncy stretch (L).
   static const double _kGravity = 2400.0;
@@ -374,28 +427,17 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   AnimationController? _whiteFade;
   int _nextConfettiId = 0;
   final List<_JigsawConfetti> _confettiBursts = <_JigsawConfetti>[];
+  int _nextPlaceBurstId = 0;
+  final List<_PlaceBurstSpec> _placeBursts = <_PlaceBurstSpec>[];
 
   final math.Random _rng = math.Random();
 
   double get _cellW => _kBoardW / 2;
   double get _cellH => _kBoardH / 2;
 
-  String get _puzzleImage =>
-      _levelIndex == 0 ? kJigsawLevel1Asset : kJigsawLevel2Asset;
+  String get _puzzleImage => _kJigsawLevels[_levelIndex].imageAsset;
 
-  List<Color> get _bgColors => _levelIndex == 0
-      ? const [
-          Color(0xFFFF9EC8),
-          Color(0xFFE048A0),
-          Color(0xFF6A1B9A),
-          Color(0xFF2A0A4A),
-        ]
-      : const [
-          Color(0xFFFFFFFF),
-          Color(0xFFFFE0B2),
-          Color(0xFFFF9800),
-          Color(0xFFE65100),
-        ];
+  List<Color> get _bgColors => _kJigsawLevels[_levelIndex].bgColors;
 
   @override
   void initState() {
@@ -691,6 +733,9 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
         _tilt[id] = 0;
         _onRope[id] = false;
         _placed.add(id);
+        _placeBursts.add(
+          _PlaceBurstSpec(id: _nextPlaceBurstId++, pieceId: id),
+        );
       });
       if (_placed.length >= _kPieces.length) {
         unawaited(_onLevelComplete());
@@ -717,6 +762,13 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     final before = _confettiBursts.length;
     _confettiBursts.removeWhere((b) => b.id == id);
     if (_confettiBursts.length != before) setState(() {});
+  }
+
+  void _removePlaceBurst(int id) {
+    if (!mounted) return;
+    final before = _placeBursts.length;
+    _placeBursts.removeWhere((b) => b.id == id);
+    if (_placeBursts.length != before) setState(() {});
   }
 
   void _spawnFourCannonConfetti() {
@@ -807,6 +859,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     _tilt.clear();
     _ropeByPiece.clear();
     _confettiBursts.clear();
+    _placeBursts.clear();
     _layoutRopes();
   }
 
@@ -870,6 +923,36 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
                   ),
                 ),
                 ..._kPieces.map(_buildEmptySlot),
+
+                // Place-confirm sparks sit under the pieces so they read as
+                // border emission from behind the placed tile.
+                if (_placeBursts.isNotEmpty)
+                  Positioned(
+                    left: _kBoardOrigin.dx,
+                    top: _kBoardOrigin.dy,
+                    width: _kBoardW,
+                    height: _kBoardH,
+                    child: IgnorePointer(
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          for (final burst in _placeBursts)
+                            Positioned.fill(
+                              key: ValueKey('place_burst_${burst.id}'),
+                              child: _JigsawPlaceBurst(
+                                piecePath: _buildJigsawPiecePath(
+                                  spec: _kPieces[burst.pieceId],
+                                  boardW: _kBoardW,
+                                  boardH: _kBoardH,
+                                ),
+                                onComplete: () => _removePlaceBurst(burst.id),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                 ..._kPieces
                     .where((s) => _placed.contains(s.id))
                     .map(_buildPlacedPiece),
@@ -1083,6 +1166,158 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
       ),
     );
   }
+}
+
+class _PlaceBurstSpec {
+  const _PlaceBurstSpec({required this.id, required this.pieceId});
+
+  final int id;
+  final int pieceId;
+}
+
+/// White sparks that spawn on the piece outline and fly outward, then fade.
+class _JigsawPlaceBurst extends StatefulWidget {
+  const _JigsawPlaceBurst({
+    required this.piecePath,
+    this.onComplete,
+  });
+
+  final Path piecePath;
+  final VoidCallback? onComplete;
+
+  static const Duration kDuration = Duration(milliseconds: 900);
+
+  @override
+  State<_JigsawPlaceBurst> createState() => _JigsawPlaceBurstState();
+}
+
+class _JigsawPlaceBurstState extends State<_JigsawPlaceBurst>
+    with SingleTickerProviderStateMixin {
+  late final Ticker _ticker;
+  late final List<_PlaceSpark> _sparks;
+  double _elapsed = 0;
+  bool _done = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final rng = math.Random();
+    final border = <Offset>[];
+    for (final metric in widget.piecePath.computeMetrics()) {
+      final count = (metric.length / 10).ceil().clamp(10, 48);
+      for (var i = 0; i < count; i++) {
+        final t = metric.getTangentForOffset(metric.length * i / count);
+        if (t != null) border.add(t.position);
+      }
+    }
+
+    Offset center = Offset.zero;
+    if (border.isNotEmpty) {
+      for (final p in border) {
+        center += p;
+      }
+      center = center / border.length.toDouble();
+    }
+
+    // Emit from border points (with a few extras per sample for denser rim).
+    _sparks = <_PlaceSpark>[];
+    for (final p in border) {
+      final extras = 1 + rng.nextInt(2);
+      for (var e = 0; e < extras; e++) {
+        var dir = p - center;
+        final len = dir.distance;
+        if (len < 1) {
+          final a = rng.nextDouble() * math.pi * 2;
+          dir = Offset(math.cos(a), math.sin(a));
+        } else {
+          dir /= len;
+          final tang = Offset(-dir.dy, dir.dx);
+          final jittered = dir + tang * ((rng.nextDouble() - 0.5) * 0.35);
+          final jLen = jittered.distance;
+          if (jLen > 0.01) dir = jittered / jLen;
+        }
+        final speed = 90.0 + rng.nextDouble() * 160.0;
+        _sparks.add(
+          _PlaceSpark(
+            origin: p + dir * (rng.nextDouble() * 4),
+            velocity: dir * speed,
+            radius: 2.2 + rng.nextDouble() * 3.4,
+            life: 0.55 + rng.nextDouble() * 0.4,
+          ),
+        );
+      }
+    }
+
+    _ticker = createTicker((elapsed) {
+      if (!mounted || _done) return;
+      setState(() {
+        _elapsed = elapsed.inMicroseconds / 1e6;
+      });
+      if (elapsed >= _JigsawPlaceBurst.kDuration) {
+        _done = true;
+        _ticker.stop();
+        widget.onComplete?.call();
+      }
+    })..start();
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _PlaceBurstPainter(
+        sparks: _sparks,
+        elapsed: _elapsed,
+      ),
+    );
+  }
+}
+
+class _PlaceSpark {
+  _PlaceSpark({
+    required this.origin,
+    required this.velocity,
+    required this.radius,
+    required this.life,
+  });
+
+  final Offset origin;
+  final Offset velocity;
+  final double radius;
+  final double life;
+}
+
+class _PlaceBurstPainter extends CustomPainter {
+  _PlaceBurstPainter({
+    required this.sparks,
+    required this.elapsed,
+  });
+
+  final List<_PlaceSpark> sparks;
+  final double elapsed;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+    for (final s in sparks) {
+      final t = (elapsed / s.life).clamp(0.0, 1.0);
+      if (t >= 1) continue;
+      final pos = s.origin + s.velocity * elapsed;
+      final fade = (1 - t);
+      final r = s.radius * (0.85 + 0.35 * (1 - t));
+      paint.color = Color.fromRGBO(255, 255, 255, fade * fade);
+      canvas.drawCircle(pos, r, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PlaceBurstPainter oldDelegate) =>
+      oldDelegate.elapsed != elapsed;
 }
 
 class _JigsawConfetti {
