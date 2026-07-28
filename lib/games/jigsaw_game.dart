@@ -94,7 +94,7 @@ const List<_JigsawLevel> _kJigsawLevels = [
   ),
 ];
 
-/// Stroke width for empty-slot board outlines (inner seams + outer edges).
+/// Stroke width for empty-slot board outlines (inner seams + outer edges)
 const double kJigsawBoardLineThickness = 10;
 
 /// Opacity of the faint logo preview inside empty receiver slots.
@@ -478,10 +478,7 @@ class JigsawPuzzleLayer extends StatefulWidget {
 }
 
 class _RopeSpec {
-  const _RopeSpec({
-    required this.anchorXFraction,
-    required this.hangYFraction,
-  });
+  const _RopeSpec({required this.anchorXFraction, required this.hangYFraction});
 
   /// Horizontal hook position as a fraction of screen width (1/6, 2/6, …).
   final double anchorXFraction;
@@ -531,8 +528,10 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   final Map<int, Offset> _piecePos = {};
   final Map<int, double> _restLength = {};
   final Map<int, Offset> _anchors = {};
+
   /// Cartesian velocity while free-falling / dragging.
   final Map<int, Offset> _velocity = {};
+
   /// Pendulum state once the rope has caught the piece.
   final Map<int, double> _theta = {}; // 0 = straight down
   final Map<int, double> _omega = {};
@@ -567,19 +566,15 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   int get _cols => _level.cols;
   int get _rows => _level.rows;
   _OuterShape get _outerShape => _level.outerShape;
-  Offset get _boardOrigin => Offset(
-        (_kLogicalW - _boardW) / 2,
-        (_kLogicalH - _boardH) / 2,
-      );
+  Offset get _boardOrigin =>
+      Offset((_kLogicalW - _boardW) / 2, (_kLogicalH - _boardH) / 2);
 
   double get _cellW => _boardW / _cols;
   double get _cellH => _boardH / _rows;
 
-  List<_PieceSpec> get _pieces =>
-      _cols == 3 ? _kPieces2x3 : _kPieces2x2;
+  List<_PieceSpec> get _pieces => _cols == 3 ? _kPieces2x3 : _kPieces2x2;
 
-  List<_RopeSpec> get _ropeSlots =>
-      _cols == 3 ? _kRopeSlots6 : _kRopeSlots4;
+  List<_RopeSpec> get _ropeSlots => _cols == 3 ? _kRopeSlots6 : _kRopeSlots4;
 
   String get _puzzleImage => _level.imageAsset;
 
@@ -746,10 +741,10 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
         _piecePos[id] = newPos;
         _velocity[id] = newVel;
-        _tilt[id] = _naturalTilt(spec, math.atan2(
-          attach.dx - anchor.dx,
-          math.max(attach.dy, 1),
-        ));
+        _tilt[id] = _naturalTilt(
+          spec,
+          math.atan2(attach.dx - anchor.dx, math.max(attach.dy, 1)),
+        );
         moved = true;
 
         if (attach.dy > anchor.dy + 20 && dist >= restLen) {
@@ -765,11 +760,13 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
       var lenVel = _lenVel[id] ?? 0.0;
 
       // θ'' = -(g/L) sinθ - 2 (L'/L) ω - damp ω
-      final angAcc = -( _kGravity / length) * math.sin(theta) -
+      final angAcc =
+          -(_kGravity / length) * math.sin(theta) -
           2 * (lenVel / length) * omega -
           _kAngDamp * omega;
       // L'' = L ω² - k (L - rest) + g cosθ - damp L'
-      final lenAcc = length * omega * omega -
+      final lenAcc =
+          length * omega * omega -
           _kStretch * (length - restLen) +
           _kGravity * math.cos(theta) -
           _kLenDamp * lenVel;
@@ -843,9 +840,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   }
 
   void _onPanStart(int id, DragStartDetails details) {
-    if (!_piecesReleased ||
-        _levelCompleting ||
-        _placed.contains(id)) {
+    if (!_piecesReleased || _levelCompleting || _placed.contains(id)) {
       return;
     }
     unawaited(AppAudio.instance.playGrab());
@@ -879,9 +874,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
         _tilt[id] = 0;
         _onRope[id] = false;
         _placed.add(id);
-        _placeBursts.add(
-          _PlaceBurstSpec(id: _nextPlaceBurstId++, pieceId: id),
-        );
+        _placeBursts.add(_PlaceBurstSpec(id: _nextPlaceBurstId++, pieceId: id));
       });
       if (_placed.length >= _pieces.length) {
         unawaited(_onLevelComplete());
@@ -1338,10 +1331,7 @@ class _PlaceBurstSpec {
 
 /// White sparks that spawn on the piece outline and fly outward, then fade.
 class _JigsawPlaceBurst extends StatefulWidget {
-  const _JigsawPlaceBurst({
-    required this.piecePath,
-    this.onComplete,
-  });
+  const _JigsawPlaceBurst({required this.piecePath, this.onComplete});
 
   final Path piecePath;
   final VoidCallback? onComplete;
@@ -1431,10 +1421,7 @@ class _JigsawPlaceBurstState extends State<_JigsawPlaceBurst>
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _PlaceBurstPainter(
-        sparks: _sparks,
-        elapsed: _elapsed,
-      ),
+      painter: _PlaceBurstPainter(sparks: _sparks, elapsed: _elapsed),
     );
   }
 }
@@ -1454,10 +1441,7 @@ class _PlaceSpark {
 }
 
 class _PlaceBurstPainter extends CustomPainter {
-  _PlaceBurstPainter({
-    required this.sparks,
-    required this.elapsed,
-  });
+  _PlaceBurstPainter({required this.sparks, required this.elapsed});
 
   final List<_PlaceSpark> sparks;
   final double elapsed;
@@ -1523,16 +1507,8 @@ class _RopePainter extends CustomPainter {
         ..quadraticBezierTo(mid.dx, mid.dy, attach.dx, attach.dy);
       canvas.drawPath(path, shadow);
       canvas.drawPath(path, paint);
-      canvas.drawCircle(
-        anchor,
-        14,
-        Paint()..color = const Color(0xFF4E3422),
-      );
-      canvas.drawCircle(
-        anchor,
-        8,
-        Paint()..color = const Color(0xFF8D6E4C),
-      );
+      canvas.drawCircle(anchor, 14, Paint()..color = const Color(0xFF4E3422));
+      canvas.drawCircle(anchor, 8, Paint()..color = const Color(0xFF8D6E4C));
     }
   }
 
