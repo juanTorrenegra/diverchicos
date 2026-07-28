@@ -1,17 +1,35 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 
 import '../app_audio.dart';
 import '../widgets/match_confetti.dart';
 import '../widgets/menu_back_pill.dart';
 
-const String kJigsawLevel1Asset = 'assets/images/logoDC.png';
-const String kJigsawLevel2Asset = 'assets/images/landscapeBaby.jpg';
-const String kJigsawLevel3Asset = 'assets/images/bosque.jpg';
-const String kJigsawLevel4Asset = 'assets/images/playground.jpg';
+const List<String> _kFallbackJigsawImages = [
+  'assets/images/jigsaw/beeJigsaw.jpg',
+  'assets/images/jigsaw/bosque.jpg',
+  'assets/images/jigsaw/bruno.jpg',
+  'assets/images/jigsaw/capybaraRiver.jpg',
+  'assets/images/jigsaw/catJigsaw.jpg',
+  'assets/images/jigsaw/cocodriloJigsaw.jpg',
+  'assets/images/jigsaw/colibriJigsaw.jpg',
+  'assets/images/jigsaw/condor.jpg',
+  'assets/images/jigsaw/cowJigsaw.jpg',
+  'assets/images/jigsaw/delfinJigsaw.jpg',
+  'assets/images/jigsaw/farmJigsaw.jpg',
+  'assets/images/jigsaw/horseJigsaw.jpg',
+  'assets/images/jigsaw/jaguarJigsaw.jpg',
+  'assets/images/jigsaw/landscapeBaby.jpg',
+  'assets/images/jigsaw/monkeyJigsaw.jpg',
+  'assets/images/jigsaw/parrotsJigsaw.jpg',
+  'assets/images/jigsaw/playground.jpg',
+  'assets/images/jigsaw/snakeJigsaw.jpg',
+];
 
 class _JigsawLevel {
   const _JigsawLevel({
@@ -34,65 +52,6 @@ class _JigsawLevel {
 }
 
 enum _OuterShape { heart, wavyRect }
-
-const List<_JigsawLevel> _kJigsawLevels = [
-  _JigsawLevel(
-    imageAsset: kJigsawLevel1Asset,
-    bgColors: [
-      Color(0xFFFF9EC8),
-      Color(0xFFE048A0),
-      Color(0xFF6A1B9A),
-      Color(0xFF2A0A4A),
-    ],
-    cols: 2,
-    rows: 2,
-    outerShape: _OuterShape.heart,
-    boardW: 700,
-    boardH: 640,
-  ),
-  _JigsawLevel(
-    imageAsset: kJigsawLevel2Asset,
-    bgColors: [
-      Color(0xFFFFFFFF),
-      Color(0xFFFFE0B2),
-      Color(0xFFFF9800),
-      Color(0xFFE65100),
-    ],
-    cols: 2,
-    rows: 2,
-    outerShape: _OuterShape.heart,
-    boardW: 700,
-    boardH: 640,
-  ),
-  _JigsawLevel(
-    imageAsset: kJigsawLevel3Asset,
-    bgColors: [
-      Color(0xFFE8F5E9),
-      Color(0xFF81C784),
-      Color(0xFF2E7D32),
-      Color(0xFF1B3A1F),
-    ],
-    cols: 3,
-    rows: 2,
-    outerShape: _OuterShape.wavyRect,
-    boardW: 1080,
-    boardH: 720,
-  ),
-  _JigsawLevel(
-    imageAsset: kJigsawLevel4Asset,
-    bgColors: [
-      Color(0xFFFFF8E1),
-      Color(0xFF4FC3F7),
-      Color(0xFF29B6F6),
-      Color(0xFFFF7043),
-    ],
-    cols: 3,
-    rows: 2,
-    outerShape: _OuterShape.wavyRect,
-    boardW: 1080,
-    boardH: 720,
-  ),
-];
 
 /// Stroke width for empty-slot board outlines (inner seams + outer edges)
 const double kJigsawBoardLineThickness = 10;
@@ -498,7 +457,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   static const Duration _kDropDelay = Duration(seconds: 1);
   static const Duration _kLevelFadeDuration = Duration(milliseconds: 1600);
   static const Duration _kCannonDuration = Duration(seconds: 4);
-  static const int _kLevelCount = 4;
+  static const int _kSessionLevelCount = 6;
 
   /// Variable-length pendulum: swings (θ) + bouncy stretch (L).
   static const double _kGravity = 2400.0;
@@ -549,7 +508,9 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   bool _piecesReleased = false;
   bool _exitingToMenu = false;
   bool _levelCompleting = false;
+  bool _sessionReady = false;
   int _levelIndex = 0;
+  final List<_JigsawLevel> _sessionLevels = <_JigsawLevel>[];
 
   AnimationController? _whiteFade;
   int _nextConfettiId = 0;
@@ -559,7 +520,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
   final math.Random _rng = math.Random();
 
-  _JigsawLevel get _level => _kJigsawLevels[_levelIndex];
+  _JigsawLevel get _level => _sessionLevels[_levelIndex];
 
   double get _boardW => _level.boardW;
   double get _boardH => _level.boardH;
@@ -583,7 +544,135 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   @override
   void initState() {
     super.initState();
-    _layoutRopes();
+    unawaited(_bootstrapSession());
+  }
+
+  Future<List<String>> _discoverJigsawImages() async {
+    try {
+      final manifestJson = await rootBundle.loadString('AssetManifest.json');
+      final decoded = jsonDecode(manifestJson);
+      if (decoded is! Map) return _kFallbackJigsawImages;
+      final paths = <String>[];
+      for (final key in decoded.keys) {
+        if (key is! String) continue;
+        final lower = key.toLowerCase();
+        if (!lower.startsWith('assets/images/jigsaw/')) continue;
+        if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.webp')) {
+          paths.add(key);
+        }
+      }
+      if (paths.isEmpty) return _kFallbackJigsawImages;
+      paths.sort();
+      return paths;
+    } catch (_) {
+      return _kFallbackJigsawImages;
+    }
+  }
+
+  List<Color> _randomRadialPalette() {
+    const pools = <List<Color>>[
+      [Color(0xFFFFF8E1), Color(0xFFFFD180), Color(0xFFFF8F00), Color(0xFFE65100)],
+      [Color(0xFFE8F5E9), Color(0xFFA5D6A7), Color(0xFF43A047), Color(0xFF1B5E20)],
+      [Color(0xFFE3F2FD), Color(0xFF90CAF9), Color(0xFF1E88E5), Color(0xFF0D47A1)],
+      [Color(0xFFF3E5F5), Color(0xFFCE93D8), Color(0xFF8E24AA), Color(0xFF4A148C)],
+      [Color(0xFFFFEBEE), Color(0xFFFFAB91), Color(0xFFF4511E), Color(0xFFBF360C)],
+      [Color(0xFFE0F7FA), Color(0xFF80DEEA), Color(0xFF00ACC1), Color(0xFF006064)],
+      [Color(0xFFFFFDE7), Color(0xFFFFF176), Color(0xFFFBC02D), Color(0xFFF57F17)],
+      [Color(0xFFE8EAF6), Color(0xFF9FA8DA), Color(0xFF5C6BC0), Color(0xFF1A237E)],
+    ];
+    final palette = pools[_rng.nextInt(pools.length)];
+    return List<Color>.from(palette);
+  }
+
+  List<String> _pickSessionImages(List<String> all, int count) {
+    final copy = List<String>.from(all)..shuffle(_rng);
+    if (copy.length >= count) {
+      return copy.take(count).toList();
+    }
+    final out = <String>[];
+    while (out.length < count) {
+      final block = List<String>.from(copy)..shuffle(_rng);
+      for (final img in block) {
+        out.add(img);
+        if (out.length >= count) break;
+      }
+    }
+    return out;
+  }
+
+  Future<void> _bootstrapSession() async {
+    final allImages = await _discoverJigsawImages();
+    if (!mounted) return;
+
+    final chosen = _pickSessionImages(allImages, _kSessionLevelCount);
+    _sessionLevels
+      ..clear()
+      ..addAll([
+        // First two: heart, 4 pieces.
+        _JigsawLevel(
+          imageAsset: chosen[0],
+          bgColors: _randomRadialPalette(),
+          cols: 2,
+          rows: 2,
+          outerShape: _OuterShape.heart,
+          boardW: 700,
+          boardH: 640,
+        ),
+        _JigsawLevel(
+          imageAsset: chosen[1],
+          bgColors: _randomRadialPalette(),
+          cols: 2,
+          rows: 2,
+          outerShape: _OuterShape.heart,
+          boardW: 700,
+          boardH: 640,
+        ),
+        // Next two: near-square wavy-rect, 6 pieces.
+        _JigsawLevel(
+          imageAsset: chosen[2],
+          bgColors: _randomRadialPalette(),
+          cols: 3,
+          rows: 2,
+          outerShape: _OuterShape.wavyRect,
+          boardW: 920,
+          boardH: 820,
+        ),
+        _JigsawLevel(
+          imageAsset: chosen[3],
+          bgColors: _randomRadialPalette(),
+          cols: 3,
+          rows: 2,
+          outerShape: _OuterShape.wavyRect,
+          boardW: 920,
+          boardH: 820,
+        ),
+        // Last two: bigger heart, 6 pieces.
+        _JigsawLevel(
+          imageAsset: chosen[4],
+          bgColors: _randomRadialPalette(),
+          cols: 3,
+          rows: 2,
+          outerShape: _OuterShape.heart,
+          boardW: 980,
+          boardH: 860,
+        ),
+        _JigsawLevel(
+          imageAsset: chosen[5],
+          bgColors: _randomRadialPalette(),
+          cols: 3,
+          rows: 2,
+          outerShape: _OuterShape.heart,
+          boardW: 980,
+          boardH: 860,
+        ),
+      ]);
+
+    _levelIndex = 0;
+    _sessionReady = true;
+    _resetBoardForNewLevel();
+    if (!mounted) return;
+    setState(() {});
+    _dropTimer?.cancel();
     _dropTimer = Timer(_kDropDelay, _startDrop);
   }
 
@@ -962,7 +1051,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
     unawaited(AppAudio.instance.stopPairsLevelComplete());
 
-    final isLastLevel = _levelIndex >= _kLevelCount - 1;
+    final isLastLevel = _levelIndex >= _sessionLevels.length - 1;
     if (isLastLevel) {
       unawaited(AppAudio.instance.resumeBgm());
       _exitToMenu();
@@ -1013,6 +1102,15 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
   @override
   Widget build(BuildContext context) {
+    if (!_sessionReady || _sessionLevels.isEmpty) {
+      return const ColoredBox(
+        color: Colors.black,
+        child: Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
     final ropeSegments = <(Offset, Offset)>[];
     if (_piecesReleased) {
       for (final spec in _pieces) {
