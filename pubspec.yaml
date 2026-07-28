@@ -68,6 +68,7 @@ flutter:
   # Images root plus each animation subfolder.
   assets:
     - assets/images/
+    - assets/images/jigsaw/
     - assets/images/cowAnimations/
     - assets/images/bathGame/
     - assets/images/gridPuzzleGame/

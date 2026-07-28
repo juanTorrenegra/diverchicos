@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -547,26 +548,52 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     unawaited(_bootstrapSession());
   }
 
+  Future<bool> _isDecodableImageAsset(String path) async {
+    try {
+      final data = await rootBundle.load(path);
+      if (data.lengthInBytes <= 0) return false;
+      final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+      final frame = await codec.getNextFrame();
+      frame.image.dispose();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<List<String>> _discoverJigsawImages() async {
+    final candidates = <String>{..._kFallbackJigsawImages};
+
     try {
       final manifestJson = await rootBundle.loadString('AssetManifest.json');
       final decoded = jsonDecode(manifestJson);
-      if (decoded is! Map) return _kFallbackJigsawImages;
-      final paths = <String>[];
-      for (final key in decoded.keys) {
-        if (key is! String) continue;
-        final lower = key.toLowerCase();
-        if (!lower.startsWith('assets/images/jigsaw/')) continue;
-        if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.webp')) {
-          paths.add(key);
+      if (decoded is Map) {
+        for (final key in decoded.keys) {
+          if (key is! String) continue;
+          final lower = key.toLowerCase();
+          if (!lower.startsWith('assets/images/jigsaw/')) continue;
+          if (lower.endsWith('.jpg') ||
+              lower.endsWith('.jpeg') ||
+              lower.endsWith('.png') ||
+              lower.endsWith('.webp')) {
+            candidates.add(key);
+          }
         }
       }
-      if (paths.isEmpty) return _kFallbackJigsawImages;
-      paths.sort();
-      return paths;
     } catch (_) {
-      return _kFallbackJigsawImages;
+      // Fall back to known filenames below.
     }
+
+    // Keep only assets that actually decode as images.
+    final valid = <String>[];
+    for (final path in candidates) {
+      if (await _isDecodableImageAsset(path)) {
+        valid.add(path);
+      }
+    }
+
+    valid.sort();
+    return valid.isNotEmpty ? valid : List<String>.from(_kFallbackJigsawImages);
   }
 
   List<Color> _randomRadialPalette() {
@@ -1296,12 +1323,19 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
                     ColoredBox(color: Colors.black.withValues(alpha: 0.10)),
                     Opacity(
                       opacity: kJigsawSlotGhostOpacity,
-                      child: Image.asset(
-                        _puzzleImage,
-
-                        width: _boardW,
-                        height: _boardH,
-                        fit: BoxFit.fill,
+                      child: ColorFiltered(
+                        colorFilter: const ColorFilter.matrix([
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0, 0, 0, 1, 0,
+                        ]),
+                        child: Image.asset(
+                          _puzzleImage,
+                          width: _boardW,
+                          height: _boardH,
+                          fit: BoxFit.fill,
+                        ),
                       ),
                     ),
                   ],
