@@ -593,7 +593,19 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     }
 
     valid.sort();
-    return valid.isNotEmpty ? valid : List<String>.from(_kFallbackJigsawImages);
+    if (valid.isNotEmpty) return valid;
+
+    // Secondary fallback: re-validate known list one-by-one.
+    final safeFallback = <String>[];
+    for (final path in _kFallbackJigsawImages) {
+      if (await _isDecodableImageAsset(path)) {
+        safeFallback.add(path);
+      }
+    }
+    if (safeFallback.isNotEmpty) return safeFallback;
+
+    // Last resort: guaranteed menu logo so gameplay still works.
+    return const ['assets/images/logoDC.png'];
   }
 
   List<Color> _randomRadialPalette() {
