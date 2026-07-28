@@ -169,12 +169,18 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
       _beginExitMiniGameToMenu(hideActiveGame: () => _showPairs = false);
 
   void _openJigsaw() {
-    GameDebug.log('Menu', 'open WAYUU (jigsaw)');
+    GameDebug.log('Menu', 'open ROMPECABEZAS (jigsaw)');
     try {
       unawaited(AppAudio.instance.playJigsawLoop());
       setState(() => _showJigsaw = true);
     } catch (e, st) {
-      GameDebug.logAndSnack(context, 'Menu', 'No se pudo abrir Wayuu', e, st);
+      GameDebug.logAndSnack(
+        context,
+        'Menu',
+        'No se pudo abrir Rompecabezas',
+        e,
+        st,
+      );
     }
   }
 
@@ -236,7 +242,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
         imageAsset: MenuIcons.pairsGamePng,
       ),
       MenuGameCardData(
-        title: 'WAYUU',
+        title: 'ROMPECABEZAS',
         onTap: _openJigsaw,
         imageAsset: MenuIcons.jigsawPng,
       ),
@@ -429,7 +435,7 @@ abstract final class MenuIcons {
   static const String chickenPng = 'assets/images/chicken/chicken.png';
   static const String saludGamePng = 'assets/images/vaky512x5012.png';
   static const String pairsGamePng = 'assets/images/pairs/canvaJaguar.png';
-  static const String jigsawPng = 'assets/images/logoDC.png';
+  static const String jigsawPng = 'assets/images/jigsaw/bruno.jpg';
   static const String creditosPng = 'assets/images/creditos.png';
   static const String fichaTecnicaPng = kFichaTecnicaImageAsset;
 }
