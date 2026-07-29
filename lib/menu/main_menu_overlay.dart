@@ -281,16 +281,16 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
                       Positioned(
                         left: 0,
                         top: 0,
-                        height: h * 0.12,
-                        width: w * 0.32,
+                        height: h * 0.20,
+                        width: w * 0.40,
                         child: Padding(
-                          padding: EdgeInsets.only(top: h * 0.018),
+                          padding: EdgeInsets.only(top: h * 0.012),
                           child: Align(
                             alignment: Alignment.center,
                             child: Image.asset(
                               'assets/images/colorFriendsDiverchicos.png',
                               fit: BoxFit.contain,
-                              height: h * 0.095 * 1.4,
+                              height: h * 0.095 * 1.4 * 1.5,
                             ),
                           ),
                         ),
@@ -298,14 +298,14 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
                       // Middle: circles centered in the left half of the screen
                       Positioned(
                         left: 0,
-                        top: h * 0.12,
+                        top: h * 0.20,
                         width: w * 0.5,
-                        height: h * 0.68,
+                        height: h * 0.58,
                         child: LayoutBuilder(
                           builder: (context, box) {
-                            final gridW = box.maxWidth.clamp(
+                            final gridW = (box.maxWidth * 0.8).clamp(
                               80.0,
-                              w / 2.15,
+                              w / 2.7,
                             );
                             return Center(
                               child: FittedBox(
@@ -325,9 +325,9 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
                       // Bottom: créditos centered in the left half
                       Positioned(
                         left: 0,
-                        top: h * 0.80,
+                        top: h * 0.78,
                         width: w * 0.5,
-                        height: h * 0.20,
+                        height: h * 0.22,
                         child: LayoutBuilder(
                           builder: (context, box) {
                             return Center(
@@ -861,19 +861,8 @@ class SoonBadge extends StatelessWidget {
   }
 }
 
-class _MoveCircleSelectionIntent extends Intent {
-  const _MoveCircleSelectionIntent(this.deltaRow, this.deltaCol);
-
-  final int deltaRow;
-  final int deltaCol;
-}
-
-class _ActivateCircleIntent extends Intent {
-  const _ActivateCircleIntent();
-}
-
-/// Circle quick-actions beside the main-menu carousel.
-class MenuCircleGrid extends StatefulWidget {
+/// Circle quick-actions beside the main-menu carousel (2 rows × 3).
+class MenuCircleGrid extends StatelessWidget {
   const MenuCircleGrid({
     super.key,
     required this.gridWidth,
@@ -883,209 +872,66 @@ class MenuCircleGrid extends StatefulWidget {
   final double gridWidth;
   final List<MenuGameCardData> items;
 
-  @override
-  State<MenuCircleGrid> createState() => _MenuCircleGridState();
-}
-
-class _MenuCircleGridState extends State<MenuCircleGrid> {
-  static const double _kCircleSizeScale = 0.972;
-  static const double _kHighlightScale = 1.08;
-
-  final FocusNode _focusNode = FocusNode(debugLabel: 'menu-circle-grid');
-  int _selectedIndex = 0;
-  int? _hoveredIndex;
-
-  int get _activeIndex => _hoveredIndex ?? _selectedIndex;
-  int get _count => widget.items.length;
-
-  void _moveSelection(int deltaRow, int deltaCol) {
-    if (_count == 3) {
-      int? next;
-      switch (_selectedIndex) {
-        case 0:
-          if (deltaRow > 0) next = 1;
-          if (deltaCol > 0) next = 2;
-        case 1:
-          if (deltaRow < 0) next = 0;
-          if (deltaCol > 0) next = 2;
-        case 2:
-          if (deltaRow < 0) next = 0;
-          if (deltaCol < 0) next = 1;
-      }
-      if (next != null && next != _selectedIndex) {
-        setState(() => _selectedIndex = next!);
-      }
-      return;
-    }
-
-    if (_count == 4) {
-      const neighbors = <List<int?>>[
-        [null, 1, 2, null], // 0: right->1, down->2
-        [null, null, 3, 0], // 1: down->3, left->0
-        [0, 3, null, null], // 2: up->0, right->3
-        [1, null, null, 2], // 3: up->1, left->2
-      ];
-      int? next;
-      if (deltaCol > 0) next = neighbors[_selectedIndex][1];
-      if (deltaCol < 0) next = neighbors[_selectedIndex][3];
-      if (deltaRow > 0) next = neighbors[_selectedIndex][2];
-      if (deltaRow < 0) next = neighbors[_selectedIndex][0];
-      if (next != null && next != _selectedIndex) {
-        setState(() => _selectedIndex = next!);
-      }
-      return;
-    }
-
-    if (_count == 5) {
-      const neighbors = <List<int?>>[
-        [null, 1, 2, null], // 0
-        [null, null, 3, 0], // 1
-        [0, 3, 4, 1], // 2
-        [1, 4, null, 2], // 3
-        [2, null, null, 3], // 4
-      ];
-      int? next;
-      if (deltaCol > 0) next = neighbors[_selectedIndex][1];
-      if (deltaCol < 0) next = neighbors[_selectedIndex][3];
-      if (deltaRow > 0) next = neighbors[_selectedIndex][2];
-      if (deltaRow < 0) next = neighbors[_selectedIndex][0];
-      if (next != null && next != _selectedIndex) {
-        setState(() => _selectedIndex = next!);
-      }
-      return;
-    }
-
-    if (_count == 6) {
-      // Triangle: 1 / 2 / 3  — neighbors [up, right, down, left]
-      const neighbors = <List<int?>>[
-        [null, null, 1, null], // 0
-        [0, 2, 3, null], // 1
-        [0, null, 5, 1], // 2
-        [1, 4, null, null], // 3
-        [1, 5, null, 3], // 4
-        [2, null, null, 4], // 5
-      ];
-      int? next;
-      if (deltaCol > 0) next = neighbors[_selectedIndex][1];
-      if (deltaCol < 0) next = neighbors[_selectedIndex][3];
-      if (deltaRow > 0) next = neighbors[_selectedIndex][2];
-      if (deltaRow < 0) next = neighbors[_selectedIndex][0];
-      if (next != null && next != _selectedIndex) {
-        setState(() => _selectedIndex = next!);
-      }
-    }
-  }
-
-  void _activateSelected() {
-    final idx = _activeIndex;
-    widget.items[idx].onTap?.call();
-    if (widget.items[idx].onTap == null) {
-      debugPrint('Circle selected (placeholder): $idx');
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusNode.requestFocus();
-    });
-  }
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
+  static const double _kCircleSizeScale = 0.856;
+  static const int _kPerRow = 3;
 
   @override
   Widget build(BuildContext context) {
-    final maxPerRow = _count >= 5 ? 3 : (_count >= 2 ? 2 : 1);
-    final circleSize = _kCircleSizeScale *
-        widget.gridWidth /
-        (maxPerRow + 0.10 * (maxPerRow - 1));
-    final gap = maxPerRow > 1
-        ? (widget.gridWidth - maxPerRow * circleSize) / (maxPerRow - 1)
-        : 0.0;
+    final count = items.length;
+    final circleSize =
+        _kCircleSizeScale * gridWidth / (_kPerRow + 0.10 * (_kPerRow - 1));
+    final gap = (gridWidth - _kPerRow * circleSize) / (_kPerRow - 1);
+    final rowGap = gap * 0.35;
 
     Widget circleTile(int index) {
-      final isHighlighted = index == _activeIndex;
-      final isPairs = widget.items[index].imageAsset == MenuIcons.pairsGamePng;
+      final item = items[index];
+      final isPairs = item.imageAsset == MenuIcons.pairsGamePng;
       final imageSize = circleSize * (isPairs ? 0.64 : 0.8);
-      return MouseRegion(
-        onEnter: (_) {
-          if (!_focusNode.hasFocus) _focusNode.requestFocus();
-          setState(() {
-            _hoveredIndex = index;
-            _selectedIndex = index;
-          });
-        },
-        onExit: (_) {
-          setState(() => _hoveredIndex = null);
-        },
-        child: GestureDetector(
-          onTap: () {
-            if (!_focusNode.hasFocus) {
-              _focusNode.requestFocus();
-            }
-            setState(() => _selectedIndex = index);
-            _activateSelected();
-          },
-          child: SizedBox(
-            width: circleSize,
-            height: circleSize,
-            child: AnimatedScale(
-              duration: const Duration(milliseconds: 130),
-              curve: Curves.easeOut,
-              scale: isHighlighted ? _kHighlightScale : 1.0,
-              alignment: Alignment.center,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0x66FFFFFF),
-                  border: Border.all(
-                    color: isHighlighted
-                        ? const Color(0xFFFFFFAA)
-                        : Colors.white,
-                    width: isHighlighted ? 4 : 3,
-                  ),
-                ),
-                child: Center(
-                  child: widget.items[index].imageAsset != null
-                      ? Padding(
-                          padding: EdgeInsets.all(circleSize * 0.1),
-                          child: ClipOval(
-                            child: Image.asset(
-                              widget.items[index].imageAsset!,
-                              fit: BoxFit.cover,
-                              width: imageSize,
-                              height: imageSize,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Icon(
-                                  Icons.add_photo_alternate_outlined,
-                                  color: Colors.white,
-                                  size: circleSize * 0.38,
-                                );
-                              },
-                            ),
-                          ),
-                        )
-                      : Icon(
-                          Icons.add_photo_alternate_outlined,
-                          color: Colors.white,
-                          size: circleSize * 0.38,
+      return GestureDetector(
+        onTap: item.onTap,
+        child: SizedBox(
+          width: circleSize,
+          height: circleSize,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0x66FFFFFF),
+              border: Border.all(color: Colors.white, width: 3),
+            ),
+            child: Center(
+              child: item.imageAsset != null
+                  ? Padding(
+                      padding: EdgeInsets.all(circleSize * 0.1),
+                      child: ClipOval(
+                        child: Image.asset(
+                          item.imageAsset!,
+                          fit: BoxFit.cover,
+                          width: imageSize,
+                          height: imageSize,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(
+                              Icons.add_photo_alternate_outlined,
+                              color: Colors.white,
+                              size: circleSize * 0.38,
+                            );
+                          },
                         ),
-                ),
-              ),
+                      ),
+                    )
+                  : Icon(
+                      Icons.add_photo_alternate_outlined,
+                      color: Colors.white,
+                      size: circleSize * 0.38,
+                    ),
             ),
           ),
         ),
       );
     }
 
-    Widget centeredRow(List<int> indices) {
+    Widget row(List<int> indices) {
       return SizedBox(
-        width: widget.gridWidth,
+        width: gridWidth,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -1098,83 +944,18 @@ class _MenuCircleGridState extends State<MenuCircleGrid> {
       );
     }
 
-    Widget grid = SizedBox(
-      width: widget.gridWidth,
-      child: _count == 6
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                centeredRow(const [0]),
-                SizedBox(height: gap),
-                centeredRow(const [1, 2]),
-                SizedBox(height: gap),
-                centeredRow(const [3, 4, 5]),
-              ],
-            )
-          : _count == 5
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                centeredRow(const [0, 1]),
-                SizedBox(height: gap),
-                centeredRow(const [2, 3, 4]),
-              ],
-            )
-          : _count == 4
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                centeredRow(const [0, 1]),
-                SizedBox(height: gap),
-                centeredRow(const [2, 3]),
-              ],
-            )
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_count > 0) centeredRow(const [0]),
-                if (_count > 1) ...[
-                  SizedBox(height: gap),
-                  centeredRow([for (var i = 1; i < _count; i++) i]),
-                ],
-              ],
-            ),
-    );
+    final top = [for (var i = 0; i < count && i < 3; i++) i];
+    final bottom = [for (var i = 3; i < count && i < 6; i++) i];
 
-    return Focus(
-      focusNode: _focusNode,
-      autofocus: true,
-      child: Shortcuts(
-        shortcuts: const <ShortcutActivator, Intent>{
-          SingleActivator(LogicalKeyboardKey.arrowLeft):
-              _MoveCircleSelectionIntent(0, -1),
-          SingleActivator(LogicalKeyboardKey.arrowRight):
-              _MoveCircleSelectionIntent(0, 1),
-          SingleActivator(LogicalKeyboardKey.arrowUp):
-              _MoveCircleSelectionIntent(-1, 0),
-          SingleActivator(LogicalKeyboardKey.arrowDown):
-              _MoveCircleSelectionIntent(1, 0),
-          SingleActivator(LogicalKeyboardKey.enter): _ActivateCircleIntent(),
-          SingleActivator(LogicalKeyboardKey.space): _ActivateCircleIntent(),
-        },
-        child: Actions(
-          actions: <Type, Action<Intent>>{
-            _MoveCircleSelectionIntent:
-                CallbackAction<_MoveCircleSelectionIntent>(
-                  onInvoke: (intent) {
-                    _moveSelection(intent.deltaRow, intent.deltaCol);
-                    return null;
-                  },
-                ),
-            _ActivateCircleIntent: CallbackAction<_ActivateCircleIntent>(
-              onInvoke: (intent) {
-                _activateSelected();
-                return null;
-              },
-            ),
-          },
-          child: grid,
-        ),
+    return SizedBox(
+      width: gridWidth,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (top.isNotEmpty) row(top),
+          if (top.isNotEmpty && bottom.isNotEmpty) SizedBox(height: rowGap),
+          if (bottom.isNotEmpty) row(bottom),
+        ],
       ),
     );
   }
