@@ -17,6 +17,7 @@ import '../utils/game_debug.dart';
 import '../widgets/menu_back_pill.dart';
 
 const String kFichaTecnicaUrl = 'https://diverchicosfichatecnica.netlify.app/';
+
 /// Asset filename as shipped (note spelling: terriorios.png).
 const String kFichaTecnicaImageAsset = 'assets/images/terriorios.png';
 
@@ -60,7 +61,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
     hideActiveGame();
     if (mounted) setState(() {});
 
-    // Do not await: web can block, and we want this in the gesture callback.
+    // Do not await: web can block, and we want this in the gesture callback
     unawaited(AppAudio.instance.returnToMenuMusic());
 
     unawaited(_runReturnFade());
@@ -414,9 +415,7 @@ class _MainMenuOverlayState extends State<MainMenuOverlay>
                   height: GameLogicalExitButton.kLogicalSize.height,
                   child: Stack(
                     clipBehavior: Clip.none,
-                    children: [
-                      GameLogicalExitButton(onPressed: _exitApp),
-                    ],
+                    children: [GameLogicalExitButton(onPressed: _exitApp)],
                   ),
                 ),
               ),
@@ -528,6 +527,7 @@ class MenuCarouselTuning {
   static double sideCardOpacity = 0.82;
   static double maxTiltRadians = 0.10;
   static double curveVerticalOffsetFactor = 0.02;
+
   /// Pulls the carousel lane left so cards nearly meet the circle grid.
   static double laneLeftSpacerFactor = 0.02;
   static double laneRightPaddingFactor = 0.02;
@@ -682,7 +682,8 @@ class _MenuCarouselState extends State<MenuCarousel> {
 
                     final dx = -leftShift * distance;
                     final dy = delta.sign * curveOffsetY * distance;
-                    final tilt = delta.sign *
+                    final tilt =
+                        delta.sign *
                         MenuCarouselTuning.maxTiltRadians *
                         distance;
 
@@ -703,8 +704,8 @@ class _MenuCarouselState extends State<MenuCarousel> {
                                   data: card,
                                   borderRadius:
                                       MenuCarouselTuning.cardBorderRadius(
-                                    laneSize,
-                                  ),
+                                        laneSize,
+                                      ),
                                 ),
                               ),
                             ),
