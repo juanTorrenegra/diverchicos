@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -518,6 +519,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   bool _exitingToMenu = false;
   bool _levelCompleting = false;
   String? _completedImageName;
+  List<Color> _completedNameColors = const [];
   bool _sessionReady = false;
   int _levelIndex = 0;
   final List<_JigsawLevel> _sessionLevels = <_JigsawLevel>[];
@@ -619,14 +621,54 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
   List<Color> _randomRadialPalette() {
     const pools = <List<Color>>[
-      [Color(0xFFFFF8E1), Color(0xFFFFD180), Color(0xFFFF8F00), Color(0xFFE65100)],
-      [Color(0xFFE8F5E9), Color(0xFFA5D6A7), Color(0xFF43A047), Color(0xFF1B5E20)],
-      [Color(0xFFE3F2FD), Color(0xFF90CAF9), Color(0xFF1E88E5), Color(0xFF0D47A1)],
-      [Color(0xFFF3E5F5), Color(0xFFCE93D8), Color(0xFF8E24AA), Color(0xFF4A148C)],
-      [Color(0xFFFFEBEE), Color(0xFFFFAB91), Color(0xFFF4511E), Color(0xFFBF360C)],
-      [Color(0xFFE0F7FA), Color(0xFF80DEEA), Color(0xFF00ACC1), Color(0xFF006064)],
-      [Color(0xFFFFFDE7), Color(0xFFFFF176), Color(0xFFFBC02D), Color(0xFFF57F17)],
-      [Color(0xFFE8EAF6), Color(0xFF9FA8DA), Color(0xFF5C6BC0), Color(0xFF1A237E)],
+      [
+        Color(0xFFFFF8E1),
+        Color(0xFFFFD180),
+        Color(0xFFFF8F00),
+        Color(0xFFE65100),
+      ],
+      [
+        Color(0xFFE8F5E9),
+        Color(0xFFA5D6A7),
+        Color(0xFF43A047),
+        Color(0xFF1B5E20),
+      ],
+      [
+        Color(0xFFE3F2FD),
+        Color(0xFF90CAF9),
+        Color(0xFF1E88E5),
+        Color(0xFF0D47A1),
+      ],
+      [
+        Color(0xFFF3E5F5),
+        Color(0xFFCE93D8),
+        Color(0xFF8E24AA),
+        Color(0xFF4A148C),
+      ],
+      [
+        Color(0xFFFFEBEE),
+        Color(0xFFFFAB91),
+        Color(0xFFF4511E),
+        Color(0xFFBF360C),
+      ],
+      [
+        Color(0xFFE0F7FA),
+        Color(0xFF80DEEA),
+        Color(0xFF00ACC1),
+        Color(0xFF006064),
+      ],
+      [
+        Color(0xFFFFFDE7),
+        Color(0xFFFFF176),
+        Color(0xFFFBC02D),
+        Color(0xFFF57F17),
+      ],
+      [
+        Color(0xFFE8EAF6),
+        Color(0xFF9FA8DA),
+        Color(0xFF5C6BC0),
+        Color(0xFF1A237E),
+      ],
     ];
     final palette = pools[_rng.nextInt(pools.length)];
     return List<Color>.from(palette);
@@ -1069,10 +1111,26 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
       ]);
   }
 
+  List<Color> _randomColorizeColors() {
+    Color bright() {
+      // Keep saturation/value high so the title stays readable and playful.
+      final hue = _rng.nextDouble() * 360.0;
+      return HSVColor.fromAHSV(
+        1,
+        hue,
+        0.75 + _rng.nextDouble() * 0.25,
+        1,
+      ).toColor();
+    }
+
+    return [for (var i = 0; i < 5; i++) bright()];
+  }
+
   Future<void> _onLevelComplete() async {
     if (!mounted || _levelCompleting || _exitingToMenu) return;
     _levelCompleting = true;
     _completedImageName = _jigsawImageDisplayName(_puzzleImage);
+    _completedNameColors = _randomColorizeColors();
     _draggingId = null;
     _dropTimer?.cancel();
     _physicsTicker?.dispose();
@@ -1125,6 +1183,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     _draggingId = null;
     _piecesReleased = false;
     _completedImageName = null;
+    _completedNameColors = const [];
     _piecePos.clear();
     _velocity.clear();
     _anchors.clear();
@@ -1155,9 +1214,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     if (!_sessionReady || _sessionLevels.isEmpty) {
       return const ColoredBox(
         color: Colors.black,
-        child: Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
+        child: Center(child: CircularProgressIndicator(color: Colors.white)),
       );
     }
 
@@ -1247,33 +1304,6 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
                     .where((s) => _placed.contains(s.id))
                     .map(_buildPlacedPiece),
 
-                if (_completedImageName != null)
-                  Positioned(
-                    left: 40,
-                    right: 40,
-                    top: _boardOrigin.dy + _boardH + 18,
-                    child: IgnorePointer(
-                      child: Text(
-                        _completedImageName!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 72,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
-                          height: 1.05,
-                          shadows: [
-                            Shadow(
-                              color: Color(0x99000000),
-                              blurRadius: 10,
-                              offset: Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
                 // Ropes behind hanging pieces.
                 if (ropeSegments.isNotEmpty)
                   Positioned.fill(
@@ -1314,6 +1344,44 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
                       starSizeMin: 32,
                       starSizeMax: 68,
                       onComplete: () => _removeConfetti(burst.id),
+                    ),
+                  ),
+
+                if (_completedImageName != null &&
+                    _completedNameColors.length >= 2)
+                  Positioned(
+                    left: 40,
+                    right: 40,
+                    top: _kLogicalH * 4 / 6,
+                    child: IgnorePointer(
+                      child: Center(
+                        child: AnimatedTextKit(
+                          isRepeatingAnimation: true,
+                          repeatForever: true,
+                          animatedTexts: [
+                            ColorizeAnimatedText(
+                              _completedImageName!,
+                              textAlign: TextAlign.center,
+                              textStyle: const TextStyle(
+                                fontFamily: 'Arista',
+                                fontSize: 210,
+                                fontWeight: FontWeight.w400,
+                                letterSpacing: 1.2,
+                                height: 1.05,
+                                shadows: [
+                                  Shadow(
+                                    color: Color(0x99000000),
+                                    blurRadius: 10,
+                                    offset: Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              colors: _completedNameColors,
+                              speed: const Duration(milliseconds: 1800),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
 
@@ -1375,10 +1443,26 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
                       opacity: kJigsawSlotGhostOpacity,
                       child: ColorFiltered(
                         colorFilter: const ColorFilter.matrix([
-                          0.2126, 0.7152, 0.0722, 0, 0,
-                          0.2126, 0.7152, 0.0722, 0, 0,
-                          0.2126, 0.7152, 0.0722, 0, 0,
-                          0, 0, 0, 1, 0,
+                          0.2126,
+                          0.7152,
+                          0.0722,
+                          0,
+                          0,
+                          0.2126,
+                          0.7152,
+                          0.0722,
+                          0,
+                          0,
+                          0.2126,
+                          0.7152,
+                          0.0722,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
                         ]),
                         child: Image.asset(
                           _puzzleImage,
