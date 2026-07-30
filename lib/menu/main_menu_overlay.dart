@@ -434,7 +434,7 @@ abstract final class MenuIcons {
   static const String chickenPng = 'assets/images/chicken/chicken.png';
   static const String saludGamePng = 'assets/images/vaky512x5012.png';
   static const String pairsGamePng = 'assets/images/pairs/canvaJaguar.png';
-  static const String jigsawPng = 'assets/images/jigsaw/bruno.jpg';
+  static const String jigsawPng = 'assets/images/jigsaw/perro.jpg';
   static const String creditosPng = 'assets/images/creditos.png';
   static const String fichaTecnicaPng = kFichaTecnicaImageAsset;
 }

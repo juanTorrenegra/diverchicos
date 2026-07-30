@@ -12,25 +12,33 @@ import '../widgets/match_confetti.dart';
 import '../widgets/menu_back_pill.dart';
 
 const List<String> _kFallbackJigsawImages = [
-  'assets/images/jigsaw/beeJigsaw.jpg',
+  'assets/images/jigsaw/abeja.jpg',
   'assets/images/jigsaw/bosque.jpg',
-  'assets/images/jigsaw/bruno.jpg',
-  'assets/images/jigsaw/capybaraRiver.jpg',
-  'assets/images/jigsaw/catJigsaw.jpg',
-  'assets/images/jigsaw/cocodriloJigsaw.jpg',
-  'assets/images/jigsaw/colibriJigsaw.jpg',
+  'assets/images/jigsaw/caballo.jpg',
+  'assets/images/jigsaw/campo.jpg',
+  'assets/images/jigsaw/chigüiro.jpg',
+  'assets/images/jigsaw/cocodrilo.jpg',
+  'assets/images/jigsaw/colibri.jpg',
   'assets/images/jigsaw/condor.jpg',
-  'assets/images/jigsaw/cowJigsaw.jpg',
-  'assets/images/jigsaw/delfinJigsaw.jpg',
-  'assets/images/jigsaw/farmJigsaw.jpg',
-  'assets/images/jigsaw/horseJigsaw.jpg',
-  'assets/images/jigsaw/jaguarJigsaw.jpg',
-  'assets/images/jigsaw/landscapeBaby.jpg',
-  'assets/images/jigsaw/monkeyJigsaw.jpg',
-  'assets/images/jigsaw/parrotsJigsaw.jpg',
-  'assets/images/jigsaw/playground.jpg',
-  'assets/images/jigsaw/snakeJigsaw.jpg',
+  'assets/images/jigsaw/delfines_rosados.jpg',
+  'assets/images/jigsaw/delfin_rosado.jpg',
+  'assets/images/jigsaw/gato.jpg',
+  'assets/images/jigsaw/granja.jpg',
+  'assets/images/jigsaw/guacamayas.jpg',
+  'assets/images/jigsaw/jaguar.jpg',
+  'assets/images/jigsaw/mico.jpg',
+  'assets/images/jigsaw/paisaje.jpg',
+  'assets/images/jigsaw/perro.jpg',
+  'assets/images/jigsaw/serpiente.jpg',
+  'assets/images/jigsaw/vaca_y_cabra.jpg',
 ];
+
+String _jigsawImageDisplayName(String assetPath) {
+  final file = assetPath.split('/').last;
+  final dot = file.lastIndexOf('.');
+  final base = dot > 0 ? file.substring(0, dot) : file;
+  return base.replaceAll('_', ' ');
+}
 
 class _JigsawLevel {
   const _JigsawLevel({
@@ -509,6 +517,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   bool _piecesReleased = false;
   bool _exitingToMenu = false;
   bool _levelCompleting = false;
+  String? _completedImageName;
   bool _sessionReady = false;
   int _levelIndex = 0;
   final List<_JigsawLevel> _sessionLevels = <_JigsawLevel>[];
@@ -1063,6 +1072,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
   Future<void> _onLevelComplete() async {
     if (!mounted || _levelCompleting || _exitingToMenu) return;
     _levelCompleting = true;
+    _completedImageName = _jigsawImageDisplayName(_puzzleImage);
     _draggingId = null;
     _dropTimer?.cancel();
     _physicsTicker?.dispose();
@@ -1114,6 +1124,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     _placed.clear();
     _draggingId = null;
     _piecesReleased = false;
+    _completedImageName = null;
     _piecePos.clear();
     _velocity.clear();
     _anchors.clear();
@@ -1235,6 +1246,33 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
                 ..._pieces
                     .where((s) => _placed.contains(s.id))
                     .map(_buildPlacedPiece),
+
+                if (_completedImageName != null)
+                  Positioned(
+                    left: 40,
+                    right: 40,
+                    top: _boardOrigin.dy + _boardH + 18,
+                    child: IgnorePointer(
+                      child: Text(
+                        _completedImageName!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 72,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                          height: 1.05,
+                          shadows: [
+                            Shadow(
+                              color: Color(0x99000000),
+                              blurRadius: 10,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
 
                 // Ropes behind hanging pieces.
                 if (ropeSegments.isNotEmpty)
