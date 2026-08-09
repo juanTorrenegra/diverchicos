@@ -63,7 +63,7 @@ class _JigsawLevel {
 
 enum _OuterShape { heart, wavyRect }
 
-/// Stroke width for empty-slot board outlines (inner seams + outer edges)
+/// Stroke width for empty-slot board outlines (inner seams + outer edges).
 const double kJigsawBoardLineThickness = 10;
 
 /// Opacity of the faint logo preview inside empty receiver slots.

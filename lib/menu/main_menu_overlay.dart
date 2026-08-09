@@ -18,7 +18,7 @@ import '../widgets/menu_back_pill.dart';
 
 const String kFichaTecnicaUrl = 'https://diverchicosfichatecnica.netlify.app/';
 
-/// Asset filename as shipped (note spelling: terriorios.png).
+/// Asset filename as shipped (note spelling: terriorios.png)
 const String kFichaTecnicaImageAsset = 'assets/images/terriorios.png';
 
 class MainMenuOverlay extends StatefulWidget {
