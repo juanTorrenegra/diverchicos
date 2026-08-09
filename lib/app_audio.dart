@@ -51,6 +51,7 @@ class AppAudio {
   AudioPlayer? _releaseFxPlayer;
   AudioPlayer? _pickFxPlayer;
   AudioPlayer? _jigsawOnBoardFxPlayer;
+  AudioPlayer? _jigsawCompletionFxPlayer;
 
   String? get currentBgmAsset => _currentBgmAsset;
 
@@ -287,6 +288,29 @@ class AppAudio {
     });
   }
 
+  /// Plays the jigsaw image name/theme clip after a puzzle is completed.
+  /// Uses its own player so it can overlap the level-complete sting.
+  /// [asset] is relative to `assets/` (e.g. `audio/jigsaw/abeja.ogg`).
+  Future<void> playJigsawCompletionClip(String asset) {
+    return _enqueue(() async {
+      final player = await _ensureOneShotFxPlayer(
+        existing: _jigsawCompletionFxPlayer,
+        store: (p) => _jigsawCompletionFxPlayer = p,
+      );
+      await player.stop();
+      await player.play(AssetSource(asset));
+    });
+  }
+
+  Future<void> stopJigsawCompletionClip() {
+    return _enqueue(() async {
+      final player = _jigsawCompletionFxPlayer;
+      if (player != null) {
+        await player.stop();
+      }
+    });
+  }
+
   /// Short sting for each successful pair match.
   Future<void> playPairsMatch() {
     return _enqueue(() async {
@@ -426,6 +450,7 @@ class AppAudio {
         await _releaseFxPlayer?.stop();
         await _pickFxPlayer?.stop();
         await _jigsawOnBoardFxPlayer?.stop();
+        await _jigsawCompletionFxPlayer?.stop();
       });
     }
     return _enqueue(() async {
@@ -438,6 +463,7 @@ class AppAudio {
       await _releaseFxPlayer?.stop();
       await _pickFxPlayer?.stop();
       await _jigsawOnBoardFxPlayer?.stop();
+      await _jigsawCompletionFxPlayer?.stop();
       await _bgmPlayer.stop();
     });
   }
@@ -507,6 +533,8 @@ class AppAudio {
     _pickFxPlayer = null;
     await _jigsawOnBoardFxPlayer?.dispose();
     _jigsawOnBoardFxPlayer = null;
+    await _jigsawCompletionFxPlayer?.dispose();
+    _jigsawCompletionFxPlayer = null;
     await _fxPlayer.dispose();
     await _bgmPlayer.dispose();
   }

@@ -41,6 +41,23 @@ String _jigsawImageDisplayName(String assetPath) {
   return base.replaceAll('_', ' ');
 }
 
+/// Completion voice clips under `assets/audio/jigsaw/`.
+/// Most images share the same basename; a few need explicit aliases.
+const Map<String, String> _kJigsawCompletionAudioOverrides = {
+  // Plural image shares the singular clip.
+  'delfines_rosados': 'delfin_rosado',
+  // Missing serpiente clip — reuse paisaje for now.
+  'serpiente': 'paisaje',
+};
+
+String _jigsawCompletionAudioAsset(String imageAsset) {
+  final file = imageAsset.split('/').last;
+  final dot = file.lastIndexOf('.');
+  final base = dot > 0 ? file.substring(0, dot) : file;
+  final audioBase = _kJigsawCompletionAudioOverrides[base] ?? base;
+  return 'audio/jigsaw/$audioBase.ogg';
+}
+
 class _JigsawLevel {
   const _JigsawLevel({
     required this.imageAsset,
@@ -1014,6 +1031,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     if (_exitingToMenu) return;
     _exitingToMenu = true;
     unawaited(AppAudio.instance.stopPairsLevelComplete());
+    unawaited(AppAudio.instance.stopJigsawCompletionClip());
     unawaited(AppAudio.instance.resumeBgm());
     widget.onClose();
   }
@@ -1138,6 +1156,11 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
 
     unawaited(AppAudio.instance.pauseBgm());
     unawaited(AppAudio.instance.playPairsLevelComplete());
+    unawaited(
+      AppAudio.instance.playJigsawCompletionClip(
+        _jigsawCompletionAudioAsset(_puzzleImage),
+      ),
+    );
 
     _spawnFourCannonConfetti();
     setState(() {});
@@ -1157,6 +1180,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     if (!mounted || _exitingToMenu) return;
 
     unawaited(AppAudio.instance.stopPairsLevelComplete());
+    unawaited(AppAudio.instance.stopJigsawCompletionClip());
 
     final isLastLevel = _levelIndex >= _sessionLevels.length - 1;
     if (isLastLevel) {
@@ -1206,6 +1230,7 @@ class _JigsawPuzzleLayerState extends State<JigsawPuzzleLayer>
     _physicsTicker?.dispose();
     _whiteFade?.dispose();
     unawaited(AppAudio.instance.stopPairsLevelComplete());
+    unawaited(AppAudio.instance.stopJigsawCompletionClip());
     super.dispose();
   }
 
