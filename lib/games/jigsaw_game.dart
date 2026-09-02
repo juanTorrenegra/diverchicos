@@ -46,7 +46,7 @@ String _jigsawImageDisplayName(String assetPath) {
 const Map<String, String> _kJigsawCompletionAudioOverrides = {
   // Plural image shares the singular clip.
   'delfines_rosados': 'delfin_rosado',
-  // Missing serpiente clip — reuse paisaje for now.
+  // Missing serpiente clip — reuse paisaje for now.flut
   'serpiente': 'paisaje',
 };
 
