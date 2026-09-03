@@ -402,6 +402,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   Future<void> _onMergeColgateCepillo() async {
     if (_mergeTriggered || !mounted) return;
     _mergeTriggered = true;
+    unawaited(AppAudio.instance.playPositiveUp());
     await _instructions.stop();
     _cancelColgateIdleTimer();
     _cancelColgateSnap();
@@ -590,7 +591,24 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     if (mounted) setState(() {});
   }
 
+  bool _cepilloPasteInTeethZone() {
+    if (!_cepilloCremaDragging || !_teethScrubZoneActive) return false;
+    if (_scrubTaskComplete) return false;
+    final paste = _cepilloCremaPasteHitRect();
+    if (paste == null) return false;
+    return _teethScrubRect().overlaps(paste);
+  }
+
+  void _syncBrushingSfx() {
+    if (_cepilloPasteInTeethZone()) {
+      unawaited(AppAudio.instance.startBrushingTeeth());
+    } else {
+      unawaited(AppAudio.instance.stopBrushingTeeth());
+    }
+  }
+
   void _trySpawnScrubBubbles() {
+    _syncBrushingSfx();
     if (!_cepilloCremaDragging || !_teethScrubZoneActive) return;
     if (_scrubTaskComplete) return;
 
@@ -730,6 +748,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
     }
     final now = DateTime.now().millisecondsSinceEpoch;
     _stopPostTaskProbeLoop();
+    unawaited(AppAudio.instance.playWaterPour());
     _startWaterMouthInstructions();
     setState(() {
       _postTaskProbeDismissed = true;
@@ -890,6 +909,8 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   void _onWaterPourCueTap() {
     if (!mounted || !_waterPourReady || _waterPourCueDismissed) return;
     _stopWaterPourCueLoop();
+    unawaited(AppAudio.instance.stopWaterPour());
+    unawaited(AppAudio.instance.playBubble());
     unawaited(_stopWaterInstructions());
     setState(() {
       _waterPourCueDismissed = true;
@@ -1216,6 +1237,7 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
 
     unawaited(AppAudio.instance.playPairsMatch());
     unawaited(_stopBrushInstructions());
+    unawaited(AppAudio.instance.stopBrushingTeeth());
 
     _cancelCepilloCremaIdleTimer();
     _idleCepilloCremaPulse.stop();
@@ -1341,10 +1363,12 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
         },
         onPanEnd: (_) {
           setState(() => _cepilloCremaDragging = false);
+          _syncBrushingSfx();
           _startCepilloCremaSnapBack();
         },
         onPanCancel: () {
           setState(() => _cepilloCremaDragging = false);
+          _syncBrushingSfx();
           _startCepilloCremaSnapBack();
         },
         onPanUpdate: (details) {
@@ -1357,6 +1381,9 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
   }
 
   Future<void> _disposeBath() async {
+    unawaited(AppAudio.instance.stopBrushingTeeth());
+    unawaited(AppAudio.instance.stopWaterPour());
+    unawaited(AppAudio.instance.stopBubble());
     _cancelColgateIdleTimer();
     _cancelColgateSnap();
     _cancelCepilloCremaExitDelayTimer();
@@ -1670,6 +1697,9 @@ class _SaludCatGameLayerState extends State<SaludCatGameLayer>
 
   @override
   void dispose() {
+    unawaited(AppAudio.instance.stopBrushingTeeth());
+    unawaited(AppAudio.instance.stopWaterPour());
+    unawaited(AppAudio.instance.stopBubble());
     unawaited(_instructions.dispose());
     final held = _pickHeld;
     if (held != null) {

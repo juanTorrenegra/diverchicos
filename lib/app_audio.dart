@@ -34,6 +34,10 @@ class AppAudio {
   static const String grabClip = 'audio/grab.mp3';
   static const String releaseClip = 'audio/release.mp3';
   static const String jigsawOnBoardClip = 'audio/jigsawOnBoard.mp3';
+  static const String positiveUpClip = 'audio/positiveUp.mp3';
+  static const String brushingTeethClip = 'audio/brushingTeeth.mp3';
+  static const String waterPourClip = 'audio/waterPour.mp3';
+  static const String bubbleClip = 'audio/bubble.mp3';
 
   static const double instructionBgmVolume = 0.1;
 
@@ -52,6 +56,12 @@ class AppAudio {
   AudioPlayer? _pickFxPlayer;
   AudioPlayer? _jigsawOnBoardFxPlayer;
   AudioPlayer? _jigsawCompletionFxPlayer;
+  AudioPlayer? _positiveUpFxPlayer;
+  AudioPlayer? _brushingTeethFxPlayer;
+  AudioPlayer? _waterPourFxPlayer;
+  AudioPlayer? _bubbleFxPlayer;
+  int _brushingTeethGen = 0;
+  bool _brushingTeethDesired = false;
 
   String? get currentBgmAsset => _currentBgmAsset;
 
@@ -403,6 +413,76 @@ class AppAudio {
     });
   }
 
+  /// Toothpaste successfully dropped onto the toothbrush.
+  Future<void> playPositiveUp() {
+    return _enqueue(() async {
+      final player = await _ensureOneShotFxPlayer(
+        existing: _positiveUpFxPlayer,
+        store: (p) => _positiveUpFxPlayer = p,
+      );
+      await player.stop();
+      await player.setVolume(0.5);
+      await player.play(AssetSource(positiveUpClip));
+    });
+  }
+
+  /// Glass fill tap — water pouring into the cup.
+  Future<void> playWaterPour() {
+    return _enqueue(() async {
+      final player = await _ensureOneShotFxPlayer(
+        existing: _waterPourFxPlayer,
+        store: (p) => _waterPourFxPlayer = p,
+      );
+      await player.stop();
+      await player.play(AssetSource(waterPourClip));
+    });
+  }
+
+  Future<void> stopWaterPour() async {
+    await _waterPourFxPlayer?.stop();
+  }
+
+  /// Glass rinse tap — mouth-rinse bubble sting.
+  Future<void> playBubble() {
+    return _enqueue(() async {
+      final player = await _ensureOneShotFxPlayer(
+        existing: _bubbleFxPlayer,
+        store: (p) => _bubbleFxPlayer = p,
+      );
+      await player.stop();
+      await player.play(AssetSource(bubbleClip));
+    });
+  }
+
+  Future<void> stopBubble() async {
+    await _bubbleFxPlayer?.stop();
+  }
+
+  /// Loop while the loaded brush overlaps the teeth scrub zone.
+  Future<void> startBrushingTeeth() async {
+    if (_brushingTeethDesired) return;
+    _brushingTeethDesired = true;
+    final gen = ++_brushingTeethGen;
+    final player = await _ensureOneShotFxPlayer(
+      existing: _brushingTeethFxPlayer,
+      store: (p) => _brushingTeethFxPlayer = p,
+    );
+    if (gen != _brushingTeethGen || !_brushingTeethDesired) return;
+    await player.stop();
+    await player.setReleaseMode(ReleaseMode.loop);
+    if (gen != _brushingTeethGen || !_brushingTeethDesired) return;
+    await player.play(AssetSource(brushingTeethClip));
+  }
+
+  Future<void> stopBrushingTeeth() async {
+    _brushingTeethDesired = false;
+    _brushingTeethGen++;
+    final player = _brushingTeethFxPlayer;
+    if (player == null) return;
+    await player.stop();
+    await player.setReleaseMode(ReleaseMode.stop);
+  }
+
   Future<void> stopBgm() {
     if (kIsWeb) {
       _currentBgmAsset = null;
@@ -451,6 +531,12 @@ class AppAudio {
         await _pickFxPlayer?.stop();
         await _jigsawOnBoardFxPlayer?.stop();
         await _jigsawCompletionFxPlayer?.stop();
+        await _positiveUpFxPlayer?.stop();
+        _brushingTeethDesired = false;
+        _brushingTeethGen++;
+        await _brushingTeethFxPlayer?.stop();
+        await _waterPourFxPlayer?.stop();
+        await _bubbleFxPlayer?.stop();
       });
     }
     return _enqueue(() async {
@@ -464,6 +550,12 @@ class AppAudio {
       await _pickFxPlayer?.stop();
       await _jigsawOnBoardFxPlayer?.stop();
       await _jigsawCompletionFxPlayer?.stop();
+      await _positiveUpFxPlayer?.stop();
+      _brushingTeethDesired = false;
+      _brushingTeethGen++;
+      await _brushingTeethFxPlayer?.stop();
+      await _waterPourFxPlayer?.stop();
+      await _bubbleFxPlayer?.stop();
       await _bgmPlayer.stop();
     });
   }
@@ -535,6 +627,16 @@ class AppAudio {
     _jigsawOnBoardFxPlayer = null;
     await _jigsawCompletionFxPlayer?.dispose();
     _jigsawCompletionFxPlayer = null;
+    await _positiveUpFxPlayer?.dispose();
+    _positiveUpFxPlayer = null;
+    _brushingTeethDesired = false;
+    _brushingTeethGen++;
+    await _brushingTeethFxPlayer?.dispose();
+    _brushingTeethFxPlayer = null;
+    await _waterPourFxPlayer?.dispose();
+    _waterPourFxPlayer = null;
+    await _bubbleFxPlayer?.dispose();
+    _bubbleFxPlayer = null;
     await _fxPlayer.dispose();
     await _bgmPlayer.dispose();
   }
